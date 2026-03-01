@@ -54,7 +54,7 @@ Base.@kwdef struct MCMCOptions{G, A, S, F}
     mcmc_algorithm::A
     initial_params::G = nothing
     state::S = nothing
-    loss_function::F = log_likelihood
+    loss_function::F = LogLikelihood()
 end
 
 #------------MCMC target

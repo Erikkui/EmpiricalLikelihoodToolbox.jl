@@ -19,11 +19,12 @@ function run_test_mcmc()
 
     Ndata = 200
     dt = 1.0
-    model = Lorenz63Model( dt = dt )
 
+    model = Lorenz63Model( dt = dt )
     data = solve_model( model, Ndata*dt )
 
     resampler = StandardResampling()
+    lossfun = LogLikelihood()
 
     summary_statistics = JointSummaryStatistics(
         ChamferECDF( 10, 1 ),
@@ -38,12 +39,13 @@ function run_test_mcmc()
 
     mcmc_options = MCMCOptions(
         nsteps = chain_length,
-        mcmc_algorithm = AM( 0.01, 50 )
+        mcmc_algorithm = AM( 0.01, 50 ),
+        loss_function = lossfun,
         )
 
     target, training_summaries = TargetData( data, summary_statistics, methods_options )
 
-    results = mcmcrun( target, model, mcmc_options )
+    results, state = mcmcrun( target, model, mcmc_options )
 
 
     npara = size(results[:chain], 1)
@@ -54,5 +56,5 @@ function run_test_mcmc()
     end
     display(fig)
 
-    return results
+    return results, state
 end

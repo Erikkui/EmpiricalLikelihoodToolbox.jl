@@ -23,8 +23,11 @@ export Lorenz63Model, OUModel, NormalModel, solve_model
 # Resamplers and containers
 export StandardResampling, TimeseriesResampling, MethodsOptions, TargetData
 
-# MCMC functionalities
+# MCMC functionalities and loss functions
 export MCMCOptions, mcmcrun, AM
+
+# Loss functions
+export LogLikelihood
 
 include("core_types.jl")
 
