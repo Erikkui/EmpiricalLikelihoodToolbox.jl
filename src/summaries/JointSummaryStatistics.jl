@@ -22,12 +22,12 @@ function (SS::JointSummaryStatistics)(
     # foreach(SS.statistics) do summary
     foreach(summaries) do summary
         summary_length = summary.summary_length
-        end_ind = start_ind[] + summary_length - 1
-        view_out = @view view_in[ start_ind[]:end_ind ]
+        end_ind = start_ind + summary_length - 1
+        view_out = @view view_in[ start_ind:end_ind ]
 
         calculate_summary_statistic!( view_out, summary, x_inds, y_inds, data, buffers )
 
-        start_ind[] += summary_length
+        start_ind += summary_length
     end
 
     return nothing
@@ -43,16 +43,16 @@ function (SS::JointSummaryStatistics)(
 
     summaries = SS.statistics
 
-    start_ind = Ref(1)
+    start_ind = 1
     # foreach(SS.statistics) do summary
     foreach(summaries) do summary
         summary_length = summary.summary_length
-        end_ind = start_ind[] + summary_length - 1
-        view_out = @view view_in[ start_ind[]:end_ind ]
+        end_ind = start_ind + summary_length - 1
+        view_out = @view view_in[ start_ind:end_ind ]
 
         calculate_summary_statistic!( view_out, summary, x_inds, obs_data, sim_data, buffers )
 
-        start_ind[] += summary_length
+        start_ind += summary_length
     end
 
     return nothing

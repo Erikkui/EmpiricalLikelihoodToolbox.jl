@@ -1,6 +1,4 @@
-function mcmcrun( data, summary_statistics, options )
-
-    target, training_summaries = TargetData( data, summary_statistics, options )
+function mcmcrun( target::TargetData, model::AbstractSimulationModel, options::MCMCOptions )
 
     # Setup
     MCMCRun = options.mcmc_algorithm
@@ -64,7 +62,7 @@ function calculate_loss( params, target, model, loss_function )
     mean_buffer = buffers.simulation_mean
     for ii in 1:n_summaries
         view_in = @view resample_buffer[ :, ii ]
-        x_inds, _ = resampler( R0_all, Rsim_container, options, index_cache )
+        x_inds, _ = resampler( R0_all, options, index_cache )
         summaries( view_in, x_inds, R0_all, Rsim_container, buffers )
     end
 

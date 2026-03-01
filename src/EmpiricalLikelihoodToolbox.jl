@@ -20,8 +20,11 @@ export StandardECDF, StandardECDFDiff, CIL, CILDiff, ChamferDistance, ChamferDis
 # Models and solvers
 export Lorenz63Model, OUModel, NormalModel, solve_model
 
-# Resamplers, containers and main MCMC function
-export StandardResampling, TimeseriesResampling, MethodsOptions, MCMCOptions, mcmcrun
+# Resamplers and containers
+export StandardResampling, TimeseriesResampling, MethodsOptions, TargetData
+
+# MCMC functionalities
+export MCMCOptions, mcmcrun, AM
 
 include("core_types.jl")
 
