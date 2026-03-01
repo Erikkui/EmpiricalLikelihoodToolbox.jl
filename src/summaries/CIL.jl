@@ -16,7 +16,7 @@ end
 function calculate_summary_statistic!(
     view_out::AbstractVector{Float64},
     summary::CIL,
-    y_inds::AbstractVector{<:Integer},
+    x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
     data::DataContainer,
     buffers::BufferContainer )

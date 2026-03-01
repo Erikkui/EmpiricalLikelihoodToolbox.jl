@@ -25,11 +25,6 @@ export StandardResampling, TimeseriesResampling, MethodsOptions, MCMCOptions, mc
 
 include("core_types.jl")
 
-include("mcmc/target.jl")
-include("mcmc/samplers.jl")
-include("mcmc/runner.jl")
-include("mcmc/loss_functions.jl")
-
 include("summaries/StandardECDF.jl")
 include("summaries/StandardECDFDiff.jl")
 include("summaries/CIL.jl")
@@ -40,6 +35,11 @@ include("summaries/ChamferECDF.jl")
 include("summaries/JointSummaryStatistics.jl")
 include("summaries/empirical_cdf.jl")
 include("summaries/chamfer_distance.jl")
+
+include("mcmc/target.jl")
+include("mcmc/samplers.jl")
+include("mcmc/runner.jl")
+include("mcmc/loss_functions.jl")
 
 include("models/Lorenz63Model.jl")
 include("models/OUModel.jl")
