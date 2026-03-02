@@ -1,6 +1,6 @@
 # Calculate central differences of the data for given orders. Pads boundaries with nearest
 # neighbor values to keep size constant.
-function calculate_diffs(R, diff_order::Tuple{Vararg{Int}}, dt)
+function calculate_diffs(R, diff_order::Tuple{Vararg{Int}}, dt_obs::Float64)
     order_max = maximum(diff_order)
     R_diffs = Vector{Matrix{Float64}}(undef, order_max)
 
@@ -12,7 +12,7 @@ function calculate_diffs(R, diff_order::Tuple{Vararg{Int}}, dt)
         # Calculate central difference keeping size constant
         @inbounds for j in 2:(size(R, 2) - 1)
             for i in axes(R, 1)
-                next_diff[i, j] = (current_diff[i, j+1] - current_diff[i, j-1]) / (2 * dt)
+                next_diff[i, j] = (current_diff[i, j+1] - current_diff[i, j-1]) / (2 * dt_obs)
             end
         end
 

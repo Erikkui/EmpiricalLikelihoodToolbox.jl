@@ -18,10 +18,10 @@ function run_test_mcmc()
     chain_length = 500
 
     Ndata = 200
-    dt = 1.0
+    dt_obs = 1.0
 
-    model = Lorenz63Model( dt = dt )
-    data = solve_model( model, Ndata*dt )
+    model = Lorenz63Model( dt_obs = dt_obs )
+    data = solve_model( model, Ndata*dt_obs )
 
     resampler = StandardResampling()
     lossfun = LogLikelihood()

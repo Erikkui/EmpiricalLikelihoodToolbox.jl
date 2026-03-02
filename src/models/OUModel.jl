@@ -3,15 +3,16 @@ Base.@kwdef struct OUModel{T} <: AbstractSimulationModel
     mu::Float64    = 0.0
     sigma::Float64 = 0.5
     x0::T    = 0.0 # Initial condition
-    dt::Float64 = 0.01
+    dt_obs::Float64 = 0.01
+    dt_sol::Float64 = dt_obs
     dim::Int = length(x0)
 end
 
 initial_state(m::OUModel) = m.x0
 
-function step!(rng::AbstractRNG, m::OUModel, x, dt)
+function step!(rng::AbstractRNG, m::OUModel, x, dt_sol)
     # Euler-Maruyama discretization
-    dx = m.theta .* (m.mu .- x) .* dt .+ m.sigma .* sqrt(dt) .* randn(rng)
+    dx = m.theta .* (m.mu .- x) .* dt_sol .+ m.sigma .* sqrt(dt_sol) .* randn(rng)
     return x .+ dx
 end
 
@@ -20,6 +21,5 @@ function get_params(m::OUModel)
 end
 
 function reconstruct(m::OUModel, new_params)
-    # Use the old 'dt' but new parameters
-    return OUModel(new_params[1], new_params[2], new_params[3], m.x0, m.dt, m.dim)
+    return OUModel(new_params[1], new_params[2], new_params[3], m.x0, m.dt_obs, m.dt_sol, m.dim)
 end

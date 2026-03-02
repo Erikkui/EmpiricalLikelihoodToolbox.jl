@@ -2,13 +2,13 @@
 struct StandardECDFDiff{B} <: DifferenceECDFSummary
     bins::B
     nbin::Int
-    dt::Float64
+    dt_obs::Float64
     diff_order::Int
     summary_length::Int
 end
 
-function StandardECDFDiff( nbin::Int, diff_order::Int, dt::Float64 )
-    return StandardECDFDiff( nothing, nbin, dt, diff_order, nbin )
+function StandardECDFDiff( nbin::Int, diff_order::Int, dt_obs::Float64 )
+    return StandardECDFDiff( nothing, nbin, dt_obs, diff_order, nbin )
 end
 
 function calculate_summary_statistic!(

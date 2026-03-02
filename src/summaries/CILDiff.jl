@@ -2,13 +2,13 @@
 struct CILDiff{B} <: AbstractECDFSummary
     bins::B
     nbin::Int
-    dt::Float64
+    dt_obs::Float64
     diff_order::Int
     summary_length::Int
 end
 
-function CILDiff( nbin::Int, diff_order::Int, dt::Float64 )
-    return CILDiff( nothing, nbin, dt, diff_order, nbin )
+function CILDiff( nbin::Int, diff_order::Int, dt_obs::Float64 )
+    return CILDiff( nothing, nbin, dt_obs, diff_order, nbin )
 end
 
 function calculate_summary_statistic!(

@@ -37,7 +37,7 @@ function calculate_loss( params, target, model, loss_function )
     summaries = target.summary_statistics
     diff_orders = target.data.difference_orders
     buffers = target.buffers
-    dt = model.dt
+    dt_obs = model.dt_obs
 
     resampler = options.resampling_type
     n_summaries = options.n_summaries
@@ -45,13 +45,13 @@ function calculate_loss( params, target, model, loss_function )
     model = reconstruct( model, params )
 
     ndata = size( R0_all.observations, 2 )
-    dt = model.dt
+    dt_obs = model.dt_obs
 
-    Rsim = solve_model( model, ndata*dt )::Matrix{Float64}
+    Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
     copyto!( buffers.simulation_obs, Rsim )
     Rsim_diff = Vector{Matrix{Float64}}(undef, 0)
     if maximum(diff_orders) > 0
-        Rsim_diff = calculate_diffs( Rsim, diff_orders, dt )::Vector{Matrix{Float64}}
+        Rsim_diff = calculate_diffs( Rsim, diff_orders, dt_obs )::Vector{Matrix{Float64}}
         copyto!.( buffers.simulation_diffs, Rsim_diff )
     end
     Rsim_container = DataContainer( observations=Rsim, differences=Rsim_diff, difference_orders=diff_orders, options=options )

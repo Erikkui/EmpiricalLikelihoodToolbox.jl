@@ -15,8 +15,8 @@ function TargetData(
     if maximum(diff_orders) > 0
         diff_inds = diff_orders .> 0
         ind = findfirst( diff_inds )
-        dt = summaries.statistics[ ind ].dt
-        difference_data = calculate_diffs( data, diff_orders, dt )
+        dt_obs = summaries.statistics[ ind ].dt_obs
+        difference_data = calculate_diffs( data, diff_orders, dt_obs )
         buffer_differences = Vector{Matrix{Float64}}(undef, maximum(diff_orders) )
         for ii in 1:maximum(diff_orders)
             if ii in diff_orders
