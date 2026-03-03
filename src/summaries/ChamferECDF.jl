@@ -45,9 +45,10 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     return nothing
 end
 
-function calculate_summary_statistic!(      # To be used in target and bin initialization
-    view_out::AbstractVector{Float64}, summary_statistic::ChamferECDF,
-    y_inds::AbstractVector{<:Integer},
+function calculate_summary_statistic!(      # To be used in MCMC
+    view_out::AbstractVector{Float64},
+    summary_statistic::ChamferECDF,
+    x_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )

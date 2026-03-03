@@ -12,21 +12,22 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 100
+    nrep_training = 1000
     nrep_sampling = nrep_training
-    chain_length = 300
+    chain_length = 10000
 
-    Ndata = 200
+    Ndata = 1000
     dt_obs = 1.0
 
     model = Lorenz63Model( dt_obs = dt_obs )
     data = solve_model( model, Ndata*dt_obs )
 
     resampler = StandardResampling()
-    lossfun = LogLikelihood()
+    lossfun = RobustChamfer( scaling_parameter = 1.0 )
 
     summary_statistics = JointSummaryStatistics(
-        ChamferECDF( 10, 1 ),
+        CIL( 10 ),
+        CILDiff(10, 1, dt_obs ),
         )
 
     methods_options = MethodsOptions(
@@ -39,6 +40,7 @@ function run_test_mcmc()
     mcmc_options = MCMCOptions(
         nsteps = chain_length,
         mcmc_algorithm = AM( 0.01, 50 ),
+        update_interval = 50,
         loss_function = lossfun,
         )
 

@@ -36,6 +36,40 @@ function calculate_diffs(R, diff_order::Tuple{Vararg{Int}}, dt_obs::Float64)
     return R_diffs
 end
 
+function calculate_diffs!( diff_buffer, R, diff_order::Tuple{Vararg{Int}}, dt_obs::Float64)
+    order_max = maximum(diff_order)
+
+    # Do not mutate the input R. Use alternating buffers to avoid allocations.
+    current_diff = diff_buffer[end-1]
+    next_diff = diff_buffer[end]
+
+    current_diff .= R
+    for ii in 1:order_max
+        # Calculate central difference keeping size constant
+        @inbounds for j in 2:(size(R, 2) - 1)
+            for i in axes(R, 1)
+                next_diff[i, j] = (current_diff[i, j+1] - current_diff[i, j-1]) / (2 * dt_obs)
+            end
+        end
+
+        # Pad boundaries (zero-order extrapolation / nearest neighbor)
+        @inbounds for i in axes(R, 1)
+            next_diff[i, 1] = next_diff[i, 2]
+            next_diff[i, end] = next_diff[i, end-1]
+        end
+
+        # Store if the order is requested
+        if ii in diff_order
+            diff_buffer[ii] .= next_diff
+        end
+
+        # Swap buffers for the next iteration (pointers only, zero allocation)
+        current_diff, next_diff = next_diff, current_diff
+    end
+
+    return nothing
+end
+
 
 # Inverse CDF function
 function invcdf(x, cdf, nr, cont=1)::Vector{Float64}

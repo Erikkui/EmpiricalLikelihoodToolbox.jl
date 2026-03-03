@@ -31,10 +31,20 @@ function solve_model(model::Lorenz63Model, t_end::Float64; rng=Random.default_rn
     t_start = 10.0 * dt_obs
     t_end   = t_start + t_end
 
+    save_steps = t_start:dt_obs:t_end-dt_obs
+
     problem = ODEProblem(lorenz_static, u0, (0.0, t_end), params)
 
     # save_start=false ensures we don't accidentally save t=0
-    sol = solve( problem, Tsit5(); saveat=t_start:dt_obs:t_end-dt_obs )
+    sol = solve( problem, Tsit5(); saveat=save_steps )
 
-    return stack(sol.u)
+    raw_sol = sol.u
+
+    # Check if the solver aborted or failed to reach the end
+    if isempty(raw_sol) || length(raw_sol) < length(save_steps)
+        # Return a matrix of NaNs. Assuming Lorenz 63 has 3 dimensions.
+        return fill(NaN, 3, length(save_steps))
+    end
+
+    return stack(raw_sol)
 end

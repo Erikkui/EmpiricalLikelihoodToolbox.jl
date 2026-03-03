@@ -40,7 +40,7 @@ function allocate_buffers( statistics, data_container, options, diff_orders )
     buffer_observations = zeros( size(observations) )
 
     if maximum(diff_orders) > 0
-        buffer_differences = Vector{Matrix{Float64}}(undef, maximum(diff_orders) )
+        buffer_differences = Vector{Matrix{Float64}}(undef, maximum(diff_orders)+2 )
         for ii in 1:maximum(diff_orders)
             if ii in diff_orders
                 buffer_differences[ii] = zeros( size(observations) )
@@ -48,6 +48,8 @@ function allocate_buffers( statistics, data_container, options, diff_orders )
                 buffer_differences[ii] = Matrix{Float64}(undef, 0, 0)
             end
         end
+        buffer_differences[ end-1 ] = zeros( size(observations) )
+        buffer_differences[ end ] = zeros( size(observations) )
     else
         buffer_differences = Vector{Matrix{Float64}}(undef, 0)
     end
@@ -97,7 +99,7 @@ end
 function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
-    options::MethodsOptions
+    options::MethodsOptions;
     )
     statistics = summary_stats.statistics
     training_resamplings = options.training_resamplings

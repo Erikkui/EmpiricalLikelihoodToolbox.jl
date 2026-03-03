@@ -123,6 +123,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                 proposal_cov[col, col] += epsilon
             end
             proposal_cov_L = cholesky(Symmetric(proposal_cov)).L
+            state.proposal_cov .= proposal_cov
         end
 
         description = "Acc: $(round(n_accepted/ii, digits=2)) SS: $(round(state.ss_current, digits=2))"

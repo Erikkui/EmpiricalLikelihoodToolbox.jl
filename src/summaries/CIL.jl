@@ -13,7 +13,7 @@ function CIL( bins::AbstractVector{<:Real} )
     return CIL( collect(vec(bins)), length(bins), length(bins) )
 end
 
-function calculate_summary_statistic!(
+function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary::CIL,
     x_inds::AbstractVector{<:Integer},
@@ -36,6 +36,33 @@ function calculate_summary_statistic!(
     return nothing
 end
 
+function calculate_summary_statistic!(  # To be used in MCMC
+    view_out::AbstractVector{Float64},
+    summary::CIL,
+    x_inds::AbstractVector{<:Integer},
+    obs_data_all::DataContainer,
+    sim_data_all::DataContainer,
+    buffers::BufferContainer )
+
+    nbins = summary.nbin
+    bins = summary.bins
+
+    R0 = obs_data_all.observations
+    Rsim = sim_data_all.observations
+    rsim_half = round( Int, size(Rsim, 2) / 2 )
+
+    key = nameof( typeof(summary) )
+    buffer = buffers.summary_buffers[ key ]
+
+    data_X = @view R0[ :, x_inds ]
+    data_Y = @view Rsim[ :, rsim_half+1:end ]
+
+    pairwise!( buffer, Euclidean(), data_X, data_Y ) |> vec
+
+    empcdf!(view_out, buffer, nbins, bins)
+    return nothing
+end
+
 function get_bin_quantity( summary_statistic::CIL, data::DataContainer, inds_X, inds_Y )
     data_X = @view data.observations[ :, inds_X ]
     data_Y = @view data.observations[ :, inds_Y ]
@@ -43,7 +70,14 @@ function get_bin_quantity( summary_statistic::CIL, data::DataContainer, inds_X, 
     return distances
 end
 
-function allocate_buffer( statistic::CIL, len::Int )
+function allocate_buffer( statistic::CIL, data::DataContainer )
+    if data.options.resampling_type isa TimeseriesResampling
+        len = data.options.timeseries_block_size
+    else
+        len = round( Int, size( data.observations, 2 ) / 2 )
+    end
     buffer = Matrix{Float64}( undef, len, len )
     return buffer
 end
+
+required_diff_order(stat::CIL) = 0

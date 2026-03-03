@@ -15,7 +15,29 @@ function (loss::LogLikelihood)( target::TargetData, sim_mean::AbstractVector )
 
     ss = -0.5*dot( delta, inv_C*delta )
 
-    ss *= 1/loss.scaling_parameter
+    ss *= loss.scaling_parameter
+
+    return ss
+end
+
+
+
+@kwdef struct RobustChamfer
+    scaling_parameter::Float64 = 1.0
+end
+
+function RobustChamfer(scaling::Real)
+    return RobustChamfer(scaling_parameter = Float64(scaling))
+end
+
+function (loss::RobustChamfer)( target::TargetData, sim_mean::AbstractVector )
+
+    obs_mean = target.obs_mean
+    inverse_std = sqrt.( diag(target.inverse_cov) )
+
+    ss = -sum( ( obs_mean ./ inverse_std )  )
+
+    ss *= loss.scaling_parameter
 
     return ss
 end

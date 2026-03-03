@@ -54,7 +54,7 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
         stuck_print_percentage = round(state.stuck_kicks*100/chain_length, digits=2)
         println("MCMC completed")
         println("Acceptance rate: ", acceptance_print, "%")
-        println( "Stuck kicks: ", stuck_print_percentage, "%")
+        println( "Stuck kicks: ", stuck_print_percentage, "%\n")
 
         return results, state
     catch e
@@ -75,7 +75,11 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
         println("\nMCMC crashed at iteration ", last_successful_step, " due to: \n", e)
         println("Returning partial chain.")
         println("Acceptance rate: ", acceptance_print, "%")
-        println( "Stuck kicks: ", stuck_print_percentage, "%")
+        println( "Stuck kicks: ", stuck_print_percentage, "%\n")
+
+        Base.showerror(stdout, e, catch_backtrace())
+        println() # Add a newline for readability
+
 
         return results, state
     end
@@ -100,13 +104,15 @@ function calculate_loss( params, target, model, loss_function )
     dt_obs = model.dt_obs
 
     Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
-    copyto!( buffers.simulation_obs, Rsim )
-    Rsim_diff = Vector{Matrix{Float64}}(undef, 0)
-    if maximum(diff_orders) > 0
-        Rsim_diff = calculate_diffs( Rsim, diff_orders, dt_obs )::Vector{Matrix{Float64}}
-        copyto!.( buffers.simulation_diffs, Rsim_diff )
+    if any(isnan, Rsim)
+        return -Inf
     end
-    Rsim_container = DataContainer( observations=Rsim, differences=Rsim_diff, difference_orders=diff_orders, options=options )
+
+    copyto!( buffers.simulation_obs, Rsim )
+    if maximum(diff_orders) > 0
+        calculate_diffs!( buffers.simulation_diffs, Rsim, diff_orders, dt_obs )
+    end
+    Rsim_container = DataContainer( observations=Rsim, differences=buffers.simulation_diffs, difference_orders=diff_orders, options=options )
 
     # Resample data and calculate summary statistics for current parameters
     resample_buffer = buffers.mcmc_buffer
