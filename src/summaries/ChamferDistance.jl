@@ -13,7 +13,7 @@ function ChamferDistance( neighbors::AbstractVector{<:Int} )
     return ChamferDistance( collect(vec(neighbors)), maximum(neighbors), length(neighbors) )
 end
 
-function calculate_summary_statistic!(
+function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary_statistic::ChamferDistance,
     x_inds::AbstractVector{<:Integer},
@@ -27,6 +27,30 @@ function calculate_summary_statistic!(
     max_neighbor = summary_statistic.highest_neighbor
 
     chamfer_distance!( view_out, data_X, data_Y, k=max_neighbor )
+
+    return nothing
+end
+
+function calculate_summary_statistic!(  # To be used in MCMC
+    view_out::AbstractVector{Float64},
+    summary_statistic::ChamferDistance,
+    x_inds::AbstractVector{<:Integer},
+    obs_data_all::DataContainer,
+    sim_data_all::DataContainer,
+    buffers::BufferContainer )
+
+    data_X = @view obs_data_all.observations[ :, x_inds ]
+
+    rsim_half = round( Int, size(sim_data_all.observations, 2) / 2 )
+    Rsim = @view sim_data_all.observations[ :, rsim_half+1:end ]
+    ytree = KDTree( Rsim )
+
+    max_neighbor = summary_statistic.highest_neighbor
+
+    # key = nameof( typeof(summary_statistic) )
+    # buffer = buffers.summary_buffers[ key ]
+
+    chamfer_distance!( view_out, data_X, Rsim, ytree, k=max_neighbor )
 
     return nothing
 end

@@ -27,7 +27,7 @@ module EmpiricalLikelihoodToolbox
     export MCMCOptions, mcmcrun, AM
 
     # Loss functions
-    export LogLikelihood
+    export LogLikelihood, RobustChamfer
 
     include("core_types.jl")
 

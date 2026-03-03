@@ -15,7 +15,8 @@ function ChamferECDF( nbin::Int, neighbors::Vector{Int} )
 end
 
 function calculate_summary_statistic!(      # To be used in target and bin initialization
-    view_out::AbstractVector{Float64}, summary_statistic::ChamferECDF,
+    view_out::AbstractVector{Float64},
+    summary_statistic::ChamferECDF,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
     data::DataContainer,

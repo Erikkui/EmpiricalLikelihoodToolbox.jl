@@ -32,10 +32,9 @@ end
 
 function (loss::RobustChamfer)( target::TargetData, sim_mean::AbstractVector )
 
-    obs_mean = target.obs_mean
     inverse_std = sqrt.( diag(target.inverse_cov) )
 
-    ss = -sum( ( obs_mean ./ inverse_std )  )
+    ss = -sum( ( sim_mean .* inverse_std )  )
 
     ss *= loss.scaling_parameter
 
