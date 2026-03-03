@@ -13,9 +13,9 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 200
+    nrep_training = 100
     nrep_sampling = nrep_training
-    chain_length = 500
+    chain_length = 300
 
     Ndata = 200
     dt_obs = 1.0
@@ -49,7 +49,7 @@ function run_test_mcmc()
 
 
     npara = size(results[:chain], 1)
-    fig = Figure(size=(1200, 300*npara))
+    fig = Figure(size=(1200, 200*npara))
     for i in 1:npara
         ax = Axis(fig[i, 1], xlabel="Iteration", ylabel="Parameter $i")
         lines!(ax, results[:chain][i, :])
