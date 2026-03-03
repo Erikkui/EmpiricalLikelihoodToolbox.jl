@@ -48,7 +48,7 @@ Base.@kwdef struct DataContainer{M <: AbstractMatrix{Float64}, D <: AbstractVect
 end
 
 #------------MCMC options struct
-Base.@kwdef struct MCMCOptions{G, A, S, F}
+Base.@kwdef struct MCMCOptions{A, G, F}
     nsteps::Int = 1000
     update_interval::Int = 50
     mcmc_algorithm::A

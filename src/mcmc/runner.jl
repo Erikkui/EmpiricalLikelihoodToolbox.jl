@@ -3,7 +3,7 @@ struct MCMCState{T, M<:AbstractMatrix{<:Real}}
     current_params::T
     ss_current::Float64
     proposal_cov::M
-    accepted::Float64
+    accepted::Int
     stuck_kicks::Int
 end
 
@@ -43,7 +43,7 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
 
     results_buffers = allocate_results_buffer( npar, chain_length )
 
-    state = MCMCState( current_params, ss_current, proposal_cov, 0.0, 0 )
+    state = MCMCState( current_params, ss_current, proposal_cov, 0, 0 )
 
     try
         results, state = MCMCRun( target, model, state, mcmc_options, results_buffers )
@@ -83,10 +83,6 @@ end
 
 
 function calculate_loss( params, target, model, loss_function )
-
-    if any( params .< 0.0 )
-        return -Inf
-    end
 
     options = target.options
     R0_all = target.data
