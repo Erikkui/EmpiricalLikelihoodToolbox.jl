@@ -2,6 +2,11 @@
 Toolbox for performing Bayesian inference using empirical likelihoods. The package features several summary statistics, which can be almost freely combined; currently, inference is based on so-called "Gaussian Subset Likelihood" (GSL) (Haario et al., 2015), but support Bayesian Synthetic Likelihood (BSL) (Wood, 2010) approach is planned. See also Kuitunen (2026) for definitions for majority of the summary statistics.
 
 ## Usage 
+### Installation
+Enter Julia package manager (`]`), and copy the following: `add https://github.com/Erikkui/EmpiricalLikelihoodToolbox.jl.git`
+
+In your script, import the package: `using EmpiricalLikelihoodToolbox`
+
 ### Code example
 ```
 function run_test_mcmc()
