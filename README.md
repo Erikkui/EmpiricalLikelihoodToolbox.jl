@@ -1,5 +1,5 @@
 # EmpiricalLikelihoodToolbox
-Toolbox for performing Bayesian inference using empirical likelihoods. The package features several summary statistics, which can be almost freely combined; currently, inference is based on so-called "Gaussian Subset Likelihood" (GSL) (Haario et al., 2015), but support Bayesian Synthetic Likelihood (BSL) (Wood, 2010) approach is planned.
+Toolbox for performing Bayesian inference using empirical likelihoods. The package features several summary statistics, which can be almost freely combined; currently, inference is based on so-called "Gaussian Subset Likelihood" (GSL) (Haario et al., 2015), but support Bayesian Synthetic Likelihood (BSL) (Wood, 2010) approach is planned. See also Kuitunen (2026) for definitions for majority of the summary statistics.
 
 ## Usage 
 ### Code example
@@ -85,6 +85,8 @@ Currently, the package includes two resamplers: `StandardResampling`, which perf
 Heikki Haario, Leonid Kalachev, Janne Hakkarainen; Generalized correlation integral vectors: A distance concept for chaotic dynamical systems. Chaos 1 June 2015; 25 (6): 063102. https://doi.org/10.1063/1.4921939
 
 Wood, S. Statistical inference for noisy nonlinear ecological dynamic systems. Nature 466, 1102–1104 (2010). https://doi.org/10.1038/nature09319
+
+Kuitunen, E. Empirical likelihoods for intractable likelihood models. LUT Master's Thesis, LUTPub. (2026). https://lutpub.lut.fi/handle/10024/171299 
 
 
 [![Build Status](https://github.com/Erikkui/EmpiricalLikelihoodToolbox.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Erikkui/EmpiricalLikelihoodToolbox.jl/actions/workflows/CI.yml?query=branch%3Amain)
