@@ -13,7 +13,7 @@ function StandardECDF( bins::AbstractVector{<:Real} )
     return StandardECDF( collect(vec(bins)), length(bins), length(bins) )
 end
 
-function calculate_summary_statistic!(
+function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary_statistic::StandardECDF,
     x_inds::AbstractVector{<:Integer},
@@ -24,7 +24,24 @@ function calculate_summary_statistic!(
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
 
-    data_X = @view data.observations[ :, y_inds ]
+    data_X = @view data.observations[ :, x_inds ]
+
+    empcdf!( view_out, data_X, nbins, bins )
+    return nothing
+end
+
+function calculate_summary_statistic!(  # To be used in MCMC
+    view_out::AbstractVector{Float64},
+    summary_statistic::StandardECDF,
+    x_inds::AbstractVector{<:Integer},
+    obs_data_all::DataContainer,
+    sim_data_all::DataContainer,
+    buffers::BufferContainer )
+
+    nbins = summary_statistic.nbin
+    bins = summary_statistic.bins
+
+    data_X = @view sim_data_all.observations[ :, x_inds ]
 
     empcdf!( view_out, data_X, nbins, bins )
     return nothing
@@ -35,7 +52,9 @@ function get_bin_quantity( summary_statistic::StandardECDF, data::DataContainer,
     return vec(data_X)
 end
 
-function allocate_buffer( statistic::StandardECDF, len::Int )
+function allocate_buffer( statistic::StandardECDF, data::DataContainer )
     buffer = Vector{Float64}( undef, statistic.summary_length )
     return buffer
 end
+
+required_diff_order(stat::StandardECDF) = 0

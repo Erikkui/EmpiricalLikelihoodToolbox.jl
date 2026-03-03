@@ -11,23 +11,24 @@ using CairoMakie
 
 
 function run_test_mcmc()
-    axis_unif = :yax
+    axis_unif = :xax
     nrep_training = 2000
     nrep_sampling = nrep_training
     chain_length = 10000
 
-    Ndata = 500
+    Ndata = 10000
     dt_obs = 1.0
 
     model = Lorenz63Model( dt_obs = dt_obs )
+    model = NormalModel()
     data = solve_model( model, Ndata*dt_obs )
 
     resampler = StandardResampling()
     lossfun = RobustChamfer( scaling_parameter = 1.0 )
+    lossfun = LogLikelihood()
 
     summary_statistics = JointSummaryStatistics(
-        ChamferDistance( [1] ),
-        ChamferDistanceDiff( [1], 1, dt_obs ),
+        StandardECDF( 10 ),
         )
 
     methods_options = MethodsOptions(
