@@ -23,8 +23,8 @@ Base.@kwdef struct MethodsOptions{R, T}
     axis_uniform::Symbol = :xax
     bins_resamplings::Int = 40
     resampling_type::R = StandardResampling()
-    training_resamplings::Int = 200
-    mcmc_resamplings::Int = 200
+    training_resamplings::Int = 1000
+    mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     timeseries_block_size::T = nothing
 end
