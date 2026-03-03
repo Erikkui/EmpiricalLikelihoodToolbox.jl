@@ -9,6 +9,8 @@ In your script, import the package: `using EmpiricalLikelihoodToolbox`
 
 ### Code example
 ```
+using EmpiricalLikelihoodToolbox
+
 function run_test_mcmc()
     axis_unif = :yax                          # Which axis to use as uniform refernce in bin creation 
     nrep_training = 2000                      # Number of training samples used in target mean and covariance creation
@@ -53,7 +55,7 @@ end
 ```
 
 ### Summary Statistics
-Currently, N summary statistics are available:
+Currently, nine summary statistics are available:
 1. Standard ECDF
    - Initialization: `StandardECDF(nbin)`
    - Calculates an empirical cumulative distribution function from data
@@ -81,10 +83,10 @@ Currently, N summary statistics are available:
     - Initialization: `ChamferECDF(nbin, neighbors)`
     - Support multiple neighbors simlar to basic Chamfer Distance
 
-Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`.
+Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`, as seen in the code example above.
 
 ### Resamplers
-Currently, the package includes two resamplers: `StandardResampling`, which performs random 50-50 division for a data set; and `TimeseriesResampling`, which samples a random contiguous partition from the data. `TimeseriesResampling` requires user to define a `timeseries_block_size` to `MethodsOptions`.
+Currently, the package includes two resamplers: `StandardResampling`, which performs random 50-50 division for a data set; and `TimeseriesResampling`, which samples a random contiguous partition from the data. `TimeseriesResampling` requires user to define a `timeseries_block_size` to `MethodsOptions`. `TimeSeriesResampling` has not been tested as extensively as StandardResampling, and may contain bugs.
 
 ## References
 Heikki Haario, Leonid Kalachev, Janne Hakkarainen; Generalized correlation integral vectors: A distance concept for chaotic dynamical systems. Chaos 1 June 2015; 25 (6): 063102. https://doi.org/10.1063/1.4921939
