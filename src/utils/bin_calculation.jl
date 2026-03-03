@@ -112,7 +112,7 @@ end
 # Bin initialization for ID summaries
 function initialize_bins(
     data::DataContainer,
-    statistic::ID,
+    statistic::IDSummary,
     options::MethodsOptions )
 
     resampler = options.resampling_type

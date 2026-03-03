@@ -28,7 +28,7 @@ function run_test_mcmc()
 
     summary_statistics = JointSummaryStatistics(
         CIL( 10 ),
-        ID( 10, 1 ),
+        IDDiff( 10, 1, 1, dt_obs ),
         )
 
     methods_options = MethodsOptions(

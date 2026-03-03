@@ -1,4 +1,4 @@
-struct ID{B, T} <: AbstractECDFSummary
+struct ID{B, T} <: IDSummary
     bins::B
     nbin::Int
     neighbors::T
@@ -53,7 +53,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     return nothing
 end
 
-function calculate_summary_statistic!(  # To be used in target and bin initialization
+function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary_statistic::ID,
     x_inds::AbstractVector{<:Integer},
