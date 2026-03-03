@@ -53,7 +53,6 @@ Base.@kwdef struct MCMCOptions{G, A, S, F}
     update_interval::Int = 50
     mcmc_algorithm::A
     initial_params::G = nothing
-    state::S = nothing
     loss_function::F = LogLikelihood()
 end
 

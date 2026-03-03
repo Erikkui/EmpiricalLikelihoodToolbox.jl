@@ -1,8 +1,24 @@
+function allocate_results_buffer( npar, chain_length )
+    chain_buffer = zeros( npar, chain_length )
+    ss_buffer = zeros( chain_length )
+    prop_cov = Matrix{Float64}( I, npar, npar )
+    results_buffer = (
+        chain=chain_buffer,
+        sschain=ss_buffer,
+        prop_cov=prop_cov,
+        acceptance=0.0, )
+    return results_buffer
+
+end
+
+
 function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_options::MCMCOptions )
 
     # Setup
     MCMCRun = mcmc_options.mcmc_algorithm
     proposal_width = MCMCRun.proposal_width
+
+    chain_length = mcmc_options.nsteps
 
     model_params = get_params( model )
     npar = length( model_params )
@@ -16,11 +32,18 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     proposal_cov = Matrix{Float64}( I, npar, npar )*proposal_width
     ss_current = calculate_loss( current_params, target, model, mcmc_options.loss_function )
 
+    chain_buffer = zeros( npar, chain_length )
+    ss_buffer = zeros( chain_length )
+    results_buffers = ( chain=chain_buffer, ss=ss_buffer )
+
     state = MCMCState( current_params, ss_current, proposal_cov, 0.0, 0 )
 
-    mcmc_options = @set mcmc_options.state = state
-
-    results, state = MCMCRun( target, model, mcmc_options )
+    try
+        results, state = MCMCRun( target, model, state, mcmc_options, results_buffers )
+    catch e
+        println( "Error during MCMC run: ", e )
+        results = ( chain=chain_buffer, ss=ss_buffer )
+    end
 
     return results, state
 end
