@@ -89,7 +89,7 @@ function train_target( statistics, data_container, buffer_container, options )
     mean_summary = mean( training_summaries, dims=2 ) |> vec
     C = cov( training_summaries' )
     inverse_cov = pinv( C )
-    return mean_summary, inverse_cov
+    return mean_summary, inverse_cov, training_summaries
 end
 
 
@@ -115,7 +115,7 @@ function TargetData(
     statistics = JointSummaryStatistics( statistics )
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target
-    mean_summary, inverse_cov = train_target( statistics, data_container, buffer_container, options )
+    mean_summary, inverse_cov, training_summaries = train_target( statistics, data_container, buffer_container, options )
 
     target = TargetData(
         data_container,

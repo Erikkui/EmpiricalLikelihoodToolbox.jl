@@ -1,26 +1,26 @@
-function mcmcrun( target::TargetData, model::AbstractSimulationModel, options::MCMCOptions )
+function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_options::MCMCOptions )
 
     # Setup
-    MCMCRun = options.mcmc_algorithm
+    MCMCRun = mcmc_options.mcmc_algorithm
     proposal_width = MCMCRun.proposal_width
 
     model_params = get_params( model )
     npar = length( model_params )
 
-    if isnothing( options.initial_params )
+    if isnothing( mcmc_options.initial_params )
         current_params = model_params .+ 0.1 .* randn( npar )
     else
-        current_params = options.initial_params
+        current_params = mcmc_options.initial_params
     end
 
     proposal_cov = Matrix{Float64}( I, npar, npar )*proposal_width
-    ss_current = calculate_loss( current_params, target, model, options.loss_function )
+    ss_current = calculate_loss( current_params, target, model, mcmc_options.loss_function )
 
     state = MCMCState( current_params, ss_current, proposal_cov, 0.0, 0 )
 
-    options = @set options.state = state
+    mcmc_options = @set mcmc_options.state = state
 
-    results, state = MCMCRun( target, model, options )
+    results, state = MCMCRun( target, model, mcmc_options )
 
     return results, state
 end
@@ -58,7 +58,7 @@ function calculate_loss( params, target, model, loss_function )
 
     # Resample data and calculate summary statistics for current parameters
     resample_buffer = buffers.mcmc_buffer
-    index_cache = buffers.indices_buffer
+    index_cache = buffers.index_cache
     mean_buffer = buffers.simulation_mean
     for ii in 1:n_summaries
         view_in = @view resample_buffer[ :, ii ]

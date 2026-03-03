@@ -36,7 +36,7 @@ struct BufferContainer{S, I}
     simulation_obs::Matrix{Float64}
     simulation_diffs::Vector{Matrix{Float64}}
     simulation_mean::Vector{Float64}
-    indices_buffer::I
+    index_cache::I
 end
 
 #------------Container for passing data, differences and options to functions

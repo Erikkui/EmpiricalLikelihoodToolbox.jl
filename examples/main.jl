@@ -3,9 +3,8 @@
 #   1. ] activate .
 #   2. Press backspace
 #   3. using Revise
-#   4. using EmpiricalLikelihoodToolbox
-#   5. include("examples/main.jl")
-#   6. run run_test_mcmc() in REPL: res = run_test_mcmc()
+#   4. include("examples/main.jl")
+#   5. run run_test_mcmc() in REPL: res = run_test_mcmc()
 
 using EmpiricalLikelihoodToolbox
 using CairoMakie

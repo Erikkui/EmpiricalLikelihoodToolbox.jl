@@ -31,7 +31,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     n_resample = data.options.training_resamplings
     chamfers = zeros( n_resample, summary_statistic.highest_neighbor )
     for ii in 1:n_resample
-        x_inds, y_inds = data.options.resampling_type( data, data.options, buffers.indices_buffer )
+        x_inds, y_inds = data.options.resampling_type( data, data.options, buffers.index_cache )
         data_X = @view data.observations[ :, x_inds ]
         data_Y = @view data.observations[ :, y_inds ]
         chamfer_distance!( buffer, data_X, data_Y, k=summary_statistic.highest_neighbor )
@@ -68,7 +68,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     chamfers = zeros( n_resample, summary_statistic.highest_neighbor )
     for ii in 1:n_resample
 
-        x_inds, _ = obs_data_all.options.resampling_type( obs_data_all, obs_data_all.options, buffers.indices_buffer )
+        x_inds, _ = obs_data_all.options.resampling_type( obs_data_all, obs_data_all.options, buffers.index_cache )
         data_X = @view R0[ :, x_inds ]
         chamfer_distance!( buffer, data_X, Rsim, ytree, k=summary_statistic.highest_neighbor )
         chamfers[ii, :] .= buffer
