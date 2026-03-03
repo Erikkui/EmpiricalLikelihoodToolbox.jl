@@ -11,16 +11,17 @@ using CairoMakie
 
 
 function run_test_mcmc()
-    axis_unif = :xax
+    axis_unif = :yax
     nrep_training = 2000
     nrep_sampling = nrep_training
-    chain_length = 10000
+    chain_length = 50000
 
-    Ndata = 10000
+    Ndata = 1000
     dt_obs = 1.0
+    dt_obs = 0.01
 
     model = Lorenz63Model( dt_obs = dt_obs )
-    model = NormalModel()
+    model = OUModel(dt_obs = dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
     resampler = StandardResampling()
@@ -29,6 +30,7 @@ function run_test_mcmc()
 
     summary_statistics = JointSummaryStatistics(
         StandardECDF( 10 ),
+        StandardECDFDiff( 10, 1, dt_obs ),
         )
 
     methods_options = MethodsOptions(

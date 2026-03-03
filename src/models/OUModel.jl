@@ -1,7 +1,7 @@
 Base.@kwdef struct OUModel{T} <: AbstractSimulationModel
-    theta::Float64 = 1.0
+    theta::Float64 = 3.0
     mu::Float64    = 0.0
-    sigma::Float64 = 0.5
+    sigma::Float64 = 1.0
     x0::T    = 0.0 # Initial condition
     dt_obs::Float64 = 0.01
     dt_sol::Float64 = dt_obs
