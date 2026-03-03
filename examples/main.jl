@@ -21,16 +21,14 @@ function run_test_mcmc()
     dt_obs = 0.01
 
     model = Lorenz63Model( dt_obs = dt_obs )
-    model = OUModel(dt_obs = dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
     resampler = StandardResampling()
-    lossfun = RobustChamfer( scaling_parameter = 1.0 )
     lossfun = LogLikelihood()
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF( 10 ),
-        StandardECDFDiff( 10, 1, dt_obs ),
+        CIL( 10 ),
+        ID( 10, 1 ),
         )
 
     methods_options = MethodsOptions(
@@ -50,7 +48,6 @@ function run_test_mcmc()
     target, training_summaries = TargetData( data, summary_statistics, methods_options )
 
     results, state = mcmcrun( target, model, mcmc_options )
-
 
     npara = size(results[:chain], 1)
     fig = Figure(size=(1200, 200*npara))

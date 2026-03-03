@@ -15,7 +15,7 @@ module EmpiricalLikelihoodToolbox
 
 
     # Summaries
-    export StandardECDF, StandardECDFDiff, CIL, CILDiff, ChamferDistance, ChamferDistanceDiff, ChamferECDF, JointSummaryStatistics
+    export StandardECDF, StandardECDFDiff, CIL, CILDiff, ChamferDistance, ChamferDistanceDiff, ChamferECDF, JointSummaryStatistics, ID, IDDiff
 
     # Models and solvers
     export Lorenz63Model, OUModel, NormalModel, solve_model
@@ -38,6 +38,8 @@ module EmpiricalLikelihoodToolbox
     include("summaries/ChamferDistance.jl")
     include("summaries/ChamferDistanceDiff.jl")
     include("summaries/ChamferECDF.jl")
+    include("summaries/ID.jl")
+    include("summaries/IDDiff.jl")
     include("summaries/JointSummaryStatistics.jl")
     include("summaries/empirical_cdf.jl")
     include("summaries/chamfer_distance.jl")

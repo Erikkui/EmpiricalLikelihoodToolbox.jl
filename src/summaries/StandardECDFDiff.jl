@@ -53,7 +53,6 @@ end
 function get_bin_quantity( summary_statistic::StandardECDFDiff, data::DataContainer, inds_X, inds_Y )
     diff_ind = summary_statistic.diff_order
     data_X = data.differences[ diff_ind ]
-    # println( "binquant size: ", typeof(data.differences), "    ", diff_ind)
     data_X =  data_X[ :, inds_X ]
     return vec(data_X)
 end

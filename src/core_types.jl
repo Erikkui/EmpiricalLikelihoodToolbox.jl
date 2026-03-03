@@ -35,7 +35,7 @@ struct BufferContainer{S, I}
     mcmc_buffer::Matrix{Float64}
     simulation_obs::Matrix{Float64}
     simulation_diffs::Vector{Matrix{Float64}}
-    simulation_mean::Vector{Float64}
+    simulation_statistic::Vector{Float64}
     index_cache::I
 end
 

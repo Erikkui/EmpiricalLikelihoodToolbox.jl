@@ -32,7 +32,7 @@ function allocate_buffers( statistics, data_container, options, diff_orders )
 
     training_buffer = zeros( training_summary_length, training_resamplings )
     mcmc_buffer = zeros( training_summary_length, n_summaries )
-    mean_buffer = zeros( training_summary_length )
+    simulation_statistic_buffer = zeros( training_summary_length )
 
     ind_size = get_index_size( resampling_type, observations, options )
     index_cache = collect( 1:ind_size )
@@ -60,7 +60,7 @@ function allocate_buffers( statistics, data_container, options, diff_orders )
         mcmc_buffer,
         buffer_observations,
         buffer_differences,
-        mean_buffer,
+        simulation_statistic_buffer,
         index_cache,
         )
     return buffers, training_summary_length

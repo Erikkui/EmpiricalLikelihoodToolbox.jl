@@ -98,7 +98,7 @@ function calculate_loss( params, target, model, loss_function )
     resampler = options.resampling_type
     n_summaries = options.n_summaries
 
-    model = reconstruct( model, params )
+    model = reconstruct( model, params )    # Update model with new parameters for simulation
 
     ndata = size( R0_all.observations, 2 )
     dt_obs = model.dt_obs
@@ -117,17 +117,18 @@ function calculate_loss( params, target, model, loss_function )
     # Resample data and calculate summary statistics for current parameters
     resample_buffer = buffers.mcmc_buffer
     index_cache = buffers.index_cache
-    mean_buffer = buffers.simulation_mean
+    sim_statistic = buffers.simulation_statistic
     for ii in 1:n_summaries
         view_in = @view resample_buffer[ :, ii ]
         x_inds, _ = resampler( R0_all, options, index_cache )
         summaries( view_in, x_inds, R0_all, Rsim_container, buffers )
     end
+    copyto!( sim_statistic, vec(mean(resample_buffer, dims=2)) )
 
     # mean_summary = mean( resample_buffer, dims=2 ) |> vec
-    mean!( mean_buffer, resample_buffer)
+    mean!( sim_statistic, resample_buffer )
 
-    loss = loss_function( target, mean_buffer )
+    loss = loss_function( target, sim_statistic )
 
     # bins = target.summary_statistics.statistics[1].bins[1]
     # fig = Figure()
