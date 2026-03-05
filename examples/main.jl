@@ -27,8 +27,7 @@ function run_test_mcmc()
     lossfun = LogLikelihood()
 
     summary_statistics = JointSummaryStatistics(
-        CIL( 10 ),
-        IDDiff( 10, 1, 1, dt_obs ),
+        ChamferDistance(1)
         )
 
     methods_options = MethodsOptions(
@@ -43,6 +42,7 @@ function run_test_mcmc()
         mcmc_algorithm = AM( 0.01, 50 ),
         update_interval = 50,
         loss_function = lossfun,
+        discard_noisy_updates = true
         )
 
     target, training_summaries = TargetData( data, summary_statistics, methods_options )
