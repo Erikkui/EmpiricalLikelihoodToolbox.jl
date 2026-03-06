@@ -100,7 +100,13 @@ function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
     options::MethodsOptions;
+    priors = nothing
     )
+
+    if isnothing( priors )
+        priors = ( nothing )
+    end
+
     statistics = summary_stats.statistics
     training_resamplings = options.training_resamplings
 
@@ -122,6 +128,7 @@ function TargetData(
     target = TargetData(
         data_container,
         statistics,
+        priors,
         options,
         buffer_container,
         mean_summary,

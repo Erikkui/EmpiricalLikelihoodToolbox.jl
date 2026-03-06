@@ -8,7 +8,7 @@ Enter Julia package manager (`]`), and copy the following: `add https://github.c
 In your script, import the package: `using EmpiricalLikelihoodToolbox`
 
 ### Code example
-```
+```julia
 using EmpiricalLikelihoodToolbox
 
 function run_test_mcmc()
@@ -25,6 +25,13 @@ function run_test_mcmc()
 
     resampler = StandardResampling()                      # 50-50 resampling
     objective_fun = LogLikelihood()                       # Standard log-likelihood function as an objective function
+
+    # Prior distributions, uninformative priors as nothing. Supports distributions from Distributions.jl 
+    priors = (                                            
+      Uniform(0.0, 30.0), 
+      Uniform(0.0, 50.0), 
+      nothing 
+      )
 
     summary_statistics = JointSummaryStatistics(                      # Wrapping summaries into single joint summary
         CIL( 10 ),

@@ -59,9 +59,10 @@ Base.@kwdef struct MCMCOptions{A, G, F}
 end
 
 #------------MCMC target
-struct TargetData{S, O, B, C}
+struct TargetData{C, S, P, O, B}
     data::C
     summary_statistics::S
+    priors::P
     options::O
     buffers::B
     obs_mean::Vector{Float64}

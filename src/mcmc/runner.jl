@@ -32,6 +32,12 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     model_params = get_params( model )
     npar = length( model_params )
 
+    # Set uninformative priors if not provided
+    if length( target.priors ) != npar
+        uninformative_priors = ntuple( _ -> nothing, Val(npar) )
+        target = @set target.priors = uninformative_priors
+    end
+
     if isnothing( mcmc_options.initial_params )
         current_params = model_params .+ 0.1 .* randn( npar )
     else
@@ -40,6 +46,7 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
 
     proposal_cov = Matrix{Float64}( I, npar, npar )*proposal_width
     ss_current = calculate_loss( current_params, target, model, mcmc_options.loss_function )
+    ss_current += evaluate_log_prior( current_params, target.priors )
 
     results_buffers = allocate_results_buffer( npar, chain_length )
 
@@ -80,13 +87,17 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
         Base.showerror(stdout, e, catch_backtrace())
         println() # Add a newline for readability
 
-
         return results, state
     end
 end
 
 
 function calculate_loss( params, target, model, loss_function )
+
+    logprior = evaluate_log_prior( params, target.priors )
+    if isinf( logprior )
+        return -Inf
+    end
 
     options = target.options
     R0_all = target.data
@@ -125,25 +136,9 @@ function calculate_loss( params, target, model, loss_function )
     end
     copyto!( sim_statistic, vec(mean(resample_buffer, dims=2)) )
 
-    # mean_summary = mean( resample_buffer, dims=2 ) |> vec
     mean!( sim_statistic, resample_buffer )
 
     loss = loss_function( target, sim_statistic )
-
-    # bins = target.summary_statistics.statistics[1].bins[1]
-    # fig = Figure()
-    # ax = Axis( fig[1, 1] )
-    # for col in eachcol( resample_buffer )
-    #     scatter!( ax, bins, col )
-    # end
-    # lines!( ax, bins, target.obs_mean, color=:red, linewidth=2, label="Mean Summary" )
-    # lines!( ax, bins, mean_buffer, color=:blue, linewidth=2, label="Mean Summary" )
-    # display(fig)
-    # println("loss: ", loss)
-
-    # sleep(0.1)
-    # push!( debug[:means], deepcopy(mean_buffer) )
-    # push!( debug[:resamples], deepcopy(Rsim) )
 
     return loss
 end

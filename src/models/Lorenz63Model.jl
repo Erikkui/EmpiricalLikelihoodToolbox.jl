@@ -1,3 +1,18 @@
+"""
+    Lorenz63Model{T}
+
+A struct for the chaotic Lorenz 1963 dynamical system.
+
+# Fields
+- `sigma::Float64`: The Prandtl number (default: 10.0).
+- `rho::Float64`: The Rayleigh number (default: 28.0).
+- `beta::Float64`: The geometric factor (default: 8/3).
+- `x0::T`: The initial state vector of the system. Default: [12.0, 19.0, 23.0].
+- `dt_obs::Float64`: The observation time step (default: 1.0).
+
+# Examples
+model = Lorenz63Model(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
+"""
 Base.@kwdef struct Lorenz63Model{T <: AbstractVector{Float64}} <: AbstractSimulationModel
     sigma::Float64 = 10.0
     rho::Float64    = 28.0

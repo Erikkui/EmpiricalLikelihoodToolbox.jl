@@ -95,6 +95,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         params_proposal .+= state.current_params
 
         ss_proposal = calculate_loss( params_proposal, target, model, loss )
+        ss_proposal += evaluate_log_prior( params_proposal, target.priors )
 
         # 2. Metropolis accept/reject
         log_ratio = ss_proposal - state.ss_current

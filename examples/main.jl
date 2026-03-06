@@ -7,6 +7,7 @@
 #   5. run run_test_mcmc() in REPL: res = run_test_mcmc()
 
 using EmpiricalLikelihoodToolbox
+using Distributions
 using CairoMakie
 
 
@@ -25,6 +26,7 @@ function run_test_mcmc()
 
     resampler = StandardResampling()
     lossfun = LogLikelihood()
+    priors = ( Uniform(0.0, 30.0), Uniform(0.0, 50.0), Uniform(0.0, 10.0) )
 
     summary_statistics = JointSummaryStatistics(
         ChamferDistance(1)
@@ -45,7 +47,7 @@ function run_test_mcmc()
         discard_noisy_updates = true
         )
 
-    target, training_summaries = TargetData( data, summary_statistics, methods_options )
+    target, training_summaries = TargetData( data, summary_statistics, methods_options; priors=priors )
 
     results, state = mcmcrun( target, model, mcmc_options )
 
