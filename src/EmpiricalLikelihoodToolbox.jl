@@ -44,6 +44,7 @@ module EmpiricalLikelihoodToolbox
     include("summaries/empirical_cdf.jl")
     include("summaries/chamfer_distance.jl")
 
+    include("mcmc/loss.jl")
     include("mcmc/loss_functions.jl")
     include("mcmc/target.jl")
     include("mcmc/samplers.jl")

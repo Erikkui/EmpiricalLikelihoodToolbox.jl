@@ -26,6 +26,7 @@ Base.@kwdef struct MethodsOptions{R, T}
     training_resamplings::Int = 1000
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
+    n_loss_evals::Int = 1
     timeseries_block_size::T = nothing
 end
 
