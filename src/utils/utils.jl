@@ -94,3 +94,33 @@ function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
 
     return r
 end
+
+function recursive_welford!( running_mean, running_cov, current_params, diff1, diff2, npar, ii )
+    if ii == 1
+        running_mean .= current_params
+    else
+        # diff1 = x_t - mean_{t-1}
+        @inbounds for j in 1:npar
+            diff1[j] = current_params[j] - running_mean[j]
+        end
+
+        # mean_t = mean_{t-1} + diff1 / t
+        @inbounds for j in 1:npar
+            running_mean[j] += diff1[j] / ii
+        end
+
+        # diff2 = x_t - mean_t
+        @inbounds for j in 1:npar
+            diff2[j] = current_params[j] - running_mean[j]
+        end
+
+        # C_t = ((t-2)/(t-1)) * C_{t-1} + (diff1 * diff2^T) / (t-1)
+        weight1 = (ii - 2) / (ii - 1)
+        weight2 = 1 / (ii - 1)
+        @inbounds for col in 1:npar
+            @inbounds for row in 1:npar
+                running_cov[row, col] = weight1 * running_cov[row, col] + weight2 * diff1[row] * diff2[col]
+            end
+        end
+    end
+end

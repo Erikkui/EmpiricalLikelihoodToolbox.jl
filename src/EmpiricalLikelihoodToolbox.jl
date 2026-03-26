@@ -12,6 +12,8 @@ module EmpiricalLikelihoodToolbox
     using Statistics
     using ProgressBars
     using SpecialFunctions
+    using PDMats
+    using LogExpFunctions
 
 
     # Summaries
@@ -20,16 +22,17 @@ module EmpiricalLikelihoodToolbox
     # Models and solvers
     export Lorenz63Model, OUModel, NormalModel, solve_model
 
-    # Resamplers and containers
+    # Resamplers and container
     export StandardResampling, TimeseriesResampling, MethodsOptions, TargetData
 
     # MCMC functionalities and loss functions
-    export MCMCOptions, mcmcrun, AM
+    export MCMCOptions, mcmcrun, AM, DRAM
 
     # Loss functions
     export LogLikelihood, RobustChamfer
 
     include("core_types.jl")
+    include("utils/utils.jl")
 
     include("summaries/StandardECDF.jl")
     include("summaries/StandardECDFDiff.jl")
@@ -47,7 +50,8 @@ module EmpiricalLikelihoodToolbox
     include("mcmc/loss.jl")
     include("mcmc/loss_functions.jl")
     include("mcmc/target.jl")
-    include("mcmc/samplers.jl")
+    include("mcmc/AM.jl")
+    include("mcmc/DRAM.jl")
     include("mcmc/runner.jl")
 
     include("models/Lorenz63Model.jl")
@@ -57,6 +61,6 @@ module EmpiricalLikelihoodToolbox
 
     include("utils/bin_calculation.jl")
     include("utils/resamplers.jl")
-    include("utils/utils.jl")
+
 
 end

@@ -13,9 +13,9 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 5000
+    nrep_training = 2000
     nrep_sampling = nrep_training
-    chain_length = 20000
+    chain_length = 5000
 
     Ndata = 1000
     dt_obs = 1.0
@@ -41,10 +41,9 @@ function run_test_mcmc()
 
     mcmc_options = MCMCOptions(
         nsteps = chain_length,
-        mcmc_algorithm = AM( 0.01, 50 ),
+        mcmc_algorithm = DRAM( 0.01, 50, 3, 0.5 ),
         update_interval = 50,
         loss_function = lossfun,
-        discard_noisy_updates = false
         )
 
     target, training_summaries = TargetData( data, summary_statistics, methods_options; priors=priors )
