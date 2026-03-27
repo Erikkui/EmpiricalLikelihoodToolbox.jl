@@ -155,9 +155,8 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
-    if is_master_thread
-        println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
-        pbar = ProgressBar( 1:chain_length, printing_delay=0.1 )
+    if mcmc_options.verbose
+        pbar = ProgressBar( 1:chain_length, printing_delay=1.0 )
     else
         pbar = nothing
     end
@@ -248,7 +247,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
         end
 
         # Progress display update
-        if is_master_thread && !isnothing(pbar)
+        if !isnothing(pbar)
             set_description(pbar, "Acc: $(round(n_accepted/ii, digits=2)) SS: $(round(state.ss_current, digits=2))")
             update(pbar)
         end
