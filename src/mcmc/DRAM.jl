@@ -1,3 +1,15 @@
+"""
+    DRAM{T}
+
+A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
+
+# Fields
+- `proposal_width::Float64`: The width of the proposal distribution (default: 0.01).
+- `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
+- `n_stages::Int`: The number of proposal stages, INCLUDING the initial proposal) (default: 3).
+- `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages-1 specifying the scale for each stage (default: 0.5).
+
+"""
 
 function compute_log_path( states, log_pi, idx_range, zero_mean_dists )
     n = length( idx_range )
@@ -155,7 +167,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
-    if mcmc_options.verbose
+    if target.options.verbose
         pbar = ProgressBar( 1:chain_length, printing_delay=1.0 )
     else
         pbar = nothing

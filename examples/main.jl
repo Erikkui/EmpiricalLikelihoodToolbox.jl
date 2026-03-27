@@ -15,9 +15,9 @@ function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 2000
     nrep_sampling = nrep_training
-    chain_length = 5000
+    chain_length = 10000
 
-    Ndata = 1000
+    Ndata = 500
     dt_obs = 1.0
 
     model = Lorenz63Model( dt_obs = dt_obs )
@@ -25,6 +25,7 @@ function run_test_mcmc()
 
     resampler = StandardResampling()
     lossfun = LogLikelihood()
+    sampler = AM()
     priors = ( Uniform(0.0, 30.0), Uniform(0.0, 50.0), Uniform(0.0, 10.0) )
 
     summary_statistics = JointSummaryStatistics(
@@ -36,12 +37,13 @@ function run_test_mcmc()
         axis_uniform=axis_unif,
         training_resamplings=nrep_training,
         mcmc_resamplings=nrep_sampling,
-        n_loss_evals = 20
+        n_loss_evals = 1,
+        verbose = true
         )
 
     mcmc_options = MCMCOptions(
         nsteps = chain_length,
-        mcmc_algorithm = DRAM( 0.01, 50, 3, 0.5 ),
+        mcmc_algorithm = sampler,
         update_interval = 50,
         loss_function = lossfun,
         )

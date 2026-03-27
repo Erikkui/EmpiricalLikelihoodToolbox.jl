@@ -67,14 +67,14 @@ function allocate_buffers( statistics, data_container, options, diff_orders )
 end
 
 
-function train_target( statistics, data_container, buffer_container, options; verbose=false )
+function train_target( statistics, data_container, buffer_container, options )
     training_summaries = buffer_container.training_buffer
     index_cache = buffer_container.index_cache
 
     resampling_type = options.resampling_type
     training_resamplings = options.training_resamplings
 
-    if verbose
+    if options.verbose
         println( "Resampling data for target mean and covariance, ndata = $(size(data_container.observations, 2))" )
         iter = ProgressBar( 1:training_resamplings, printing_delay=0.1 )
     else
@@ -99,8 +99,7 @@ function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
     options::MethodsOptions;
-    priors = nothing,
-    verbose = false
+    priors = nothing
     )
 
     if isnothing( priors )
@@ -123,7 +122,7 @@ function TargetData(
     statistics = JointSummaryStatistics( statistics )
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target
-    mean_summary, inverse_cov, training_summaries = train_target( statistics, data_container, buffer_container, options; verbose=verbose )
+    mean_summary, inverse_cov, training_summaries = train_target( statistics, data_container, buffer_container, options )
 
     target = TargetData(
         data_container,

@@ -28,6 +28,7 @@ Base.@kwdef struct MethodsOptions{R, T}
     n_summaries::Int = 1
     n_loss_evals::Int = 1
     timeseries_block_size::T = nothing
+    verbose::Bool = false
 end
 
 #------------Buffer container for non-allocating in-place computations
@@ -57,7 +58,6 @@ Base.@kwdef struct MCMCOptions{A, G, F}
     mcmc_algorithm::A
     initial_params::G = nothing
     loss_function::F = LogLikelihood()
-    verbose::Bool = false
 end
 
 #------------MCMC target

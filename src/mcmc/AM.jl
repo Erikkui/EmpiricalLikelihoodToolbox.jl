@@ -1,3 +1,14 @@
+"""
+    AM{T}
+
+A struct for the adaptive MCMC algorithm.
+
+# Fields
+- `proposal_width::Float64`: The width of the proposal distribution (default: 0.01).
+- `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
+
+"""
+
 Base.@kwdef struct AM
     proposal_width::Float64 = 0.01
     adaptation_interval::Int = 50
@@ -47,9 +58,9 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
-    if is_master_thread && !discard_noisy_updates
+    if target.options.verbose
         println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
-        pbar = ProgressBar( 1:chain_length, printing_delay=0.1 )
+        pbar = ProgressBar( 1:chain_length, printing_delay=1.0)
     else
         pbar = nothing
     end
