@@ -161,14 +161,10 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
     proposal_cov = copy( state.proposal_cov )
     proposal_cov_L = cholesky( Symmetric(state.proposal_cov) ).L
 
-    # Bookkeeping
-    n_accepted = 0
-    n_stuck = 0
-
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
     if target.options.verbose
-        pbar = ProgressBar( 1:chain_length, printing_delay=1.0 )
+        pbar = ProgressBar( 1:chain_length, printing_delay=0.1 )
     else
         pbar = nothing
     end
@@ -190,12 +186,12 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
         accepted = rd < log_ratio
 
         if accepted
+            # Update state with the proposal and its specific target density
             copyto!( state.current_params, params_proposal )
-            n_accepted += 1
-            n_stuck = 0
+            @reset state.ss_current = ss_proposal
 
-            new_fields = ( ss_current = ss_proposal, accepted = n_accepted )
-            state = setproperties( state, new_fields )
+            # Update acceptance count
+            results.acceptance[1] += 1
         else
             # Delayed rejection
 
@@ -222,12 +218,9 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
                 if accepted
                     copyto!( state.current_params, params_proposal )
-                    n_accepted += 1
-                    n_stuck = 0
+                    @reset state.ss_current = ss_proposal_kk
 
-                    # Correctly update state with the specific target density of stage kk
-                    new_fields = ( ss_current = ss_proposal_kk, accepted = n_accepted )
-                    state = setproperties( state, new_fields )
+                    results.acceptance[kk] += 1
                     break
                 end
             end
@@ -260,7 +253,8 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
         # Progress display update
         if !isnothing(pbar)
-            set_description(pbar, "Acc: $(round(n_accepted/ii, digits=2)) SS: $(round(state.ss_current, digits=2))")
+            accepted_text = round.( results.acceptance ./ ii, digits=2 )
+            set_description(pbar, "Acc: $(accepted_text) SS: $(round(state.ss_current, digits=2))")
             update(pbar)
         end
 

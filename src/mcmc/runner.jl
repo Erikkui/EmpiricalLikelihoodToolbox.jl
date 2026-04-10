@@ -3,20 +3,29 @@ struct MCMCState{T, M<:AbstractMatrix{<:Real}}
     current_params::T
     ss_current::Float64
     proposal_cov::M
-    accepted::Int
+end
+
+struct ResultsBuffer{M<:AbstractMatrix{<:Real}, I, T}
+    chain::M
+    sschain::Vector{Float64}
+    prop_cov::M
+    current_iter::I
+    acceptance::T
     stuck_kicks::Int
 end
 
-function allocate_results_buffer( npar, chain_length )
+function allocate_results_buffer( npar, chain_length, n_stages )
     chain_buffer = zeros( npar, chain_length )
     ss_buffer = zeros( chain_length )
     prop_cov = Matrix{Float64}( I, npar, npar )
-    results_buffer = (
-        chain=chain_buffer,
-        sschain=ss_buffer,
-        prop_cov=prop_cov,
-        current_iter=Ref(0),
-        acceptance=0.0, )
+    results_buffer = ResultsBuffer(
+        chain_buffer,
+        ss_buffer,
+        prop_cov,
+        Ref(0),
+        zeros( Int, n_stages ),
+        0,
+    )
     return results_buffer
 
 end
@@ -48,17 +57,18 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     ss_current = calculate_loss( current_params, target, model, mcmc_options.loss_function )
     ss_current += evaluate_log_prior( current_params, target.priors )
 
-    results_buffers = allocate_results_buffer( npar, chain_length )
+    n_stages = isa( MCMCRun, DRAM) ? MCMCRun.n_stages : 1
+    results_buffers = allocate_results_buffer( npar, chain_length, n_stages )
 
-    state = MCMCState( current_params, ss_current, proposal_cov, 0, 0 )
+    state = MCMCState( current_params, ss_current, proposal_cov )
 
     try
         results, state = MCMCRun( target, model, state, mcmc_options, results_buffers )
-        results = @set results.acceptance = state.accepted / chain_length
+        results = @set results.acceptance = results.acceptance ./ chain_length
         results = @set results.prop_cov = state.proposal_cov
 
-        acceptance_print = round(results.acceptance*100, digits=2)
-        stuck_print_percentage = round(state.stuck_kicks*100/chain_length, digits=2)
+        acceptance_print = round.( results.acceptance.*100, digits=2 )
+        stuck_print_percentage = round.( results.stuck_kicks.*100 ./ chain_length, digits=2 )
         println("MCMC completed")
         println("Acceptance rate: ", acceptance_print, "%")
         println( "Stuck kicks: ", stuck_print_percentage, "%\n")
@@ -68,16 +78,19 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
         last_successful_step = results_buffers.current_iter[]
         partial_chain = results_buffers.chain[:, 1:last_successful_step]
         partial_sschain = results_buffers.sschain[1:last_successful_step]
+        acceptance = results_buffers.acceptance
 
-        results = (
-            chain=partial_chain,
-            sschain=partial_sschain,
-            prop_cov=state.proposal_cov,
-            current_iter=last_successful_step,
-            acceptance=state.accepted / last_successful_step, )
+        results = ResultsBuffer(
+            partial_chain,
+            partial_sschain,
+            state.proposal_cov,
+            last_successful_step,
+            acceptance ./ last_successful_step,
+            results_buffers.stuck_kicks,
+            )
 
-        acceptance_print = round(results.acceptance*100, digits=2)
-        stuck_print_percentage = round(state.stuck_kicks*100/chain_length, digits=2)
+        acceptance_print = round.( results.acceptance.*100, digits=2 )
+        stuck_print_percentage = round.( results.stuck_kicks.*100 ./ chain_length, digits=2 )
 
         println("\nMCMC crashed at iteration ", last_successful_step, " due to: \n", e)
         println("Returning partial chain.")

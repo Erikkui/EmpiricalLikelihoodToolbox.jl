@@ -13,9 +13,9 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 2000
+    nrep_training = 3000
     nrep_sampling = nrep_training
-    chain_length = 10000
+    chain_length = 25000
 
     Ndata = 500
     dt_obs = 1.0
@@ -24,12 +24,13 @@ function run_test_mcmc()
     data = solve_model( model, Ndata*dt_obs )
 
     resampler = StandardResampling()
-    lossfun = LogLikelihood()
-    sampler = AM()
+    lossfun = LogLikelihood( scaling_parameter = 1.0 )
+    # sampler = AM( proposal_width = 0.01 )
+    sampler = DRAM( n_stages = 2, proposal_scale = [1.0, 1/1000] )
     priors = ( Uniform(0.0, 30.0), Uniform(0.0, 50.0), Uniform(0.0, 10.0) )
 
     summary_statistics = JointSummaryStatistics(
-        ChamferDistance(1)
+        ChamferDistance(1:10)
         )
 
     methods_options = MethodsOptions(
@@ -52,11 +53,11 @@ function run_test_mcmc()
 
     results, state = mcmcrun( target, model, mcmc_options )
 
-    npara = size(results[:chain], 1)
+    npara = size(results.chain, 1)
     fig = Figure(size=(1200, 200*npara))
     for i in 1:npara
         ax = Axis(fig[i, 1], xlabel="Iteration", ylabel="Parameter $i")
-        lines!(ax, results[:chain][i, :])
+        lines!(ax, results.chain[i, :])
     end
     display(fig)
 

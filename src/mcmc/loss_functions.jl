@@ -3,7 +3,7 @@
 end
 
 function LogLikelihood(scaling::Real)
-    return LogLikelihood(scaling_parameter = Float64(scaling))
+    return LogLikelihood( scaling_parameter = Float64(scaling) )
 end
 
 function (loss::LogLikelihood)( target::TargetData, sim_mean::AbstractVector )
