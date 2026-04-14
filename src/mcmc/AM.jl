@@ -149,7 +149,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         end
 
         # Progress display update
-        if discard_noisy_updates && ii % 100 == 0
+        if discard_noisy_updates && ii % 50 == 0
             progress_text = round(ii/chain_length * 100, digits=1)
             accepted_text = round.( results.acceptance ./ ii, digits=2 )
             ss_text = round(state.ss_current, digits=2)

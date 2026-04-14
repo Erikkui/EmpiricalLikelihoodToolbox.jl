@@ -14,7 +14,6 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    nrep_sampling = nrep_training
     chain_length = 10000
 
     Ndata = 1000
@@ -30,15 +29,13 @@ function run_test_mcmc()
     priors = ( Uniform(0.0, 30.0), Uniform(0.0, 50.0), Uniform(0.0, 10.0) )
 
     summary_statistics = JointSummaryStatistics(
-        CIL(10),
-        CILDiff(10, 1, dt_obs ),
+        ChamferDistance(1)
         )
 
     methods_options = MethodsOptions(
         resampling_type=resampler,
         axis_uniform=axis_unif,
         training_resamplings=nrep_training,
-        mcmc_resamplings=nrep_sampling,
         n_loss_evals = 1,
         verbose = true
         )
