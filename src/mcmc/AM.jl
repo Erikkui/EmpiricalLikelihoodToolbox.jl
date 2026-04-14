@@ -1,5 +1,5 @@
 """
-    AM{T}
+    AM
 
 A struct for the adaptive MCMC algorithm.
 
@@ -8,7 +8,6 @@ A struct for the adaptive MCMC algorithm.
 - `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
 
 """
-
 Base.@kwdef struct AM
     proposal_width::Float64 = 0.01
     adaptation_interval::Int = 50
@@ -53,14 +52,13 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     proposal_cov_L = cholesky( state.proposal_cov ).L
 
     # Bookkeeping
-    n_accepted = 0
     n_stuck = 0
 
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
     if target.options.verbose
         println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
-        pbar = ProgressBar( 1:chain_length, printing_delay=1.0)
+        pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
     else
         pbar = nothing
     end
@@ -83,7 +81,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         accepted = rd < log_ratio
 
         if accepted
-            # Create a backup of the last known "goood" state before accepting the new proposal
+            # Create a backup of the last known "good" state before accepting the new proposal
             copyto!( backup_params, state.current_params )
             copyto!( backup_mean, running_mean )
             copyto!( backup_cov, running_cov )
@@ -92,11 +90,12 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
             # Then accept the new proposal
             copyto!( state.current_params, params_proposal )
-            n_accepted += 1
-            n_stuck = 0 # Reset stuck counter on move
+            @reset state.ss_current = ss_proposal
 
-            new_fields = ( ss_current = ss_proposal, accepted = n_accepted )
-            state = setproperties( state, new_fields )
+            # Update acceptance count
+            results.acceptance[1] += 1
+
+            n_stuck = 0 # Reset stuck counter on move
         else
             n_stuck += 1
             if n_stuck > update_interval    # If mcmc gets stuck in "too good" proposal
@@ -109,17 +108,20 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
                     ss_current = calculate_loss( state.current_params, target, model, loss )
 
-                    updated_fields = ( ss_current = ss_current, stuck_kicks = state.stuck_kicks + 1 )
-                    state = setproperties( state, updated_fields )
+                    @reset state.ss_current = ss_proposal
+                    results.stuck_kicks[] += 1
+
                     n_stuck = 0 # Reset counter
 
                     # Skip storing/updating for this step and jump to the beginning
                     continue
                 else
-                    # Standard behavior: Just kick it to recalculate, do not rewind time.
+                    # Standard behavior: Just kick it to recalculate, do not "rewind time".
                     ss_recalc = calculate_loss( state.current_params, target, model, loss )
-                    updated_fields = ( ss_current = ss_recalc, stuck_kicks = state.stuck_kicks + 1 )
-                    state = setproperties( state, updated_fields )
+
+                    @reset state.ss_current = ss_proposal
+                    results.stuck_kicks[] += 1
+
                     n_stuck = 0 # Reset counter
                 end
             end
@@ -150,17 +152,18 @@ function (AM::AM)( target, model, state, mcmc_options, results )
             if discard_noisy_updates && ii % 100 == 0
                 print("\rProgress: $(round(ii/chain_length * 100, digits=1))% | Acc: $(round(n_accepted/ii, digits=2)) | SS: $(round(state.ss_current, digits=2))")
             elseif !isnothing(pbar)
-                set_description(pbar, "Acc: $(round(n_accepted/ii, digits=2)) SS: $(round(state.ss_current, digits=2))")
-                update(pbar) # Requires manual update in a while loop
+                accepted_text = round.( results.acceptance ./ ii, digits=2 )
+                set_description(pbar, "Acc: $(accepted_text) SS: $(round(state.ss_current, digits=2))")
+                update(pbar)
             end
         end
 
-        # CRITICAL FIX: Advance the loop
+        # Advance the loop
         ii += 1
     end
 
     if is_master_thread && discard_noisy_updates
-        println() # Clear the manual \r line
+        println()
     end
 
     return results, state

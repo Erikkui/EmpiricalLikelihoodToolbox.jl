@@ -11,7 +11,7 @@ struct ResultsBuffer{M<:AbstractMatrix{<:Real}, I, T}
     prop_cov::M
     current_iter::I
     acceptance::T
-    stuck_kicks::Int
+    stuck_kicks::I
 end
 
 function allocate_results_buffer( npar, chain_length, n_stages )
@@ -24,10 +24,9 @@ function allocate_results_buffer( npar, chain_length, n_stages )
         prop_cov,
         Ref(0),
         zeros( Int, n_stages ),
-        0,
+        Ref(0),
     )
     return results_buffer
-
 end
 
 function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_options::MCMCOptions )

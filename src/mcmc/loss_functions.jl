@@ -3,6 +3,7 @@
 end
 
 function LogLikelihood(scaling::Real)
+    scaling = 1.0/scaling
     return LogLikelihood( scaling_parameter = Float64(scaling) )
 end
 

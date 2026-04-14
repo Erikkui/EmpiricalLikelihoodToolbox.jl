@@ -1,5 +1,5 @@
 """
-    DRAM{T}
+    DRAM
 
 A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
 
@@ -10,7 +10,6 @@ A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
 - `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages-1 specifying the scale for each stage (default: 0.5).
 
 """
-
 function compute_log_path( states, log_pi, idx_range, zero_mean_dists )
     n = length( idx_range )
     idx_anchor = idx_range[1]
@@ -258,6 +257,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
             update(pbar)
         end
 
+        # Advance the loop
         ii += 1
     end
 
