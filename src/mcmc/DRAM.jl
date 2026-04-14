@@ -10,6 +10,13 @@ A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
 - `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages-1 specifying the scale for each stage (default: 0.5).
 
 """
+Base.@kwdef struct DRAM{P}
+    proposal_width::Float64 = 0.01
+    adaptation_interval::Int = 50
+    n_stages::Int = 2
+    proposal_scale::P = [1.0, 0.5]
+end
+
 function compute_log_path( states, log_pi, idx_range, zero_mean_dists )
     n = length( idx_range )
     idx_anchor = idx_range[1]
@@ -90,13 +97,6 @@ function delayed_rejection_stage(
 
     # Return ss_proposal so the main loop captures the correct density if accepted
     return log_ratio, ss_proposal
-end
-
-Base.@kwdef struct DRAM{P}
-    proposal_width::Float64 = 0.01
-    adaptation_interval::Int = 50
-    n_stages::Int = 3
-    proposal_scale::P = 0.5
 end
 
 # Removed unused flat buffers (alphas, D_values, N_values, etc.)

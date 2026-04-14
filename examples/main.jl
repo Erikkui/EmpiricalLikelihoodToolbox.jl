@@ -26,11 +26,13 @@ function run_test_mcmc()
     resampler = StandardResampling()
     lossfun = LogLikelihood( scaling_parameter = 1.0 )
     # sampler = AM( proposal_width = 0.01 )
-    sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
+    sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50 )
     priors = ( Uniform(0.0, 30.0), Uniform(0.0, 50.0), Uniform(0.0, 10.0) )
 
     summary_statistics = JointSummaryStatistics(
-        ChamferDistance(1)
+        CIL(10),
+        ID(10, 1),
+        CILDiff(10, 1, dt_obs)
         )
 
     methods_options = MethodsOptions(
@@ -45,7 +47,7 @@ function run_test_mcmc()
     mcmc_options = MCMCOptions(
         nsteps = chain_length,
         mcmc_algorithm = sampler,
-        update_interval = 50,
+        update_interval = 30,
         loss_function = lossfun,
         )
 
