@@ -54,12 +54,10 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     # Bookkeeping
     n_stuck = 0
 
-    if target.options.verbose
-        if discard_noisy_updates
-            pbar = nothing
-        else
-            pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
-        end
+    if discard_noisy_updates || !(target.options.verbose)
+        pbar = nothing
+    else
+        pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
     end
 
     println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
@@ -149,16 +147,20 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         end
 
         # Progress display update
-        if discard_noisy_updates && ii % 50 == 0
-            progress_text = round(ii/chain_length * 100, digits=1)
-            accepted_text = round.( results.acceptance ./ ii, digits=2 )
-            ss_text = round(state.ss_current, digits=2)
-            print("\rProgress: $progress_text% | Acc: $accepted_text | SS: $ss_text")
-        elseif !isnothing(pbar)
-            accepted_text = round.( results.acceptance ./ ii, digits=2 )
-            ss_text = round(state.ss_current, digits=2)
-            set_description(pbar, "Acc: $(accepted_text) SS: $(ss_text)")
-            update(pbar)
+        if target.options.verbose
+            if discard_noisy_updates && ii % 50 == 0
+                progress_text = round(ii/chain_length * 100, digits=1)
+                accepted_text = round.( results.acceptance ./ ii, digits=2 )
+                ss_text = round(state.ss_current, digits=2)
+                print("\rProgress: $progress_text% | Acc: $accepted_text | SS: $ss_text")
+            elseif !isnothing(pbar)
+                accepted_text = round.( results.acceptance ./ ii, digits=2 )
+                ss_text = round(state.ss_current, digits=2)
+                set_description(pbar, "Acc: $(accepted_text) SS: $(ss_text)")
+                update(pbar)
+            else
+                continue
+            end
         end
 
         # Advance the loop
