@@ -13,7 +13,7 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 2000
+    nrep_training = 5000
     nrep_sampling = nrep_training
     chain_length = 10000
 
@@ -25,14 +25,13 @@ function run_test_mcmc()
 
     resampler = StandardResampling()
     lossfun = LogLikelihood( scaling_parameter = 1.0 )
-    # sampler = AM( proposal_width = 0.01 )
-    sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50 )
+    sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
+    # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 1/100] )
     priors = ( Uniform(0.0, 30.0), Uniform(0.0, 50.0), Uniform(0.0, 10.0) )
 
     summary_statistics = JointSummaryStatistics(
         CIL(10),
-        ID(10, 1),
-        CILDiff(10, 1, dt_obs)
+        CILDiff(10, 1, dt_obs ),
         )
 
     methods_options = MethodsOptions(
@@ -49,6 +48,7 @@ function run_test_mcmc()
         mcmc_algorithm = sampler,
         update_interval = 30,
         loss_function = lossfun,
+        discard_noisy_updates = true,
         )
 
     target, training_summaries = TargetData( data, summary_statistics, methods_options; priors=priors )

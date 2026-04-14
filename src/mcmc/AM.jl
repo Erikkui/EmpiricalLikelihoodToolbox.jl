@@ -54,14 +54,15 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     # Bookkeeping
     n_stuck = 0
 
-    is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
-
     if target.options.verbose
-        println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
-        pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
-    else
-        pbar = nothing
+        if discard_noisy_updates
+            pbar = nothing
+        else
+            pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
+        end
     end
+
+    println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
 
     ii = 1
     while ii <= chain_length
@@ -108,7 +109,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
                     ss_current = calculate_loss( state.current_params, target, model, loss )
 
-                    @reset state.ss_current = ss_proposal
+                    @reset state.ss_current = ss_current
                     results.stuck_kicks[] += 1
 
                     n_stuck = 0 # Reset counter
@@ -119,7 +120,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                     # Standard behavior: Just kick it to recalculate, do not "rewind time".
                     ss_recalc = calculate_loss( state.current_params, target, model, loss )
 
-                    @reset state.ss_current = ss_proposal
+                    @reset state.ss_current = ss_recalc
                     results.stuck_kicks[] += 1
 
                     n_stuck = 0 # Reset counter
@@ -148,14 +149,16 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         end
 
         # Progress display update
-        if is_master_thread
-            if discard_noisy_updates && ii % 100 == 0
-                print("\rProgress: $(round(ii/chain_length * 100, digits=1))% | Acc: $(round(n_accepted/ii, digits=2)) | SS: $(round(state.ss_current, digits=2))")
-            elseif !isnothing(pbar)
-                accepted_text = round.( results.acceptance ./ ii, digits=2 )
-                set_description(pbar, "Acc: $(accepted_text) SS: $(round(state.ss_current, digits=2))")
-                update(pbar)
-            end
+        if discard_noisy_updates && ii % 100 == 0
+            progress_text = round(ii/chain_length * 100, digits=1)
+            accepted_text = round.( results.acceptance ./ ii, digits=2 )
+            ss_text = round(state.ss_current, digits=2)
+            print("\rProgress: $progress_text% | Acc: $accepted_text | SS: $ss_text")
+        elseif !isnothing(pbar)
+            accepted_text = round.( results.acceptance ./ ii, digits=2 )
+            ss_text = round(state.ss_current, digits=2)
+            set_description(pbar, "Acc: $(accepted_text) SS: $(ss_text)")
+            update(pbar)
         end
 
         # Advance the loop

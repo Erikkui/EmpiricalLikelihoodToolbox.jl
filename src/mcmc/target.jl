@@ -103,7 +103,7 @@ function TargetData(
     )
 
     if isnothing( priors )
-        priors = ( nothing )
+        priors = ( nothing, )
     end
 
     statistics = summary_stats.statistics

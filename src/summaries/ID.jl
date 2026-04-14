@@ -11,7 +11,7 @@ function ID( nbin::Int, neighbors::Int )
 end
 
 function ID( nbin::Int, neighbors::AbstractVector{<:Int} )
-    return ID( nothing, nbin, vec(neighbors), nbin )
+    return ID( nothing, nbin, vec(neighbors), length(neighbors)*nbin )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization

@@ -6,8 +6,8 @@ A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
 # Fields
 - `proposal_width::Float64`: The width of the proposal distribution (default: 0.01).
 - `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
-- `n_stages::Int`: The number of proposal stages, INCLUDING the initial proposal) (default: 3).
-- `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages-1 specifying the scale for each stage (default: 0.5).
+- `n_stages::Int`: The number of proposal stages, INCLUDING the initial proposal) (default: 2).
+- `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages specifying the scale for each stage (default: [1, 0.5]).
 
 """
 Base.@kwdef struct DRAM{P}
