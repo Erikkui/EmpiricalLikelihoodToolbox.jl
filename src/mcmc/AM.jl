@@ -165,9 +165,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         ii += 1
     end
 
-    if is_master_thread && discard_noisy_updates
-        println()
-    end
+    println()
 
     return results, state
 end
