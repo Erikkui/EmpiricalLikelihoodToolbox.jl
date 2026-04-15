@@ -22,6 +22,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     update_interval = mcmc_options.update_interval
     loss = mcmc_options.loss_function
     discard_noisy_updates = mcmc_options.discard_noisy_updates
+    verbose = target.options.verbose
 
     npar = get_params( model ) |> length
     chain = results.chain
@@ -54,7 +55,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     # Bookkeeping
     n_stuck = 0
 
-    if discard_noisy_updates || !(target.options.verbose)
+    if discard_noisy_updates || !verbose
         pbar = nothing
     else
         pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
@@ -103,7 +104,6 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                     copyto!( state.current_params, backup_params )
                     copyto!( running_mean, backup_mean )
                     copyto!( running_cov, backup_cov )
-                    ii = backup_ii      # Move back the chain index to the last accepted position
 
                     ss_current = calculate_loss( state.current_params, target, model, loss )
 
@@ -147,7 +147,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         end
 
         # Progress display update
-        if target.options.verbose
+        if verbose
             if discard_noisy_updates && ii % 50 == 0
                 progress_text = round(ii/chain_length * 100, digits=1)
                 accepted_text = round.( results.acceptance ./ ii, digits=2 )
@@ -158,8 +158,6 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                 ss_text = round(state.ss_current, digits=2)
                 set_description(pbar, "Acc: $(accepted_text) SS: $(ss_text)")
                 update(pbar)
-            else
-                continue
             end
         end
 

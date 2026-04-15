@@ -13,10 +13,10 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 5000
-    chain_length = 10000
+    nrep_training = 3000
+    chain_length = 5000
 
-    Ndata = 1000
+    Ndata = 500
     dt_obs = 1.0
 
     model = Lorenz63Model( dt_obs = dt_obs )
