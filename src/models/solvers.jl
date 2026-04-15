@@ -14,8 +14,6 @@ function solve_model( model::AbstractSimulationModel, t_end::Float64; rng=Random
         trajectory[:, ii] .= current_state
     end
 
-    # println( "traj: ", size(trajectory) )
-    # sleep(2)
     return trajectory
 end
 
@@ -47,4 +45,48 @@ function solve_model(model::Lorenz63Model, t_end::Float64; rng=Random.default_rn
     end
 
     return stack(raw_sol)
+end
+
+# Blowfly model solver requires a custom implementation due to its custom discretization
+function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rng() )
+
+    # Unpack parameters
+    delta, P, N_0, sigma2_p, tau, sigma2_d = get_params(model)
+
+    burn_in = model.burn_in
+    mu = model.mu
+    N_init = model.x0
+
+    # Initializing needed variables
+    lag = Int( round(tau) ) > 0 ? Int( round(tau) ) : 1     # Lag time in days
+    total_time = round( Int, t_end ) + lag + burn_in
+    N = Matrix{Float64}(undef, 1, total_time )  # Population size vector
+    N[ 1, 1:lag ] .= N_init  # Initializing first lag days with N_init
+
+    gamma_p = Gamma( mu^2/sigma2_p, sigma2_p/mu )   # Gamma distribution for reproduction rate
+    gamma_d = Gamma( mu^2/sigma2_d, sigma2_d/mu )   # Gamma distribution for death rate
+    ee = rand( rng, gamma_p, total_time )                # Reproduction rate noise
+    epsilon = rand( rng, gamma_d, total_time )           # Death rate noise
+
+    # Iterate over time steps; first burn in period, then actual simulation
+    # Note: We start from lag+1 because we need to access N[ii - lag]
+    for ii in lag+1:total_time
+        Nlag = @view N[ 1, ii - lag ]       # Population size at lag time
+        Nprev = @view N[ 1, ii - 1 ]        # Population size at previous time step
+        ee_t = @view ee[ ii - 1 ]           # Reproduction rate noise at lag time
+        epsilon_t = @view epsilon[ ii - 1 ] # Death rate noise at lag time
+
+        # Expected values: R ~ Poisson, S ~ binom
+        R_t = P*Nlag*exp.( -Nlag/N_0 ).*ee_t      # E(X) = lambda
+        S_t = Nprev*exp.( -delta*epsilon_t )      # E(X) = n*p
+        N[ii] = R_t + S_t[]
+    end
+
+    # Remove initial lag and burn-in period from N
+    N = N[:, lag+1+burn_in:end]
+
+    # Remove burn-in period
+    # N_burned = @view N[ 1:1, 1+burn_in:end ]
+
+    return N
 end

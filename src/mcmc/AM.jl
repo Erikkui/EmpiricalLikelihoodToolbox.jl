@@ -75,12 +75,15 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         ss_proposal = calculate_loss( params_proposal, target, model, loss )
         ss_proposal += evaluate_log_prior( params_proposal, target.priors )
 
+        # println("Proposed parameters: ", params_proposal,  "| Proposal SS: ", ss_proposal, " | iteration: ", ii)
+
         # 2. Metropolis accept/reject
         log_ratio = ss_proposal - state.ss_current
         rd = log( rand() )
         accepted = rd < log_ratio
 
         if accepted
+            # println("Accepted proposal at iteration $ii with log ratio: ", log_ratio)
             # Create a backup of the last known "good" state before accepting the new proposal
             copyto!( backup_params, state.current_params )
             copyto!( backup_mean, running_mean )

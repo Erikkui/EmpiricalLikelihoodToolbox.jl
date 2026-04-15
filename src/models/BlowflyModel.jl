@@ -1,0 +1,72 @@
+"""
+    BlowflyModel{T}
+
+A struct for the chaotic Lorenz 1963 dynamical system.
+
+# Fields
+- `delta::Float64`: (default: 0.16).
+- `P::Float64`: (default: 6.5).
+- `N0::Float64`: (default: 400).
+- `sigma2_p::Float64`: (default: 0.1).
+- `tau::Float64`: (default: 14).
+- `sigma2_d::Float64`: (default: 0.1).
+- `x0::T`: The initial state of the system. Default: [12.0, 19.0, 23.0].
+- `dt_obs::Float64`: The observation time step (default: 1.0).
+
+# Examples
+model = BlowflyModel(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
+"""
+Base.@kwdef struct BlowflyModel <: AbstractSimulationModel
+    delta::Float64 = 0.16
+    P::Float64    = 6.5
+    N0::Float64   = 400.0
+    sigma2_p::Float64 = 0.1
+    tau::Float64 = 14.0
+    sigma2_d::Float64 = 0.1
+    x0::Int = 180
+    dt_obs::Float64 = 1.0
+    dt_sol::Float64 = 1.0
+    dim::Int = length(x0)
+    burn_in::Int = 20
+    mu::Float64 = 1.0
+end
+
+function BlowflyModel(theta::AbstractVector{<:Real}; kwargs...)
+    # Unpack the vector
+    d, p, n, sigma2_p, tau, sigma2_d = theta
+
+    # Pass them as keywords to the keyword-based constructor
+    return BlowflyModel(;
+        delta = d,
+        P = p,
+        N0 = n,
+        sigma2_p = sigma2_p,
+        tau = tau,
+        sigma2_d = sigma2_d,
+        kwargs...
+    )
+end
+
+initial_state(m::BlowflyModel) = m.x0
+
+
+function get_params(m::BlowflyModel)
+    return [m.delta, m.P, m.N0, m.sigma2_p, m.tau, m.sigma2_d]
+end
+
+function reconstruct(m::BlowflyModel, new_params)
+    return BlowflyModel(
+        delta = new_params[1],
+        P = new_params[2],
+        N0 = new_params[3],
+        sigma2_p = new_params[4],
+        tau = new_params[5],
+        sigma2_d = new_params[6],
+        x0 = m.x0,
+        dt_obs = m.dt_obs,
+        dt_sol = m.dt_sol,
+        dim = m.dim,
+        burn_in = m.burn_in,
+        mu = m.mu
+    )
+end

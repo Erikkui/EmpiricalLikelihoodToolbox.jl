@@ -44,6 +44,7 @@ end
 function calculate_loss( params, target, model, loss_function )
 
     logprior = evaluate_log_prior( params, target.priors )
+
     if isinf( logprior )
         return -Inf
     end

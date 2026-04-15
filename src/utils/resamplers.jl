@@ -19,20 +19,19 @@ end
 
 
 # Time series resampling: sample a contiguous block from the data
-function (::TimeseriesResampling)( data::AbstractMatrix{<:Real}, options::MethodsOptions, index_cache )
-    ntot = size( data, 2 )
+function (::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
     block_size = options.timeseries_block_size
 
     start_ind = rand( index_cache[1:(end-block_size)] )
     end_ind = start_ind + block_size
-    x_inds = start_ind:end_ind
-    y_inds = setdiff( obs_inds, x_inds )
+    x_inds = @view index_cache[ start_ind:end_ind ]
+    y_inds = setdiff( index_cache, x_inds )
 
-    x = @view data[ :, x_inds ]
-    y = @view data[ :, y_inds ]
-    return x, y
+    # x = @view data[ :, x_inds ]
+    # y = @view data[ :, y_inds ]
+    return x_inds, y_inds
 end
 
 function get_index_size( sampler::TimeseriesResampling, data, options )
-    return options.timeseries_block_size
+    return length( data )
 end
