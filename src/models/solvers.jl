@@ -26,7 +26,7 @@ function solve_model(model::Lorenz63Model, t_end::Float64; rng=Random.default_rn
     noise = SVector( randn(rng), randn(rng), randn(rng) )
     u0 = SVector{3}( model.x0 ) .* (1.0 .+ 0.01 .* noise)
 
-    params = SVector{3}( get_params(model) )
+    params = SVector{3}( collect( get_params(model) ) )
 
     t_start = 10.0 * dt_obs
     t_end   = t_start + t_end

@@ -8,7 +8,7 @@ Base.@kwdef struct OUModel{T} <: AbstractSimulationModel
     dim::Int = length(x0)
 end
 
-initial_state(m::OUModel) = m.x0
+# initial_state(m::OUModel) = m.x0
 
 function step!(rng::AbstractRNG, m::OUModel, x, dt_sol)
     # Euler-Maruyama discretization
@@ -17,9 +17,14 @@ function step!(rng::AbstractRNG, m::OUModel, x, dt_sol)
 end
 
 function get_params(m::OUModel)
-    return [m.theta, m.mu, m.sigma]
+    param_tuple = (
+        theta = m.theta,
+        mu = m.mu,
+        sigma = m.sigma
+    )
+    return param_tuple
 end
 
-function reconstruct(m::OUModel, new_params)
-    return OUModel(new_params[1], new_params[2], new_params[3], m.x0, m.dt_obs, m.dt_sol, m.dim)
-end
+# function reconstruct(m::OUModel, new_params)
+#     return OUModel(new_params[1], new_params[2], new_params[3], m.x0, m.dt_obs, m.dt_sol, m.dim)
+# end

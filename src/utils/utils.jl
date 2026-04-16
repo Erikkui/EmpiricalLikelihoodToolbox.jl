@@ -124,3 +124,13 @@ function recursive_welford!( running_mean, running_cov, current_params, diff1, d
         end
     end
 end
+
+# Reconstruct a new model instance with updated parameters. This is a generic function that can be used for any model type.
+function reconstruct( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
+    param_names = keys( get_params(m) )
+    param_values = ntuple( ii -> new_params[ii], length(param_names) )
+    new_param_tuple = NamedTuple{ param_names }( param_values )
+    return setproperties(m, new_param_tuple)
+end
+
+initial_state( m::AbstractSimulationModel ) = m.x0

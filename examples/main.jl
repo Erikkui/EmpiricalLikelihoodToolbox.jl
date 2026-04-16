@@ -27,7 +27,7 @@ function run_test_mcmc()
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
-    default_params = get_params( model )
+    default_params = collect( get_params( model ) )
     initial_params = default_params .+ 0.01 .* abs.(randn( npar ))
 
     # fig = Figure()
@@ -73,7 +73,7 @@ function run_test_mcmc()
 
     results, state = mcmcrun( target, model, mcmc_options )
 
-    true_params = get_params( model )
+    true_params = collect( get_params( model ) )
     npara = size(results.chain, 1)
     fig = Figure(size=(1200, 200*npara))
     for i in 1:npara

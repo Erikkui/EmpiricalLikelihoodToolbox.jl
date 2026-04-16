@@ -37,7 +37,7 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
 
     chain_length = mcmc_options.nsteps
 
-    model_params = get_params( model )
+    model_params = get_params( model ) |> collect
     npar = length( model_params )
 
     # Set uninformative priors if not provided
