@@ -35,9 +35,14 @@ function lorenz_static(u, p, t)
 end
 
 function get_params(m::Lorenz63Model)
-    return [m.sigma, m.rho, m.beta]
+    param_tuple = (
+        sigma = m.sigma,
+        rho = m.rho,
+        beta = m.beta
+    )
+    return param_tuple
 end
 
-function reconstruct(m::Lorenz63Model, new_params)
-    return Lorenz63Model(new_params[1], new_params[2], new_params[3], m.x0, m.dt_obs, m.dt_sol, m.dim)
-end
+# function reconstruct(m::Lorenz63Model, new_params)
+#     return Lorenz63Model(new_params[1], new_params[2], new_params[3], m.x0, m.dt_obs, m.dt_sol, m.dim)
+# end

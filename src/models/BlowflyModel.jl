@@ -1,7 +1,7 @@
 """
     BlowflyModel{T}
 
-A struct for the chaotic Lorenz 1963 dynamical system.
+A struct for the Nicholson blowfly model, which is a delay differential equation model of blowfly population dynamics.
 
 # Fields
 - `delta::Float64`: (default: 0.16).
@@ -10,7 +10,7 @@ A struct for the chaotic Lorenz 1963 dynamical system.
 - `sigma2_p::Float64`: (default: 0.1).
 - `tau::Float64`: (default: 14).
 - `sigma2_d::Float64`: (default: 0.1).
-- `x0::T`: The initial state of the system. Default: [12.0, 19.0, 23.0].
+- `x0::T`: The initial population. Default: 180.
 - `dt_obs::Float64`: The observation time step (default: 1.0).
 
 # Examples

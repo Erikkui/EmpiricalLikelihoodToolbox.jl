@@ -40,6 +40,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary::CIL,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
@@ -49,13 +50,12 @@ function calculate_summary_statistic!(  # To be used in MCMC
 
     R0 = obs_data_all.observations
     Rsim = sim_data_all.observations
-    rsim_half = round( Int, size(Rsim, 2) / 2 )
 
     key = nameof( typeof(summary) )
     buffer = buffers.summary_buffers[ key ]
 
     data_X = @view R0[ :, x_inds ]
-    data_Y = @view Rsim[ :, rsim_half+1:end ]
+    data_Y = @view Rsim[ :, y_inds ]
 
     pairwise!( buffer, Euclidean(), data_X, data_Y ) |> vec
 

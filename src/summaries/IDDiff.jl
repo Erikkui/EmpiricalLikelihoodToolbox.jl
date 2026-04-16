@@ -62,6 +62,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary_statistic::IDDiff,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
@@ -74,14 +75,13 @@ function calculate_summary_statistic!(  # To be used in MCMC
 
     R0_diff = obs_data_all.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
-    rsim_half = round( Int, size(Rsim_diff, 2) / 2 )
 
     key = nameof( typeof(summary_statistic) )
     dist_buffer = buffers.summary_buffers[ key ].dist_buffer
     ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
 
     data_X = @view R0_diff[ :, x_inds ]
-    data_Y = @view Rsim_diff[ :, rsim_half+1:end ]
+    data_Y = @view Rsim_diff[ :, y_inds ]
 
     pairwise!( dist_buffer, Euclidean(), data_X, data_Y )
 
@@ -127,9 +127,16 @@ function get_bin_quantity( summary_statistic::IDDiff, data::DataContainer, inds_
 end
 
 function allocate_buffer( statistic::IDDiff, data::DataContainer )
-    dim = round( Int, size( data.differences[statistic.diff_order], 2 ) / 2 )
-    dist_buffer = Matrix{Float64}( undef, dim, dim )
-    ratio_buffer = Vector{Float64}( undef, dim )
+    if data.options.resampling_type isa TimeseriesResampling
+        rows = data.options.timeseries_block_size
+        cols = size( data.observations, 2 ) - rows
+    else
+        rows = round( Int, size( data.observations, 2 ) / 2 )
+        cols = rows
+    end
+
+    dist_buffer = Matrix{Float64}( undef, rows, cols )
+    ratio_buffer = Vector{Float64}( undef, rows )
     return ( dist_buffer=dist_buffer, ratio_buffer=ratio_buffer )
 end
 

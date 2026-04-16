@@ -57,6 +57,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary_statistic::ID,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
@@ -68,14 +69,13 @@ function calculate_summary_statistic!(  # To be used in MCMC
 
     R0 = obs_data_all.observations
     Rsim = sim_data_all.observations
-    rsim_half = round( Int, size(Rsim, 2) / 2 )
 
     key = nameof( typeof(summary_statistic) )
     dist_buffer = buffers.summary_buffers[ key ].dist_buffer
     ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
 
     data_X = @view R0[ :, x_inds ]
-    data_Y = @view Rsim[ :, rsim_half+1:end ]
+    data_Y = @view Rsim[ :, y_inds ]
 
     pairwise!( dist_buffer, Euclidean(), data_X, data_Y )
 
@@ -120,9 +120,16 @@ function get_bin_quantity( summary_statistic::ID, data::DataContainer, inds_X, i
 end
 
 function allocate_buffer( statistic::ID, data::DataContainer )
-    dim = round( Int, size( data.observations, 2 ) / 2 )
-    dist_buffer = Matrix{Float64}( undef, dim, dim )
-    ratio_buffer = Vector{Float64}( undef, dim )
+    if data.options.resampling_type isa TimeseriesResampling
+        rows = data.options.timeseries_block_size
+        cols = size( data.observations, 2 ) - rows
+    else
+        rows = round( Int, size( data.observations, 2 ) / 2 )
+        cols = rows
+    end
+
+    dist_buffer = Matrix{Float64}( undef, rows, cols )
+    ratio_buffer = Vector{Float64}( undef, rows )
     return ( dist_buffer=dist_buffer, ratio_buffer=ratio_buffer )
 end
 

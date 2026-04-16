@@ -39,6 +39,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary::CILDiff,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
@@ -49,13 +50,12 @@ function calculate_summary_statistic!(  # To be used in MCMC
 
     R0_diff = obs_data_all.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
-    rsim_half = round( Int, size(Rsim_diff, 2) / 2 )
 
     key = nameof( typeof(summary) )
     buffer = buffers.summary_buffers[ key ]
 
     data_X = @view R0_diff[ :, x_inds ]
-    data_Y = @view Rsim_diff[ :, rsim_half+1:end ]
+    data_Y = @view Rsim_diff[ :, y_inds ]
 
     pairwise!( buffer, Euclidean(), data_X, data_Y ) |> vec
 
@@ -74,11 +74,13 @@ end
 
 function allocate_buffer( statistic::CILDiff, data::DataContainer )
     if data.options.resampling_type isa TimeseriesResampling
-        len = data.options.timeseries_block_size
+        rows = data.options.timeseries_block_size
+        cols = size( data.observations, 2 ) - rows
     else
-        len = round( Int, size( data.observations, 2 ) / 2 )
+        rows = round( Int, size( data.observations, 2 ) / 2 )
+        cols = rows
     end
-    buffer = Matrix{Float64}( undef, len, len )
+    buffer = Matrix{Float64}( undef, rows, cols )
     return buffer
 end
 

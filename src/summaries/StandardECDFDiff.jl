@@ -34,6 +34,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary_statistic::StandardECDFDiff,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )

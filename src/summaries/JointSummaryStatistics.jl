@@ -37,6 +37,7 @@ end
 function (SS::JointSummaryStatistics)(
     view_in,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data::DataContainer,
     sim_data::DataContainer,
     buffers::BufferContainer )
@@ -50,7 +51,7 @@ function (SS::JointSummaryStatistics)(
         end_ind = start_ind + summary_length - 1
         view_out = @view view_in[ start_ind:end_ind ]
 
-        calculate_summary_statistic!( view_out, summary, x_inds, obs_data, sim_data, buffers )
+        calculate_summary_statistic!( view_out, summary, x_inds, y_inds, obs_data, sim_data, buffers )
 
         start_ind += summary_length
     end

@@ -50,13 +50,13 @@ function calculate_summary_statistic!(      # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary_statistic::ChamferECDF,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
     R0 = obs_data_all.observations
-    rsim_half = round( Int, size(sim_data_all.observations, 2) / 2 )
-    Rsim = @view sim_data_all.observations[ :, rsim_half+1:end ]
+    Rsim = @view sim_data_all.observations[ :, y_inds]
     ytree = KDTree( Rsim )
 
     nbins = summary_statistic.nbin
@@ -66,11 +66,11 @@ function calculate_summary_statistic!(      # To be used in MCMC
     buffer = buffers.summary_buffers[ key ]
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
+    resampler = obs_data_all.options.resampling_type
     n_resample = obs_data_all.options.training_resamplings
     chamfers = zeros( n_resample, summary_statistic.highest_neighbor )
     for ii in 1:n_resample
-
-        x_inds, _ = obs_data_all.options.resampling_type( obs_data_all, obs_data_all.options, buffers.index_cache )
+        x_inds, _ = resampler( obs_data_all, obs_data_all.options, buffers.index_cache )
         data_X = @view R0[ :, x_inds ]
         chamfer_distance!( buffer, data_X, Rsim, ytree, k=summary_statistic.highest_neighbor )
         chamfers[ii, :] .= buffer

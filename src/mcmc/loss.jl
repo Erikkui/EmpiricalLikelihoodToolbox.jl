@@ -31,8 +31,8 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     sim_statistic = buffers.simulation_statistic
     for ii in 1:n_summaries
         view_in = @view resample_buffer[ :, ii ]
-        x_inds, _ = resampler( R0_all, options, index_cache )
-        summaries( view_in, x_inds, R0_all, Rsim_container, buffers )
+        x_inds, y_inds = resampler( R0_all, options, index_cache )
+        summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
     end
     # copyto!( sim_statistic, vec( mean(resample_buffer, dims=2) ) )
 

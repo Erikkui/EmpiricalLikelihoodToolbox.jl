@@ -23,7 +23,7 @@ function (::TimeseriesResampling)( data::DataContainer, options::MethodsOptions,
     block_size = options.timeseries_block_size
 
     start_ind = rand( index_cache[1:(end-block_size)] )
-    end_ind = start_ind + block_size
+    end_ind = start_ind + block_size - 1
     x_inds = @view index_cache[ start_ind:end_ind ]
     y_inds = setdiff( index_cache, x_inds )
 

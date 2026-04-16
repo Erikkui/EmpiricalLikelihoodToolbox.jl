@@ -13,7 +13,7 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 5000
+    nrep_training = 2000
     chain_length = 10000
 
     n_loss_evals = 1
@@ -23,7 +23,7 @@ function run_test_mcmc()
     dt_obs = 1.0
     timeseries_block_size = 100
 
-    model = BlowflyModel( dt_obs = dt_obs, burn_in = 100 )
+    model = BlowflyModel( dt_obs = dt_obs )
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
@@ -45,9 +45,7 @@ function run_test_mcmc()
 
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF(10),
-        StandardECDFDiff(10, 1, dt_obs),
-        ChamferDistance( 1:10 )
+        ChamferECDF( 10, 1 )
         )
 
     methods_options = MethodsOptions(

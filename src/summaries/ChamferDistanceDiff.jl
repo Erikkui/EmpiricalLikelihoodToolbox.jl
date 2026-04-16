@@ -38,6 +38,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     view_out::AbstractVector{Float64},
     summary_statistic::ChamferDistanceDiff,
     x_inds::AbstractVector{<:Integer},
+    y_inds::AbstractVector{<:Integer},
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
@@ -45,9 +46,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     diff_order = summary_statistic.diff_order
 
     data_X = @view obs_data_all.differences[ diff_order ][ :, x_inds ]
-
-    rsim_half = round( Int, size(sim_data_all.observations, 2) / 2 )
-    Rsim = @view sim_data_all.differences[ diff_order ][ :, rsim_half+1:end ]
+    Rsim = @view sim_data_all.differences[ diff_order ][ :, y_inds ]
     ytree = KDTree( Rsim )
 
     max_neighbor = summary_statistic.highest_neighbor
