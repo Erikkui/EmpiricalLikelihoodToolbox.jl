@@ -72,11 +72,13 @@ end
 
 function allocate_buffer( statistic::CIL, data::DataContainer )
     if data.options.resampling_type isa TimeseriesResampling
-        len = data.options.timeseries_block_size
+        rows = data.options.timeseries_block_size
+        cols = size( data.observations, 2 ) - rows
     else
-        len = round( Int, size( data.observations, 2 ) / 2 )
+        rows = round( Int, size( data.observations, 2 ) / 2 )
+        cols = rows
     end
-    buffer = Matrix{Float64}( undef, len, len )
+    buffer = Matrix{Float64}( undef, rows, cols )
     return buffer
 end
 

@@ -14,6 +14,8 @@ function solve_model( model::AbstractSimulationModel, t_end::Float64; rng=Random
         trajectory[:, ii] .= current_state
     end
 
+    trajectory = trajectory[:, obs_inds]
+
     return trajectory
 end
 

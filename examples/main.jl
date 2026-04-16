@@ -14,10 +14,10 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    chain_length = 20000
+    chain_length = 10000
 
     n_loss_evals = 1
-    n_summaries = 10
+    n_summaries = 1
 
     Ndata = 400
     dt_obs = 1.0
@@ -30,11 +30,11 @@ function run_test_mcmc()
     default_params = get_params( model )
     initial_params = default_params .+ 0.01 .* abs.(randn( npar ))
 
-    fig = Figure()
-    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    lines!(ax, collect(1:Ndata), vec(data))
-    display(fig)
-    sleep(10)
+    # fig = Figure()
+    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    # lines!(ax, collect(1:Ndata), vec(data))
+    # display(fig)
+    # sleep(10)
 
     # resampler = StandardResampling()
     resampler = TimeseriesResampling()
