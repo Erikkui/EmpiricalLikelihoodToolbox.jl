@@ -108,9 +108,10 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                     copyto!( running_mean, backup_mean )
                     copyto!( running_cov, backup_cov )
 
-                    ss_current = calculate_loss( state.current_params, target, model, loss )
+                    ss_recalc = calculate_loss( state.current_params, target, model, loss )
+                    ss_recalc += evaluate_log_prior( state.current_params, target.priors )
 
-                    @reset state.ss_current = ss_current
+                    @reset state.ss_current = ss_recalc
                     results.stuck_kicks[] += 1
 
                     n_stuck = 0 # Reset counter
@@ -120,6 +121,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                 else
                     # Standard behavior: Just kick it to recalculate, do not "rewind time".
                     ss_recalc = calculate_loss( state.current_params, target, model, loss )
+                    ss_recalc += evaluate_log_prior( state.current_params, target.priors )
 
                     @reset state.ss_current = ss_recalc
                     results.stuck_kicks[] += 1

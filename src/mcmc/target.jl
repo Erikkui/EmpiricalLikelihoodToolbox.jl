@@ -89,8 +89,7 @@ function train_target( statistics, data_container, buffer_container, options )
 
     mean_summary = mean( training_summaries, dims=2 ) |> vec
     C = cov( training_summaries' )
-    inverse_cov = pinv( C )
-    return mean_summary, inverse_cov, training_summaries
+    return mean_summary, C, training_summaries
 end
 
 
@@ -99,7 +98,8 @@ function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
     options::MethodsOptions;
-    priors = nothing
+    priors = nothing,
+    loss = nothing
     )
 
     if isnothing( priors )
@@ -122,7 +122,23 @@ function TargetData(
     statistics = JointSummaryStatistics( statistics )
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target
-    mean_summary, inverse_cov, training_summaries = train_target( statistics, data_container, buffer_container, options )
+    mean_summary, cov_mat, training_summaries = train_target( statistics, data_container, buffer_container, options )
+    inv_cov_mat = pinv( cov_mat )
+
+    # Calculate standardization factors for loss function if requested
+    mean_standardization = nothing
+    sd_standardization = nothing
+    if options.standardize
+        mean_standardization = 0.0
+        sd_standardization = 0.0
+        for col in eachcol( training_summaries )
+            temp = loss( col, mean_summary, inv_cov_mat )
+            mean_standardization += temp
+            sd_standardization += (temp - mean_standardization)^2
+        end
+        mean_standardization /= training_resamplings
+        sd_standardization = sqrt( sd_standardization / training_resamplings )
+    end
 
     target = TargetData(
         data_container,
@@ -131,8 +147,10 @@ function TargetData(
         options,
         buffer_container,
         mean_summary,
-        inverse_cov,
-        total_summary_length )
+        inv_cov_mat,
+        total_summary_length,
+        mean_standardization,
+        sd_standardization )
 
     return target, training_summaries
 end

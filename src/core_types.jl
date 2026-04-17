@@ -28,6 +28,7 @@ Base.@kwdef struct MethodsOptions{R, T}
     n_summaries::Int = 1
     n_loss_evals::Int = 1
     timeseries_block_size::T = nothing
+    standardize::Bool = false
     verbose::Bool = false
 end
 
@@ -61,7 +62,7 @@ Base.@kwdef struct MCMCOptions{A, G, F}
 end
 
 #------------MCMC target
-struct TargetData{C, S, P, O, B}
+struct TargetData{C, S, P, O, B, T}
     data::C
     summary_statistics::S
     priors::P
@@ -70,4 +71,6 @@ struct TargetData{C, S, P, O, B}
     obs_mean::Vector{Float64}
     inverse_cov::Matrix{Float64}
     summary_length::Int
+    standardization_mean::T
+    standardization_sd::T
 end

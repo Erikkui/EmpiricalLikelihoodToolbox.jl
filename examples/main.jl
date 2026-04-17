@@ -13,17 +13,22 @@ using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
-    nrep_training = 2000
+    nrep_training = 5000
     chain_length = 10000
+
+    nbin = 10
+    knn = 1
 
     n_loss_evals = 1
     n_summaries = 1
 
-    Ndata = 400
+    Ndata = 1000
     dt_obs = 1.0
     timeseries_block_size = 100
 
-    model = BlowflyModel( dt_obs = dt_obs )
+    standardize = true
+
+    model = Lorenz63Model( dt_obs = dt_obs )
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
@@ -36,8 +41,8 @@ function run_test_mcmc()
     # display(fig)
     # sleep(10)
 
-    # resampler = StandardResampling()
-    resampler = TimeseriesResampling()
+    resampler = StandardResampling()
+    # resampler = TimeseriesResampling()
     lossfun = LogLikelihood( scaling_parameter = 1.0 )
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 1/100] )
@@ -45,7 +50,7 @@ function run_test_mcmc()
 
 
     summary_statistics = JointSummaryStatistics(
-        ChamferECDF( 10, 1 )
+        ChamferDistance( knn )
         )
 
     methods_options = MethodsOptions(
@@ -55,6 +60,7 @@ function run_test_mcmc()
         timeseries_block_size=timeseries_block_size,
         n_loss_evals = n_loss_evals,
         n_summaries = n_summaries,
+        standardize = standardize,
         verbose = true
         )
 
@@ -67,7 +73,7 @@ function run_test_mcmc()
         discard_noisy_updates = false,
         )
 
-    target, training_summaries = TargetData( data, summary_statistics, methods_options; priors = priors )
+    target, training_summaries = TargetData( data, summary_statistics, methods_options; priors = priors, loss = lossfun )
 
     results, state = mcmcrun( target, model, mcmc_options )
 
