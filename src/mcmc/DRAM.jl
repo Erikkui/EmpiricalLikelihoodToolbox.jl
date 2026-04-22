@@ -124,6 +124,8 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
     chain_length = mcmc_options.nsteps
     loss = mcmc_options.loss_function
 
+    verbose = target.options.verbose
+
     npar = get_params( model ) |> length
     chain = results.chain
     sschain = results.sschain
@@ -162,8 +164,8 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
-    if target.options.verbose
-        pbar = ProgressBar( 1:chain_length, printing_delay=0.1 )
+    if verbose
+        pbar = ProgressBar( 1:chain_length, printing_delay=0.25)
     else
         pbar = nothing
     end

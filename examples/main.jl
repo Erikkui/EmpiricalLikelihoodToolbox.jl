@@ -8,8 +8,7 @@
 
 using EmpiricalLikelihoodToolbox
 using Distributions
-using CairoMakie
-
+# using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax

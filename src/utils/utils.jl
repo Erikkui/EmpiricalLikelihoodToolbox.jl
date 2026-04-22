@@ -36,6 +36,9 @@ function calculate_diffs(R, diff_order::Tuple{Vararg{Int}}, dt_obs::Float64)
     return R_diffs
 end
 
+
+# Same as above but mutates the provided buffer instead of allocating new matrices.
+# This is used in the MCMC loop to avoid allocations.
 function calculate_diffs!( diff_buffer, R, diff_order::Tuple{Vararg{Int}}, dt_obs::Float64)
     order_max = maximum(diff_order)
 
@@ -71,7 +74,7 @@ function calculate_diffs!( diff_buffer, R, diff_order::Tuple{Vararg{Int}}, dt_ob
 end
 
 
-# Inverse CDF function
+# Inverse CDF function for y-axis based bin creation
 function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
     xi = x[:]
     cdfi = cdf[:]
@@ -95,6 +98,9 @@ function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
     return r
 end
 
+
+# Recursive Welford's algorithm for online mean and covariance estimation.
+# This is used in the adaptive MCMC loops to update the mean and covariance of the parameters without storing all samples.
 function recursive_welford!( running_mean, running_cov, current_params, diff1, diff2, npar, ii )
     if ii == 1
         running_mean .= current_params
@@ -125,7 +131,9 @@ function recursive_welford!( running_mean, running_cov, current_params, diff1, d
     end
 end
 
-# Reconstruct a new model instance with updated parameters. This is a generic function that can be used for any model type.
+
+# Reconstruct a new model instance with updated parameters.
+# This is a generic function that can be used for any model type.
 function reconstruct( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
     param_names = keys( get_params(m) )
     param_values = ntuple( ii -> new_params[ii], length(param_names) )
@@ -133,6 +141,28 @@ function reconstruct( m::AbstractSimulationModel, new_params::AbstractVector{<:R
     return setproperties(m, new_param_tuple)
 end
 
+
+# Get the initial state of a model.
 initial_state( m::AbstractSimulationModel ) = m.x0
 
+# Standardize summary statistics using provided mean and standard deviation.
 standardize!( ss, standard_mean, standard_sd ) = ( ss - standard_mean ) / standard_sd
+
+
+# Clean "show" method for printing summary statistic objects without printing the entire
+# structure including type signatures. This works for string() and print() commands.
+function Base.show( io::IO, summary::AbstractSummaryStatistic )
+    # Get the name without the {Type} brackets
+    summary_type = typeof(summary)
+    type_name = nameof( summary_type )
+
+    # Get all field values as a tuple
+
+    field_values = ( something( getfield( summary, field ), "-") for field in fieldnames( summary_type ) )
+
+    # Print it in the format: Name(val1, val2, ...)
+    print( io, "$type_name(", join(field_values, ", "), ")")
+end
+
+# Same as above, but prints stuff prettily in the REPL
+Base.show(io::IO, ::MIME"text/plain", x::AbstractSummaryStatistic) = show( io, x )

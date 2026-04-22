@@ -56,9 +56,11 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     n_stuck = 0
 
     if discard_noisy_updates || !verbose
+        print_interval = min( 50, update_interval, adaptation_interval ) - 5
+        print_interval = max( print_interval, 20 ) # Ensure a reasonable print interval
         pbar = nothing
     else
-        pbar = ProgressBar( 1:chain_length, printing_delay=0.1)
+        pbar = ProgressBar( 1:chain_length, printing_delay=0.25)
     end
 
     println( "Starting MCMC with AM algorithm for ", chain_length, " iterations..." )
@@ -153,7 +155,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
         # Progress display update
         if verbose
-            if discard_noisy_updates && ii % 50 == 0
+            if discard_noisy_updates && ii % 25 == 0
                 progress_text = round(ii/chain_length * 100, digits=1)
                 accepted_text = round.( results.acceptance ./ ii, digits=2 )
                 ss_text = round(state.ss_current, digits=2)
