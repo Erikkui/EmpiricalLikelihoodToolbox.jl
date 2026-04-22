@@ -8,12 +8,12 @@
 
 using EmpiricalLikelihoodToolbox
 using Distributions
-# using CairoMakie
+using CairoMakie
 
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    chain_length = 10000
+    chain_length = 20000
 
     nbin = 10
     knn = 1
@@ -22,35 +22,39 @@ function run_test_mcmc()
     n_summaries = 1
 
     Ndata = 1000
-    dt_obs = 1.0
+    dt_obs = 0.001
     timeseries_block_size = 100
 
     standardize = true
 
-    model = Lorenz63Model( dt_obs = dt_obs )
+    model = NegExpModel( dt_obs = dt_obs, noise_scale = 0.1 )
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
     default_params = collect( get_params( model ) )
     initial_params = default_params .+ 0.01 .* abs.(randn( npar ))
 
-    # fig = Figure()
-    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    # lines!(ax, collect(1:Ndata), vec(data))
-    # display(fig)
+    ########
+    fig = Figure()
+    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Ndata ) )
+    lines!(ax, xplot, vec(data))
+    display(fig)
     # sleep(10)
+    ########
+
 
     resampler = StandardResampling()
     # resampler = TimeseriesResampling()
-    lossfun = LogLikelihood( scaling_parameter = 1.0 )
+    lossfun = LogLikelihood( scaling_parameter = 1 )
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
-    # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 1/100] )
+    # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
     priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]...)
 
 
     summary_statistics = JointSummaryStatistics(
-        ID( 10, 1 ),
-        IDDiff( 10, 1, 1, dt_obs),
+        StandardECDF(10),
+        # StandardECDFDiff( 10, 1, dt_obs )
         )
 
     methods_options = MethodsOptions(
@@ -85,6 +89,12 @@ function run_test_mcmc()
         lines!(ax, results.chain[i, :])
         hlines!(ax, [true_params[i]], color=:red, linestyle=:dash)
     end
+    display(fig)
+
+    fig = Figure( size=(600, 600) )
+    ax = Axis(fig[1, 1], xlabel="Parameter 1", ylabel="Parameter 2")
+    scatter!( ax, results.chain[1, 5000:end], results.chain[2, 5000:end], markersize=6 )
+    scatter!( ax, [true_params[1]], [true_params[2]], markersize=10, color=:red )
     display(fig)
 
     return results, state

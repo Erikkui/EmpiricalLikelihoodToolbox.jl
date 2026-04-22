@@ -8,9 +8,7 @@ Base.@kwdef struct OUModel{T} <: AbstractSimulationModel
     dim::Int = length(x0)
 end
 
-# initial_state(m::OUModel) = m.x0
-
-function step!(rng::AbstractRNG, m::OUModel, x, dt_sol)
+function step!(rng::AbstractRNG, m::OUModel, x, dt_sol, cumulative_t)
     # Euler-Maruyama discretization
     dx = m.theta .* (m.mu .- x) .* dt_sol .+ m.sigma .* sqrt(dt_sol) .* randn(rng)
     return x .+ dx
