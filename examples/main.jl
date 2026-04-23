@@ -22,7 +22,7 @@ function run_test_mcmc()
     n_summaries = 1
 
     Ndata = 1000
-    dt_obs = 0.001
+    dt_obs = 0.004
 
     timeseries_block_size = 100
     standardize = true
@@ -38,25 +38,27 @@ function run_test_mcmc()
     initial_params = default_params .+ 0.01 .* abs.(randn( npar ))
 
     ########
-    fig = Figure()
-    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Ndata ) )
-    lines!(ax, xplot, vec(data))
-    display(fig)
+    # fig = Figure()
+    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    # xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Ndata ) )
+    # lines!(ax, xplot, vec(data))
+    # display(fig)
     # sleep(10)
     ########
 
 
     resampler = StandardResampling()
     # resampler = TimeseriesResampling()
-    lossfun = LogLikelihood( scaling_parameter = 1 )
+    lossfun = LogLikelihood( scaling_parameter = 1.0)
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
     priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]... )
 
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF(10)
+        StandardECDF(10),
+        # ChamferDistance(1),
+        # ChamferDistance(1:10)
         )
 
     methods_options = MethodsOptions(
@@ -102,3 +104,6 @@ function run_test_mcmc()
 
     return results, state
 end
+
+##
+LogLikelihood( 100 )
