@@ -20,7 +20,6 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
     chain_length = mcmc_options.nsteps
     update_interval = mcmc_options.update_interval
-    loss = mcmc_options.loss_function
     discard_noisy_updates = mcmc_options.discard_noisy_updates
     verbose = target.options.verbose
 
@@ -74,10 +73,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         mul!( params_proposal, proposal_cov_L, noise_buffer )
         params_proposal .+= state.current_params
 
-        ss_proposal = calculate_loss( params_proposal, target, model, loss )
-        ss_proposal += evaluate_log_prior( params_proposal, target.priors )
-
-        # println("Proposed parameters: ", params_proposal,  "| Proposal SS: ", ss_proposal, " | iteration: ", ii)
+        ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )
 
         # 2. Metropolis accept/reject
         log_ratio = ss_proposal - state.ss_current
@@ -110,8 +106,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                     copyto!( running_mean, backup_mean )
                     copyto!( running_cov, backup_cov )
 
-                    ss_recalc = calculate_loss( state.current_params, target, model, loss )
-                    ss_recalc += evaluate_log_prior( state.current_params, target.priors )
+                    ss_recalc = calculate_loss( state.current_params, target, model, mcmc_options )
 
                     @reset state.ss_current = ss_recalc
                     results.stuck_kicks[] += 1
@@ -122,8 +117,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                     continue
                 else
                     # Standard behavior: Just kick it to recalculate, do not "rewind time".
-                    ss_recalc = calculate_loss( state.current_params, target, model, loss )
-                    ss_recalc += evaluate_log_prior( state.current_params, target.priors )
+                    ss_recalc = calculate_loss( state.current_params, target, model, mcmc_options )
 
                     @reset state.ss_current = ss_recalc
                     results.stuck_kicks[] += 1

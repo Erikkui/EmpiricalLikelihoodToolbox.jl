@@ -59,6 +59,7 @@ Base.@kwdef struct MCMCOptions{A, G, F}
     mcmc_algorithm::A
     initial_params::G = nothing
     loss_function::F = LogLikelihood()
+    likelihood_noise_scale::Float64 = NaN
 end
 
 #------------MCMC target

@@ -53,7 +53,7 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     end
 
     proposal_cov = Matrix{Float64}( I, npar, npar )*proposal_width
-    ss_current = calculate_loss( current_params, target, model, mcmc_options.loss_function )
+    ss_current = calculate_loss( current_params, target, model, mcmc_options )
     ss_current += evaluate_log_prior( current_params, target.priors )
 
     n_stages = isa( MCMCRun, DRAM) ? MCMCRun.n_stages : 1

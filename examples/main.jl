@@ -23,11 +23,14 @@ function run_test_mcmc()
 
     Ndata = 1000
     dt_obs = 0.001
-    timeseries_block_size = 100
 
+    timeseries_block_size = 100
     standardize = true
 
-    model = NegExpModel( dt_obs = dt_obs, noise_scale = 0.1 )
+    likelihood_noise_scale = 0.0
+
+    model = NegExpModel( dt_obs = dt_obs )
+    # model = Lorenz63Model( dt_obs = dt_obs )
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
@@ -49,12 +52,11 @@ function run_test_mcmc()
     lossfun = LogLikelihood( scaling_parameter = 1 )
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
-    priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]...)
+    priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]... )
 
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF(10),
-        # StandardECDFDiff( 10, 1, dt_obs )
+        StandardECDF(10)
         )
 
     methods_options = MethodsOptions(
@@ -75,6 +77,7 @@ function run_test_mcmc()
         update_interval = 30,
         loss_function = lossfun,
         discard_noisy_updates = false,
+        likelihood_noise_scale = likelihood_noise_scale
         )
 
     target, training_summaries = TargetData( data, summary_statistics, methods_options; priors = priors, loss = lossfun )
@@ -83,7 +86,7 @@ function run_test_mcmc()
 
     true_params = collect( get_params( model ) )
     npara = size(results.chain, 1)
-    fig = Figure(size=(1200, 200*npara))
+    fig = Figure(size=(800, 200*npara))
     for i in 1:npara
         ax = Axis(fig[i, 1], xlabel="Iteration", ylabel="Parameter $i")
         lines!(ax, results.chain[i, :])

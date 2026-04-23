@@ -59,7 +59,7 @@ function delayed_rejection_stage(
     state,
     target,
     model,
-    loss,
+    mcmc_options,
     params_proposal,
     proposal_cov_L,
     dram_buffers
@@ -80,8 +80,7 @@ function delayed_rejection_stage(
     params_proposal .+= state.current_params
     proposals[ stage + 1 ] .= params_proposal
 
-    ss_proposal = calculate_loss( params_proposal, target, model, loss )
-    ss_proposal += evaluate_log_prior( params_proposal, target.priors )
+    ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )
     log_post_values[ stage + 1 ] = ss_proposal
 
     # Define exact index ranges
@@ -122,7 +121,6 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
     end
 
     chain_length = mcmc_options.nsteps
-    loss = mcmc_options.loss_function
 
     verbose = target.options.verbose
 
@@ -178,8 +176,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
         mul!( params_proposal, proposal_cov_L, noise_buffer )
         params_proposal .+= state.current_params
 
-        ss_proposal = calculate_loss( params_proposal, target, model, loss )
-        ss_proposal += evaluate_log_prior( params_proposal, target.priors )
+        ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )
 
         # 2. Metropolis accept/reject
         log_ratio = ss_proposal - state.ss_current
@@ -208,7 +205,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
                     state,
                     target,
                     model,
-                    loss,
+                    mcmc_options,
                     params_proposal,
                     proposal_cov_L,
                     dram_buffers

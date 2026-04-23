@@ -41,7 +41,10 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     return sim_statistic
 end
 
-function calculate_loss( params, target, model, loss_function )
+function calculate_loss( params, target, model, mcmc_options )
+    loss_function = mcmc_options.loss_function
+    noise_scale = mcmc_options.likelihood_noise_scale
+    noise_scale = ifelse( isnan(noise_scale), 0.0, noise_scale )
 
     logprior = evaluate_log_prior( params, target.priors )
 
@@ -63,6 +66,9 @@ function calculate_loss( params, target, model, loss_function )
     for _ in 1:options.n_loss_evals
         sim_statistic = calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options )
         loss += loss_function( target, sim_statistic )
+        loss += logprior
+
+        loss += noise_scale*randn() # Add noise to likelihood to simulate noisy likelihood
     end
     loss /= options.n_loss_evals
 
