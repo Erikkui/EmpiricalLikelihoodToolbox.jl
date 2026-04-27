@@ -21,28 +21,28 @@ function run_test_mcmc()
     n_loss_evals = 1
     n_summaries = 1
 
-    Ndata = 1000
-    dt_obs = 0.004
+    Ndata = 100
+    dt_obs = 0.1
 
     timeseries_block_size = 100
     standardize = true
 
     likelihood_noise_scale = 0.0
 
-    model = NegExpModel( dt_obs = dt_obs )
+    model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
     # model = Lorenz63Model( dt_obs = dt_obs )
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
     default_params = collect( get_params( model ) )
-    initial_params = default_params .+ 0.01 .* abs.(randn( npar ))
+    initial_params = default_params# .+ 0.01 .* abs.(randn( npar ))
 
     ########
-    # fig = Figure()
-    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    # xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Ndata ) )
-    # lines!(ax, xplot, vec(data))
-    # display(fig)
+    fig = Figure()
+    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Ndata ) )
+    lines!(ax, xplot, vec(data))
+    display(fig)
     # sleep(10)
     ########
 
@@ -50,6 +50,7 @@ function run_test_mcmc()
     resampler = StandardResampling()
     # resampler = TimeseriesResampling()
     lossfun = LogLikelihood( scaling_parameter = 1.0)
+    println(lossfun)
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
     priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]... )
@@ -59,6 +60,8 @@ function run_test_mcmc()
         StandardECDF(10),
         # ChamferDistance(1),
         # ChamferDistance(1:10)
+        # CIL(10),
+        # ID(10, 1:2)
         )
 
     methods_options = MethodsOptions(
@@ -104,6 +107,3 @@ function run_test_mcmc()
 
     return results, state
 end
-
-##
-LogLikelihood( 100 )
