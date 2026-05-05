@@ -33,13 +33,13 @@ Base.@kwdef struct MethodsOptions{R, T}
 end
 
 #------------Buffer container for non-allocating in-place computations
-struct BufferContainer{S, I}
+struct BufferContainer{S, I, M, SO, SD, ST}
     summary_buffers::S
-    training_buffer::Matrix{Float64}
-    mcmc_buffer::Matrix{Float64}
-    simulation_obs::Matrix{Float64}
-    simulation_diffs::Vector{Matrix{Float64}}
-    simulation_statistic::Vector{Float64}
+    training_buffer::M
+    mcmc_buffer::M
+    simulation_obs::SO
+    simulation_diffs::SD
+    simulation_statistic::ST
     index_cache::I
 end
 
@@ -63,15 +63,15 @@ Base.@kwdef struct MCMCOptions{A, G, F}
 end
 
 #------------MCMC target
-struct TargetData{C, S, P, O, B, T}
+struct TargetData{C, S, P, O, B, T, OM, IC, SL}
     data::C
     summary_statistics::S
     priors::P
     options::O
     buffers::B
-    obs_mean::Vector{Float64}
-    inverse_cov::Matrix{Float64}
-    summary_length::Int
+    obs_mean::OM
+    inverse_cov::IC
+    summary_length::SL
     standardization_mean::T
     standardization_sd::T
 end

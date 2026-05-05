@@ -21,16 +21,21 @@ function run_test_mcmc()
     n_loss_evals = 1
     n_summaries = 1
 
-    Ndata = 100
-    dt_obs = 0.1
+    # t_end = 60
+    # dt_obs = 1.0
+    # Ndata = t_end / dt_obs
+
+    Ndata = 50
+    dt_obs = 1.0
 
     timeseries_block_size = 100
     standardize = true
 
     likelihood_noise_scale = 0.0
 
-    model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
-    # model = Lorenz63Model( dt_obs = dt_obs )
+    # model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
+    model = Lorenz63Model( dt_obs = dt_obs )
+    # model = RickerModel( r = 3.7, K = 1000.0, x0 = 10.0, dt_obs = dt_obs )
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
@@ -38,11 +43,11 @@ function run_test_mcmc()
     initial_params = default_params# .+ 0.01 .* abs.(randn( npar ))
 
     ########
-    fig = Figure()
-    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Ndata ) )
-    lines!(ax, xplot, vec(data))
-    display(fig)
+    # fig = Figure()
+    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    # xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Int(Ndata) ) )
+    # lines!(ax, xplot, vec(data))
+    # display(fig)
     # sleep(10)
     ########
 
@@ -57,9 +62,10 @@ function run_test_mcmc()
 
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF(10),
+        # StandardECDF(10),
         # ChamferDistance(1),
         # ChamferDistance(1:10)
+        ChamferECDF( 10, 1 )
         # CIL(10),
         # ID(10, 1:2)
         )
@@ -99,11 +105,11 @@ function run_test_mcmc()
     end
     display(fig)
 
-    fig = Figure( size=(600, 600) )
-    ax = Axis(fig[1, 1], xlabel="Parameter 1", ylabel="Parameter 2")
-    scatter!( ax, results.chain[1, 5000:end], results.chain[2, 5000:end], markersize=6 )
-    scatter!( ax, [true_params[1]], [true_params[2]], markersize=10, color=:red )
-    display(fig)
+    # fig = Figure( size=(600, 600) )
+    # ax = Axis(fig[1, 1], xlabel="Parameter 1", ylabel="Parameter 2")
+    # scatter!( ax, results.chain[1, 5000:end], results.chain[2, 5000:end], markersize=6 )
+    # scatter!( ax, [true_params[1]], [true_params[2]], markersize=10, color=:red )
+    # display(fig)
 
     return results, state
 end

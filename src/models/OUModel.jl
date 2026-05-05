@@ -22,7 +22,3 @@ function get_params(m::OUModel)
     )
     return param_tuple
 end
-
-# function reconstruct(m::OUModel, new_params)
-#     return OUModel(new_params[1], new_params[2], new_params[3], m.x0, m.dt_obs, m.dt_sol, m.dim)
-# end

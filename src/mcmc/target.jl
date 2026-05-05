@@ -1,4 +1,4 @@
-function initialize_datacontainer( data, statistics, options, diff_orders )
+function initialize_datacontainer( data, statistics::Tuple, options, diff_orders )
     if maximum(diff_orders) > 0
         diff_inds = diff_orders .> 0
         ind = findfirst( diff_inds )
@@ -17,7 +17,7 @@ function initialize_datacontainer( data, statistics, options, diff_orders )
     return data_container
 end
 
-function allocate_buffers( statistics, data_container, options, diff_orders )
+function allocate_buffers( statistics::Tuple, data_container, options, diff_orders )
     training_resamplings = options.training_resamplings
     n_summaries = options.n_summaries
     resampling_type = options.resampling_type
@@ -155,3 +155,69 @@ function TargetData(
     return target, training_summaries
 end
 #-------------------------------
+
+
+# Target generation for cases where we want simple mcmc (data against observations), no
+# hassling with summary statistics
+
+function initialize_datacontainer( data, options )
+    data_container = DataContainer(
+        observations = data,
+        differences = nothing,
+        difference_orders = nothing,
+        options = options
+        )
+    return data_container
+end
+
+
+function allocate_bufers( data_container )
+    observations = data_container.observations
+    buffer_simulations = zeros( size(observations) )
+
+    buffers = BufferContainer(
+        nothing,
+        nothing,
+        nothing,
+        buffer_simulations,
+        nothing,
+        nothing,
+        nothing,
+        )
+    return buffers
+end
+
+function TargetData(
+    data::AbstractMatrix{Float64},
+    options::MethodsOptions;
+    priors = nothing,
+    loss = nothing
+    )
+
+    if isnothing( priors )
+        priors = ( nothing, )
+    end
+
+    # Create DataContainer
+    data_container = initialize_datacontainer( data, options )
+
+    # Create buffers for use in resampling
+    buffer_container, total_summary_length = allocate_buffers( data_container )
+
+    inv_cov =
+
+    target = TargetData(
+        data_container,
+        nothing,
+        priors,
+        options,
+        buffer_container,
+        nothing,
+        nothing,
+        nothing,
+        nothing,
+        nothing
+        )
+
+    return target
+end
