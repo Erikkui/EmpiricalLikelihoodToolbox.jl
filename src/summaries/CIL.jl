@@ -83,3 +83,7 @@ function allocate_buffer( statistic::CIL, data::DataContainer )
 end
 
 required_diff_order(stat::CIL) = 0
+
+function generate_stat_name( stat::CIL )
+    return "CIL_nbin=$(stat.nbin)"
+end

@@ -59,3 +59,7 @@ function allocate_buffer( statistic::StandardECDF, data::DataContainer )
 end
 
 required_diff_order(stat::StandardECDF) = 0
+
+function generate_stat_name( stat::StandardECDF )
+    return "StandardECDF_k=$(stat.nbin)"
+end

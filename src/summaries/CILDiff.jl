@@ -85,3 +85,7 @@ function allocate_buffer( statistic::CILDiff, data::DataContainer )
 end
 
 required_diff_order(stat::CILDiff) = stat.diff_order
+
+function generate_stat_name( stat::CILDiff )
+    return "CILDiff_diff_order=$(stat.diff_order)_nbin=$(stat.nbin)"
+end

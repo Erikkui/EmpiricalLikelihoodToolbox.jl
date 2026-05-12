@@ -105,3 +105,7 @@ function allocate_buffer( statistic::ChamferECDF, data::DataContainer )
 end
 
 required_diff_order(stat::ChamferECDF) = 0
+
+function generate_stat_name( stat::ChamferECDF )
+    return "ChamferECDF_k=$(stat.neighbors)"
+end

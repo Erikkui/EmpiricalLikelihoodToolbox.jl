@@ -172,3 +172,7 @@ function allocate_buffer( statistic::IDDiff, data::DataContainer )
 end
 
 required_diff_order(stat::IDDiff) = stat.diff_order
+
+function generate_stat_name( stat::IDDiff )
+    return "IDDiff_k=$(stat.neighbors)_diff_order=$(stat.diff_order)"
+end

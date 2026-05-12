@@ -62,3 +62,7 @@ function allocate_buffer( statistic::ChamferDistanceDiff, data::DataContainer )
 end
 
 required_diff_order(stat::ChamferDistanceDiff) = stat.diff_order
+
+function generate_stat_name( stat::ChamferDistanceDiff )
+    return "ChamferDistanceDiff_k=$(stat.neighbors)_diff=$(stat.diff_order)"
+end

@@ -41,8 +41,6 @@ function BlowflyModel(theta::AbstractVector{<:Real}; kwargs...)
     return BlowflyModel( named_params...; kwargs... )
 end
 
-initial_state(m::BlowflyModel) = m.x0
-
 
 function get_params(m::BlowflyModel)
     param_tuple = (
@@ -55,20 +53,3 @@ function get_params(m::BlowflyModel)
     )
     return param_tuple
 end
-
-# function reconstruct(m::BlowflyModel, new_params)
-#     return BlowflyModel(
-#         delta = new_params[1],
-#         P = new_params[2],
-#         N0 = new_params[3],
-#         sigma2_p = new_params[4],
-#         tau = new_params[5],
-#         sigma2_d = new_params[6],
-#         x0 = m.x0,
-#         dt_obs = m.dt_obs,
-#         dt_sol = m.dt_sol,
-#         dim = m.dim,
-#         burn_in = m.burn_in,
-#         mu = m.mu
-#     )
-# end

@@ -143,7 +143,7 @@ end
 
 
 # Get the initial state of a model.
-initial_state( m::AbstractSimulationModel ) = m.x0
+initial_state( m::AbstractSimulationModel ) = copy( m.x0 )
 
 # Standardize summary statistics using provided mean and standard deviation.
 standardize!( ss, standard_mean, standard_sd ) = ( ss - standard_mean ) / standard_sd

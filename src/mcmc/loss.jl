@@ -5,7 +5,14 @@ function create_simulated_data( R0_all, model, target, buffers, options )
 
     Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
     if any(isnan, Rsim)
-        return -Inf
+        Rsim .= -Inf
+        Rsim_container = DataContainer(
+            observations=Rsim,
+            differences=buffers.simulation_diffs,
+            difference_orders=diff_orders,
+            options=options
+            )
+        return Rsim_container
     end
 
     copyto!( buffers.simulation_obs, Rsim )
@@ -48,6 +55,7 @@ function calculate_loss( params, target, model, mcmc_options )
 
     logprior = evaluate_log_prior( params, target.priors )
 
+    # Parameters with zero prior density should have zero likelihood so we can return to avoid unnecessary simulations
     if isinf( logprior )
         return -Inf
     end
@@ -60,6 +68,11 @@ function calculate_loss( params, target, model, mcmc_options )
     model = reconstruct( model, params )    # Update model with new parameters for simulation
 
     Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
+
+    # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can return -Inf for the likelihood to reject this parameter proposal
+    if isinf( Rsim_container.observations[1] )
+        return -Inf
+    end
 
     # Resample data and calculate summary statistics for current parameters
     loss = 0.0

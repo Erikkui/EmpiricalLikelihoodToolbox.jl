@@ -27,7 +27,7 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
     training_summary_length = map( stat -> stat.summary_length, statistics ) |> sum
 
     stat_buffers_vals  = map( stat -> allocate_buffer( stat, data_container ), statistics )
-    stat_buffers_names = map( stat -> nameof( typeof(stat) ), statistics )
+    stat_buffers_names = map( stat -> Symbol( generate_stat_name( stat ) ), statistics )
     stat_buffers = NamedTuple{stat_buffers_names}(stat_buffers_vals)
 
     training_buffer = zeros( training_summary_length, training_resamplings )

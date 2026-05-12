@@ -64,3 +64,7 @@ function allocate_buffer( statistic::StandardECDFDiff, data::DataContainer )
 end
 
 required_diff_order(stat::StandardECDFDiff) = stat.diff_order
+
+function generate_stat_name( stat::StandardECDFDiff )
+    return "StandardECDFDiff_k=$(stat.nbin)_diff_order=$(stat.diff_order)"
+end

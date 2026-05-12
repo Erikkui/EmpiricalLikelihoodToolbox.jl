@@ -7,7 +7,7 @@ function solve_model( model::AbstractSimulationModel, t_end::Float64; rng=Random
     obs_inds = 1:round(Int, dt_obs/dt_sol):steps
     trajectory = Matrix{Float64}(undef, model.dim, steps)
 
-    current_state = initial_state(model)
+    current_state = initial_state( model )
     trajectory[:, 1] .= current_state
 
     cumulative_t = 0.0

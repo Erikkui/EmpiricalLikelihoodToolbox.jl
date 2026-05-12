@@ -165,3 +165,7 @@ function allocate_buffer( statistic::ID, data::DataContainer )
 end
 
 required_diff_order(stat::ID) = 0
+
+function generate_stat_name( stat::ID )
+    return "ID_neighbors=$(stat.neighbors)"
+end
