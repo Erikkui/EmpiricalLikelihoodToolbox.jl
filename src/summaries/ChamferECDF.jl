@@ -25,7 +25,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
 
-    key = nameof( typeof(summary_statistic) )
+    key = Symbol( generate_stat_name( summary_statistic ) )
     buffer = buffers.summary_buffers[ key ]
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
@@ -62,7 +62,7 @@ function calculate_summary_statistic!(      # To be used in MCMC
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
 
-    key = nameof( typeof(summary_statistic) )
+    key = Symbol( generate_stat_name( summary_statistic ) )
     buffer = buffers.summary_buffers[ key ]
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated

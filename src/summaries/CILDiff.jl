@@ -23,7 +23,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     bins = summary.bins
     diff_order = summary.diff_order
 
-    key = nameof( typeof(summary) )
+    key = Symbol( generate_stat_name( summary ) )
     buffer = buffers.summary_buffers[ key ]
 
     data_X = @view data.differences[ diff_order ][ :, x_inds ]
@@ -51,7 +51,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0_diff = obs_data_all.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
 
-    key = nameof( typeof(summary) )
+    key = Symbol( generate_stat_name( summary ) )
     buffer = buffers.summary_buffers[ key ]
 
     data_X = @view R0_diff[ :, x_inds ]

@@ -1,5 +1,5 @@
 # In VSCode terminal:
-#   0. Strt Julia REPL
+#   0. Start Julia REPL: ctrl+shift+p, "Julia: Start REPL"
 #   1. ] activate .
 #   2. Press backspace
 #   3. using Revise
@@ -13,7 +13,7 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    chain_length = 20000
+    chain_length = 1000000
 
     nbin = 10
     knn = 1
@@ -25,7 +25,7 @@ function run_test_mcmc()
     # dt_obs = 1.0
     # Ndata = t_end / dt_obs
 
-    Ndata = 50
+    Ndata = 500
     dt_obs = 1.0
 
     timeseries_block_size = 100
@@ -34,8 +34,9 @@ function run_test_mcmc()
     likelihood_noise_scale = 0.0
 
     # model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
-    model = Lorenz63Model( dt_obs = dt_obs )
+    # model = Lorenz63Model( dt_obs = dt_obs )
     # model = RickerModel( r = 3.7, K = 1000.0, x0 = 10.0, dt_obs = dt_obs )
+    model = PredatorModel( dt_obs=dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
@@ -43,14 +44,14 @@ function run_test_mcmc()
     initial_params = default_params# .+ 0.01 .* abs.(randn( npar ))
 
     ########
-    # fig = Figure()
-    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    # xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Int(Ndata) ) )
-    # lines!(ax, xplot, vec(data))
-    # display(fig)
+    fig = Figure()
+    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Int(Ndata) ) )
+    lines!(ax, xplot, vec(data[1, :]))
+    lines!(ax, xplot, vec(data[2, :]), color=:red)
+    display(fig)
     # sleep(10)
     ########
-
 
     resampler = StandardResampling()
     # resampler = TimeseriesResampling()
@@ -62,10 +63,12 @@ function run_test_mcmc()
 
 
     summary_statistics = JointSummaryStatistics(
-        # StandardECDF(10),
+        StandardECDF(10),
+        StandardECDFDiff(10, 1, dt_obs),
+        StandardECDFDiff(10, 2, dt_obs),
         # ChamferDistance(1),
-        # ChamferDistance(1:10)
-        ChamferECDF( 10, 1 )
+        ChamferDistance(1:10)
+        # ChamferECDF( 10, 1 )
         # CIL(10),
         # ID(10, 1:2)
         )

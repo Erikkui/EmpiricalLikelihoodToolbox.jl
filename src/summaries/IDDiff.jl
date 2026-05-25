@@ -30,7 +30,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     neighbors = summary_statistic.neighbors
     diff_order = summary_statistic.diff_order
 
-    key = nameof( typeof(summary_statistic) )
+    key = Symbol( generate_stat_name( summary_statistic ) )
     dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
     dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
     ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
@@ -87,7 +87,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0_diff = obs_data_all.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
 
-    key = nameof( typeof(summary_statistic) )
+    key = Symbol( generate_stat_name( summary_statistic ) )
     dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
     dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
     ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer

@@ -24,7 +24,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     nbins = summary.nbin
     bins = summary.bins
 
-    key = nameof( typeof(summary) )
+    key = Symbol( generate_stat_name( summary ) )
     buffer = buffers.summary_buffers[ key ]
 
     data_X = @view data.observations[ :, x_inds ]
@@ -51,7 +51,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0 = obs_data_all.observations
     Rsim = sim_data_all.observations
 
-    key = nameof( typeof(summary) )
+    key = Symbol( generate_stat_name( summary ) )
     buffer = buffers.summary_buffers[ key ]
 
     data_X = @view R0[ :, x_inds ]

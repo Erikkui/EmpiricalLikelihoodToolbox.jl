@@ -26,7 +26,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     bins = summary_statistic.bins
     neighbors = summary_statistic.neighbors
 
-    key = nameof( typeof(summary_statistic) )
+    key = Symbol( generate_stat_name( summary_statistic ) )
     dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
     dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
     ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
@@ -81,7 +81,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0 = obs_data_all.observations
     Rsim = sim_data_all.observations
 
-    key = nameof( typeof(summary_statistic) )
+    key = Symbol( generate_stat_name( summary_statistic ) )
     dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
     dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
     ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
