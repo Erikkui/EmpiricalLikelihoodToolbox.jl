@@ -154,6 +154,14 @@ function get_all_model_params(m::AbstractSimulationModel)
     return param_tuple
 end
 
+function get_active_model_params(m::AbstractSimulationModel)
+    npar = length( m.active_parameters )
+    parameter_names = m.active_parameters
+    param_values = ntuple( ii -> getfield( m, parameter_names[ii] ), npar )
+    param_tuple = NamedTuple{ parameter_names }( param_values )
+    return param_tuple
+end
+
 function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
     active_params_names = m.active_parameters
     npar = length(active_params_names)

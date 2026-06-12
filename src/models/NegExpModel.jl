@@ -6,8 +6,8 @@ Base.@kwdef struct NegExpModel <: AbstractSimulationModel
     dt_sol::Float64 = dt_obs
     dim::Int = length(x0)
     noise_scale::Float64 = 0.0
-    all_parameters::Tuple{Symbol} = [:theta1, :theta2]
-    active_parameters::Tuple{Symbol} = [:theta1, :theta2]
+    all_parameters::Tuple{ Vararg{Symbol} } = (:theta1, :theta2)
+    active_parameters::Tuple{ Vararg{Symbol} } = (:theta1, :theta2)
 end
 
 function step!( rng::AbstractRNG, m::NegExpModel, x_prev, dt_sol, cumulative_t )

@@ -32,7 +32,10 @@ module EmpiricalLikelihoodToolbox
     export LogLikelihood, RobustChamfer
 
     # Miscellaneous utilities
-    export get_all_model_params
+    export get_all_model_params, get_active_model_params
+
+    # Types user might need
+    export AbstractSummaryStatistic, AbstractSimulationModel, AbstractECDFSummary
 
     include("core_types.jl")
     include("utils/utils.jl")

@@ -13,7 +13,7 @@ A struct for the chaotic Lorenz 1963 dynamical system.
 # Examples
 model = Lorenz63Model(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
 """
-Base.@kwdef struct Lorenz63Model{T <: AbstractVector{Float64}, P} <: AbstractSimulationModel
+Base.@kwdef struct Lorenz63Model{T <: AbstractVector{Float64}} <: AbstractSimulationModel
     sigma::Float64 = 10.0
     rho::Float64    = 28.0
     beta::Float64   = 8/3
@@ -21,8 +21,8 @@ Base.@kwdef struct Lorenz63Model{T <: AbstractVector{Float64}, P} <: AbstractSim
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = 1.0
     dim::Int = length(x0)
-    all_parameters::Tuple{Symbol} = [:sigma, :rho, :beta]
-    active_parameters::Tuple{Symbol} = [:sigma, :rho, :beta]
+    all_parameters::Tuple{ Vararg{Symbol} } = (:sigma, :rho, :beta)
+    active_parameters::Tuple{ Vararg{Symbol} } = (:sigma, :rho, :beta)
 end
 
 

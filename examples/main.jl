@@ -13,7 +13,7 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    chain_length = 100000
+    chain_length = 20000
 
     nbin = 10
     knn = 1
@@ -27,7 +27,7 @@ function run_test_mcmc()
 
     Ndata = 500
     dt_obs = 1.0
-    active_parameters = [:sigma, :rho, :beta]
+    active_parameters = (:sigma, :beta, )
 
     timeseries_block_size = 100
     standardize = true
@@ -40,8 +40,8 @@ function run_test_mcmc()
     # model = PredatorModel( dt_obs=dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
-    npar = length( get_params( model ) )
-    default_params = collect( get_params( model ) )
+    npar = length( get_active_model_params( model ) )
+    default_params = collect( get_active_model_params( model ) )
     initial_params = default_params# .+ 0.01 .* abs.(randn( npar ))
 
     ########
@@ -99,7 +99,7 @@ function run_test_mcmc()
 
     results, state = mcmcrun( target, model, mcmc_options )
 
-    true_params = collect( get_params( model ) )
+    true_params = collect( get_active_model_params( model ) )
     npara = size(results.chain, 1)
     fig = Figure(size=(800, 200*npara))
     for i in 1:npara

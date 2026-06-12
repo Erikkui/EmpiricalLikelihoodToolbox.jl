@@ -5,8 +5,8 @@ Base.@kwdef struct RickerModel{T} <: AbstractSimulationModel
     dt_obs::Float64 = 0.01
     dt_sol::Float64 = dt_obs
     dim::Int = length(x0)
-    all_parameters::Tuple{Symbol} = [:r, :K]
-    active_parameters::Tuple{Symbol} = [:r, :K]
+    all_parameters::Tuple{ Vararg{Symbol} } = (:r, :K)
+    active_parameters::Tuple{ Vararg{Symbol} } = (:r, :K)
 end
 
 function step!(rng::AbstractRNG, m::RickerModel, x, dt_sol, cumulative_t)
