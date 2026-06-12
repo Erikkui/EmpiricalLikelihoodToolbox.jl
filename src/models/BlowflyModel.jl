@@ -16,7 +16,7 @@ A struct for the Nicholson blowfly model, which is a delay differential equation
 # Examples
 model = BlowflyModel(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
 """
-Base.@kwdef struct BlowflyModel{N} <: AbstractSimulationModel
+Base.@kwdef struct BlowflyModel <: AbstractSimulationModel
     delta::Float64 = 0.16
     P::Float64    = 6.5
     N0::Float64   = 400.0
@@ -32,6 +32,7 @@ Base.@kwdef struct BlowflyModel{N} <: AbstractSimulationModel
     all_parameters::Tuple{ Vararg{Symbol} } = (:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d)
     active_parameters::Tuple{ Vararg{Symbol} } = (:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d)
 end
+
 
 function BlowflyModel(theta::AbstractVector{<:Real}; kwargs...)
     N = length( theta )
