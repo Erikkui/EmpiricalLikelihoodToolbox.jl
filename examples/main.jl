@@ -63,11 +63,11 @@ function run_test_mcmc()
 
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF(10),
-        StandardECDFDiff(10, 1, dt_obs),
-        StandardECDFDiff(10, 2, dt_obs),
-        # ChamferDistance(1),
-        ChamferDistance(1:10)
+        # StandardECDF(10),
+        # StandardECDFDiff(10, 1, dt_obs),
+        # StandardECDFDiff(10, 2, dt_obs),
+        ChamferDistance(1),
+        # ChamferDistance(1:10)
         # ChamferECDF( 10, 1 )
         # CIL(10),
         # ID(10, 1:2)

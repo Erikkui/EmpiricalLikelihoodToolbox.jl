@@ -64,7 +64,6 @@ module EmpiricalLikelihoodToolbox
     include("models/BlowflyModel.jl")
     include("models/NegExpModel.jl")
     include("models/RickerModel.jl")
-    include("models/PredatorModel.jl")
     include("models/solvers.jl")
 
     include("utils/bin_calculation.jl")
