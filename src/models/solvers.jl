@@ -29,7 +29,7 @@ function solve_model(model::Lorenz63Model, t_end::Float64; rng=Random.default_rn
     noise = SVector( randn(rng), randn(rng), randn(rng) )
     u0 = SVector{3}( model.x0 ) .* (1.0 .+ 0.01 .* noise)
 
-    params = SVector{3}( collect( get_params(model) ) )
+    params = SVector{3}( collect( get_all_model_params(model) ) )
 
     t_start = 10.0 * dt_obs
     t_end   = t_start + t_end
@@ -56,7 +56,7 @@ end
 function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rng() )
 
     # Unpack parameters
-    delta, P, N_0, sigma2_p, tau, sigma2_d = get_params(model)
+    delta, P, N_0, sigma2_p, tau, sigma2_d = get_all_model_params(model)
 
     burn_in = model.burn_in
     mu = model.mu

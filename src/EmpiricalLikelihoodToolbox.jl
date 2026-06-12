@@ -32,7 +32,7 @@ module EmpiricalLikelihoodToolbox
     export LogLikelihood, RobustChamfer
 
     # Miscellaneous utilities
-    export get_params
+    export get_all_model_params
 
     include("core_types.jl")
     include("utils/utils.jl")

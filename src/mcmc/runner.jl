@@ -37,27 +37,29 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
 
     chain_length = mcmc_options.nsteps
 
-    model_params = get_params( model ) |> collect
-    npar = length( model_params )
+    active_params_names = model.active_parameters
+    active_param_values = [ getfield( model, param ) for param in active_params_names ]
+
+    npar_active = length( active_param_values )
 
     # Set uninformative priors if not provided
-    if length( target.priors ) != npar
-        uninformative_priors = ntuple( _ -> nothing, Val(npar) )
+    if length( target.priors ) != npar_active
+        uninformative_priors = ntuple( _ -> nothing, Val(npar_active) )
         target = @set target.priors = uninformative_priors
     end
 
     if isnothing( mcmc_options.initial_params )
-        current_params = model_params .+ 0.1 .* randn( npar )
+        current_params = active_param_values .+ 0.1 .* randn( npar_active )
     else
         current_params = mcmc_options.initial_params
     end
 
-    proposal_cov = Matrix{Float64}( I, npar, npar )*proposal_width
+    proposal_cov = Matrix{Float64}( I, npar_active, npar_active )*proposal_width
     ss_current = calculate_loss( current_params, target, model, mcmc_options )
     ss_current += evaluate_log_prior( current_params, target.priors )
 
     n_stages = isa( MCMCRun, DRAM) ? MCMCRun.n_stages : 1
-    results_buffers = allocate_results_buffer( npar, chain_length, n_stages )
+    results_buffers = allocate_results_buffer( npar_active, chain_length, n_stages )
 
     state = MCMCState( current_params, ss_current, proposal_cov )
 

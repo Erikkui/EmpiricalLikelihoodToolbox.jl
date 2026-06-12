@@ -23,7 +23,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     discard_noisy_updates = mcmc_options.discard_noisy_updates
     verbose = target.options.verbose
 
-    npar = get_params( model ) |> length
+    npar = length( state.current_params )
     chain = results.chain
     sschain = results.sschain
     current_iter = results.current_iter

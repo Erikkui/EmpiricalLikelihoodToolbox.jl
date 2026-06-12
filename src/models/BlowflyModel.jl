@@ -29,6 +29,8 @@ Base.@kwdef struct BlowflyModel <: AbstractSimulationModel
     dim::Int = length(x0)
     burn_in::Int = 20
     mu::Float64 = 1.0
+    all_parameters::Tuple{Symbol} = [:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d]
+    active_parameters::Tuple{Symbol} = [:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d]
 end
 
 function BlowflyModel(theta::AbstractVector{<:Real}; kwargs...)
@@ -39,17 +41,4 @@ function BlowflyModel(theta::AbstractVector{<:Real}; kwargs...)
     named_params = NamedTuple{ param_names }( Tuple(theta) )
 
     return BlowflyModel( named_params...; kwargs... )
-end
-
-
-function get_params(m::BlowflyModel)
-    param_tuple = (
-        delta = m.delta,
-        P = m.P,
-        N0 = m.N0,
-        sigma2_p = m.sigma2_p,
-        tau = m.tau,
-        sigma2_d = m.sigma2_d
-    )
-    return param_tuple
 end

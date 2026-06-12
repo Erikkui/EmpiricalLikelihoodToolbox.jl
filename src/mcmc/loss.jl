@@ -53,6 +53,8 @@ function calculate_loss( params, target, model, mcmc_options )
     noise_scale = mcmc_options.likelihood_noise_scale
     noise_scale = ifelse( isnan(noise_scale), 0.0, noise_scale )
 
+    # active_params = model.active_parameters
+
     logprior = evaluate_log_prior( params, target.priors )
 
     # Parameters with zero prior density should have zero likelihood so we can return to avoid unnecessary simulations
@@ -65,7 +67,7 @@ function calculate_loss( params, target, model, mcmc_options )
     summaries = target.summary_statistics
     buffers = target.buffers
 
-    model = reconstruct( model, params )    # Update model with new parameters for simulation
+    model = update_model_parameters( model, params )    # Update model with new parameters for simulation
 
     Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
 

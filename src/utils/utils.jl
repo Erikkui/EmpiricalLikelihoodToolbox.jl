@@ -134,11 +134,33 @@ end
 
 # Reconstruct a new model instance with updated parameters.
 # This is a generic function that can be used for any model type.
-function reconstruct( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
-    param_names = keys( get_params(m) )
-    param_values = ntuple( ii -> new_params[ii], length(param_names) )
-    new_param_tuple = NamedTuple{ param_names }( param_values )
-    return setproperties(m, new_param_tuple)
+# function reconstruct( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
+#     param_names = keys( get_params(m) )
+#     param_values = ntuple( ii -> new_params[ii], length(param_names) )
+#     new_param_tuple = NamedTuple{ param_names }( param_values )
+#     return setproperties(m, new_param_tuple)
+# end
+
+# function get_active_parameters( m::AbstractSimulationModel )
+
+#     return m.active_parameters
+# end
+
+function get_all_model_params(m::AbstractSimulationModel)
+    npar = length(m.all_parameters)
+    parameter_names = m.all_parameters
+    param_values = ntuple( ii -> getfield( m, parameter_names[ii] ), npar )
+    param_tuple = NamedTuple{ parameter_names }( param_values )
+    return param_tuple
+end
+
+function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
+    active_params_names = m.active_parameters
+    npar = length(active_params_names)
+    active_param_values = ntuple( ii -> new_params[ii], npar )
+    new_param_tuple = NamedTuple{ active_params_names }( active_param_values )
+    m_updated = setproperties( m, new_param_tuple )
+    return m_updated
 end
 
 

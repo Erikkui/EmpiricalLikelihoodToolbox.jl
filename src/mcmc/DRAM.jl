@@ -124,7 +124,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
     verbose = target.options.verbose
 
-    npar = get_params( model ) |> length
+    npar = length( state.current_params )
     chain = results.chain
     sschain = results.sschain
     current_iter = results.current_iter

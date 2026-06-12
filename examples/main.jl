@@ -13,7 +13,7 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    chain_length = 1000000
+    chain_length = 100000
 
     nbin = 10
     knn = 1
@@ -27,6 +27,7 @@ function run_test_mcmc()
 
     Ndata = 500
     dt_obs = 1.0
+    active_parameters = [:sigma, :rho, :beta]
 
     timeseries_block_size = 100
     standardize = true
@@ -34,9 +35,9 @@ function run_test_mcmc()
     likelihood_noise_scale = 0.0
 
     # model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
-    # model = Lorenz63Model( dt_obs = dt_obs )
+    model = Lorenz63Model( dt_obs = dt_obs, active_parameters = active_parameters )
     # model = RickerModel( r = 3.7, K = 1000.0, x0 = 10.0, dt_obs = dt_obs )
-    model = PredatorModel( dt_obs=dt_obs)
+    # model = PredatorModel( dt_obs=dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_params( model ) )
@@ -44,12 +45,12 @@ function run_test_mcmc()
     initial_params = default_params# .+ 0.01 .* abs.(randn( npar ))
 
     ########
-    fig = Figure()
-    ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
-    xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Int(Ndata) ) )
-    lines!(ax, xplot, vec(data[1, :]))
-    lines!(ax, xplot, vec(data[2, :]), color=:red)
-    display(fig)
+    # fig = Figure()
+    # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Observation")
+    # xplot = collect( range( 0.0, stop = Ndata*dt_obs-dt_obs, length=Int(Ndata) ) )
+    # lines!(ax, xplot, vec(data[1, :]))
+    # lines!(ax, xplot, vec(data[2, :]), color=:red)
+    # display(fig)
     # sleep(10)
     ########
 
