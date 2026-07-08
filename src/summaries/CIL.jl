@@ -72,7 +72,8 @@ end
 
 function allocate_buffer( statistic::CIL, data::DataContainer )
     if data.options.resampling_type isa TimeseriesResampling
-        rows = data.options.timeseries_block_size
+        rows = data.options.resampling_type.timeseries_block_size
+        println(data.options.resampling_type)
         cols = size( data.observations, 2 ) - rows
     else
         rows = round( Int, size( data.observations, 2 ) / 2 )

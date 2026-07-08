@@ -19,8 +19,8 @@ end
 
 
 # Time series resampling: sample a contiguous block from the data
-function (::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
-    block_size = options.timeseries_block_size
+function (TR::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
+    block_size = TR.timeseries_block_size
 
     start_ind = rand( index_cache[1:(end-block_size)] )
     end_ind = start_ind + block_size - 1
@@ -33,5 +33,5 @@ function (::TimeseriesResampling)( data::DataContainer, options::MethodsOptions,
 end
 
 function get_index_size( sampler::TimeseriesResampling, data, options )
-    return length( data )
+    return size( data, 2 )
 end

@@ -13,7 +13,7 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     nrep_training = 5000
-    chain_length = 50000
+    chain_length = 20000
 
     nbin = 10
     knn = 1
@@ -25,9 +25,9 @@ function run_test_mcmc()
     # dt_obs = 1.0
     # Ndata = t_end / dt_obs
 
-    Ndata = 600
+    Ndata = 200
     dt_obs = 1.0
-    active_parameters = (:delta, :P, :tau, :N0 )
+    active_parameters = ( :sigma, :rho, :beta )
 
     timeseries_block_size = 100
     standardize = true
@@ -35,15 +35,19 @@ function run_test_mcmc()
     likelihood_noise_scale = 0.0
 
     # model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
-    # model = Lorenz63Model( dt_obs = dt_obs, active_parameters = active_parameters )
-    model = BlowflyModel( dt_obs = dt_obs, active_parameters = active_parameters )
+    model = Lorenz63Model( dt_obs = dt_obs, active_parameters = active_parameters )
+    # model = BlowflyModel( dt_obs = dt_obs, active_parameters = active_parameters )
     # model = RickerModel( r = 3.7, K = 1000.0, x0 = 10.0, dt_obs = dt_obs )
     # model = PredatorModel( dt_obs=dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
     npar = length( get_active_model_params( model ) )
     default_params = collect( get_active_model_params( model ) )
-    initial_params = default_params# .+ 0.01 .* abs.(randn( npar ))
+    initial_params = default_params .+ (1 .+ 0.1 .* randn( npar ) )
+
+    println( initial_params)
+    sleep(3)
+
 
     ########
     # fig = Figure()
@@ -55,6 +59,7 @@ function run_test_mcmc()
     # sleep(10)
     ########
 
+
     resampler = StandardResampling()
     # resampler = TimeseriesResampling()
     lossfun = LogLikelihood( scaling_parameter = 1.0)
@@ -65,10 +70,10 @@ function run_test_mcmc()
 
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF(10),
-        StandardECDFDiff(10, 1, dt_obs),
-        StandardECDFDiff(10, 2, dt_obs),
-        # ChamferDistance(1),
+        # StandardECDF(10),
+        # StandardECDFDiff(10, 1, dt_obs),
+        # StandardECDFDiff(10, 2, dt_obs),
+        ChamferDistance(1),
         # ChamferDistance(1:10)
         # ChamferECDF( 10, 1 )
         # CIL(10),

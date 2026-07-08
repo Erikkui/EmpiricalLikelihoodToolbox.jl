@@ -14,12 +14,14 @@ abstract type AbstractSimulationModel end
 # Resampling types
 struct StandardResampling end
 
-struct TimeseriesResampling end
+struct TimeseriesResampling
+    timeseries_block_size::Int
+end
 
 
 # Container structs
 #------------Main options struct
-Base.@kwdef struct MethodsOptions{R, T}
+Base.@kwdef struct MethodsOptions{R}
     axis_uniform::Symbol = :xax
     bins_resamplings::Int = 40
     resampling_type::R = StandardResampling()
@@ -27,7 +29,6 @@ Base.@kwdef struct MethodsOptions{R, T}
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     n_loss_evals::Int = 1
-    timeseries_block_size::T = nothing
     standardize::Bool = false
     verbose::Bool = false
 end

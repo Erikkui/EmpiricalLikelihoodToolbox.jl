@@ -132,20 +132,7 @@ function recursive_welford!( running_mean, running_cov, current_params, diff1, d
 end
 
 
-# Reconstruct a new model instance with updated parameters.
-# This is a generic function that can be used for any model type.
-# function reconstruct( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
-#     param_names = keys( get_params(m) )
-#     param_values = ntuple( ii -> new_params[ii], length(param_names) )
-#     new_param_tuple = NamedTuple{ param_names }( param_values )
-#     return setproperties(m, new_param_tuple)
-# end
-
-# function get_active_parameters( m::AbstractSimulationModel )
-
-#     return m.active_parameters
-# end
-
+# Helper to get all parameters of a model as a NamedTuple.
 function get_all_model_params(m::AbstractSimulationModel)
     npar = length(m.all_parameters)
     parameter_names = m.all_parameters
@@ -154,6 +141,7 @@ function get_all_model_params(m::AbstractSimulationModel)
     return param_tuple
 end
 
+# Helper to get active parameters (ie. those that are being estimated) of a model as a NamedTuple.
 function get_active_model_params(m::AbstractSimulationModel)
     npar = length( m.active_parameters )
     parameter_names = m.active_parameters
@@ -162,6 +150,7 @@ function get_active_model_params(m::AbstractSimulationModel)
     return param_tuple
 end
 
+# Helper to update the parameters of a model with new values. Returns a new model instance with updated parameters.
 function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
     active_params_names = m.active_parameters
     npar = length(active_params_names)
@@ -169,6 +158,14 @@ function update_model_parameters( m::AbstractSimulationModel, new_params::Abstra
     new_param_tuple = NamedTuple{ active_params_names }( active_param_values )
     m_updated = setproperties( m, new_param_tuple )
     return m_updated
+end
+
+
+function parameters_in_order( m::AbstractSimulationModel )
+    param_names = m.all_parameters
+    npar = length(param_names)
+    param_values = [ getfield( m, param_names[ii] ) for ii in 1:npar ]
+    return param_values
 end
 
 
@@ -187,7 +184,6 @@ function Base.show( io::IO, summary::AbstractSummaryStatistic )
     type_name = nameof( summary_type )
 
     # Get all field values as a tuple
-
     field_values = ( something( getfield( summary, field ), "-") for field in fieldnames( summary_type ) )
 
     # Print it in the format: Name(val1, val2, ...)

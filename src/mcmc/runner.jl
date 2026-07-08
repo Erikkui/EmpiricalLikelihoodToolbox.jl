@@ -39,7 +39,6 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
 
     active_params_names = model.active_parameters
     active_param_values = [ getfield( model, param ) for param in active_params_names ]
-
     npar_active = length( active_param_values )
 
     # Set uninformative priors if not provided
@@ -48,11 +47,13 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
         target = @set target.priors = uninformative_priors
     end
 
+    println( active_param_values)
     if isnothing( mcmc_options.initial_params )
-        current_params = active_param_values .+ 0.1 .* randn( npar_active )
+        current_params = active_param_values .+ (1 .+ 0.01.*randn( npar_active ))
     else
         current_params = mcmc_options.initial_params
     end
+    println(  current_params )
 
     proposal_cov = Matrix{Float64}( I, npar_active, npar_active )*proposal_width
     ss_current = calculate_loss( current_params, target, model, mcmc_options )

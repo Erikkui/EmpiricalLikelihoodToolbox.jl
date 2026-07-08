@@ -35,8 +35,8 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     params_proposal = zeros( npar )
 
     # Buffers for the Welford covariance update
-    running_mean = copy(state.current_params)
-    running_cov = copy(state.proposal_cov)
+    running_mean = deepcopy(state.current_params)
+    running_cov = deepcopy(state.proposal_cov)
     diff1 = zeros(npar)
     diff2 = zeros(npar)
 
@@ -48,7 +48,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     backup_ii = 1
 
     # Initial Cholesky
-    proposal_cov = copy( state.proposal_cov )
+    proposal_cov = deepcopy( state.proposal_cov )
     proposal_cov_L = cholesky( state.proposal_cov ).L
 
     # Bookkeeping
@@ -70,7 +70,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         # 1. Propose
         # params_proposal = state.current_params + proposal_cov_L * noise_buffer
         randn!( noise_buffer )
-        mul!( params_proposal, proposal_cov_L, noise_buffer )
+        mul!( params_proposal, proposal_cov_L, noise_buffer ) # params_proposal = proposal_cov_L * noise_buffer
         params_proposal .+= state.current_params
 
         ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )

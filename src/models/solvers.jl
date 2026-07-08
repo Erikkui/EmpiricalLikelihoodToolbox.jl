@@ -10,6 +10,8 @@ function solve_model( model::AbstractSimulationModel, t_end::Float64; rng=Random
     current_state = initial_state( model )
     trajectory[:, 1] .= current_state
 
+    println(model.a, " ",  model.b, " ", model.c, " ", model.d, " ", model.alpha, " ", model.beta, " ", model.tau)
+
     cumulative_t = 0.0
     for ii in 2:steps
         cumulative_t += dt_sol
@@ -29,7 +31,8 @@ function solve_model(model::Lorenz63Model, t_end::Float64; rng=Random.default_rn
     noise = SVector( randn(rng), randn(rng), randn(rng) )
     u0 = SVector{3}( model.x0 ) .* (1.0 .+ 0.01 .* noise)
 
-    params = SVector{3}( collect( get_all_model_params(model) ) )
+    params = parameters_in_order( model)
+    params = SVector{3}( params )
 
     t_start = 10.0 * dt_obs
     t_end   = t_start + t_end

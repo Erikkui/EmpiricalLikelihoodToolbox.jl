@@ -157,67 +157,67 @@ end
 #-------------------------------
 
 
-# Target generation for cases where we want simple mcmc (data against observations), no
-# hassling with summary statistics
+# # Target generation for cases where we want simple mcmc (data against observations), no
+# # hassling with summary statistics
 
-function initialize_datacontainer( data, options )
-    data_container = DataContainer(
-        observations = data,
-        differences = nothing,
-        difference_orders = nothing,
-        options = options
-        )
-    return data_container
-end
+# function initialize_datacontainer( data, options )
+#     data_container = DataContainer(
+#         observations = data,
+#         differences = nothing,
+#         difference_orders = nothing,
+#         options = options
+#         )
+#     return data_container
+# end
 
 
-function allocate_bufers( data_container )
-    observations = data_container.observations
-    buffer_simulations = zeros( size(observations) )
+# function allocate_bufers( data_container )
+#     observations = data_container.observations
+#     buffer_simulations = zeros( size(observations) )
 
-    buffers = BufferContainer(
-        nothing,
-        nothing,
-        nothing,
-        buffer_simulations,
-        nothing,
-        nothing,
-        nothing,
-        )
-    return buffers
-end
+#     buffers = BufferContainer(
+#         nothing,
+#         nothing,
+#         nothing,
+#         buffer_simulations,
+#         nothing,
+#         nothing,
+#         nothing,
+#         )
+#     return buffers
+# end
 
-function TargetData(
-    data::AbstractMatrix{Float64},
-    options::MethodsOptions;
-    priors = nothing,
-    loss = nothing
-    )
+# function TargetData(
+#     data::AbstractMatrix{Float64},
+#     options::MethodsOptions;
+#     priors = nothing,
+#     loss = nothing
+#     )
 
-    if isnothing( priors )
-        priors = ( nothing, )
-    end
+#     if isnothing( priors )
+#         priors = ( nothing, )
+#     end
 
-    # Create DataContainer
-    data_container = initialize_datacontainer( data, options )
+#     # Create DataContainer
+#     data_container = initialize_datacontainer( data, options )
 
-    # Create buffers for use in resampling
-    buffer_container, total_summary_length = allocate_buffers( data_container )
+#     # Create buffers for use in resampling
+#     buffer_container, total_summary_length = allocate_buffers( data_container )
 
-    inv_cov =
+#     inv_cov =
 
-    target = TargetData(
-        data_container,
-        nothing,
-        priors,
-        options,
-        buffer_container,
-        nothing,
-        nothing,
-        nothing,
-        nothing,
-        nothing
-        )
+#     target = TargetData(
+#         data_container,
+#         nothing,
+#         priors,
+#         options,
+#         buffer_container,
+#         nothing,
+#         nothing,
+#         nothing,
+#         nothing,
+#         nothing
+#         )
 
-    return target
-end
+#     return target
+# end
