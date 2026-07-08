@@ -4,7 +4,6 @@ function create_simulated_data( R0_all, model, target, buffers, options )
     dt_obs = model.dt_obs
 
     Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
-    println("RSIM:\n", Rsim)
 
     if any(isnan, Rsim)
         println("Simulation returned NaN values. Returning -Inf for likelihood.")
@@ -56,12 +55,11 @@ function calculate_loss( params, target, model, mcmc_options )
     noise_scale = mcmc_options.likelihood_noise_scale
     noise_scale = ifelse( isnan(noise_scale), 0.0, noise_scale )
 
-    # active_params = model.active_parameters
-
     logprior = evaluate_log_prior( params, target.priors )
 
     # Parameters with zero prior density should have zero likelihood so we can return to avoid unnecessary simulations
     if isinf( logprior )
+        # println( "Parameters with zero prior density encountered. Returning -Inf for likelihood." )
         return -Inf
     end
 
@@ -70,19 +68,13 @@ function calculate_loss( params, target, model, mcmc_options )
     summaries = target.summary_statistics
     buffers = target.buffers
 
-    println( "Model 0: ", model, "\n" )
-    println( "Parameters: ", params, "\n" )
-
     model = update_model_parameters( model, params )    # Update model with new parameters for simulation
-
-    println("Model 1: ", model, "\n")
-    sleep(3)
 
     Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
 
     # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can return -Inf for the likelihood to reject this parameter proposal
     if isinf( Rsim_container.observations[1] )
-        println("Simulation failed for parameters: ", params, " with log prior: ", logprior, ". Returning -Inf for likelihood.")
+        # println("Simulation failed for parameters: ", params, " with log prior: ", logprior, ". Returning -Inf for likelihood.")
         return -Inf
     end
 

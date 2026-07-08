@@ -10,8 +10,6 @@ function solve_model( model::AbstractSimulationModel, t_end::Float64; rng=Random
     current_state = initial_state( model )
     trajectory[:, 1] .= current_state
 
-    println(model.a, " ",  model.b, " ", model.c, " ", model.d, " ", model.alpha, " ", model.beta, " ", model.tau)
-
     cumulative_t = 0.0
     for ii in 2:steps
         cumulative_t += dt_sol
@@ -31,7 +29,7 @@ function solve_model(model::Lorenz63Model, t_end::Float64; rng=Random.default_rn
     noise = SVector( randn(rng), randn(rng), randn(rng) )
     u0 = SVector{3}( model.x0 ) .* (1.0 .+ 0.01 .* noise)
 
-    params = parameters_in_order( model)
+    _, params = get_all_model_params(model)
     params = SVector{3}( params )
 
     t_start = 10.0 * dt_obs
@@ -59,7 +57,8 @@ end
 function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rng() )
 
     # Unpack parameters
-    delta, P, N_0, sigma2_p, tau, sigma2_d = get_all_model_params(model)
+    _, parameters = get_all_model_params(model)
+    delta, P, N_0, sigma2_p, tau, sigma2_d = parameters
 
     burn_in = model.burn_in
     mu = model.mu
@@ -93,8 +92,6 @@ function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rn
     # Remove initial lag and burn-in period from N
     N = N[:, lag+1+burn_in:end]
 
-    # Remove burn-in period
-    # N_burned = @view N[ 1:1, 1+burn_in:end ]
 
     return N
 end

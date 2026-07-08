@@ -34,6 +34,7 @@ Base.@kwdef struct BlowflyModel <: AbstractSimulationModel
 end
 
 
+
 function BlowflyModel(theta::AbstractVector{<:Real}; kwargs...)
     N = length( theta )
     param_names = fieldnames( BlowflyModel )[ 1:N ]
