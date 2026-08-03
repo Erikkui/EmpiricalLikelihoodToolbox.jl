@@ -82,8 +82,9 @@ function train_target( statistics, data_container, buffer_container, options )
     end
 
     for ii in iter
-        view_in = @view training_summaries[:, ii]
         x_inds, y_inds = resampling_type( data_container, options, index_cache )
+
+        view_in = @view training_summaries[:, ii]
         statistics( view_in, x_inds, y_inds, data_container, buffer_container )
     end
 

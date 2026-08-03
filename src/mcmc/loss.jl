@@ -6,7 +6,7 @@ function create_simulated_data( R0_all, model, target, buffers, options )
     Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
 
     if any(isnan, Rsim)
-        println("Simulation returned NaN values. Returning -Inf for likelihood.")
+        # println("Simulation returned NaN values. Returning -Inf for likelihood.")
         Rsim .= -Inf
         Rsim_container = DataContainer(
             observations=Rsim,

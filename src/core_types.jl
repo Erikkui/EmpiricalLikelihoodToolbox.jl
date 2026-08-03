@@ -15,8 +15,13 @@ abstract type AbstractSimulationModel end
 # Resampling types
 struct StandardResampling end
 
-struct TimeseriesResampling
-    timeseries_block_size::Int
+Base.@kwdef struct TimeseriesResampling
+    timeseries_block_size::Int = 100
+end
+
+Base.@kwdef struct InverseCDFResampling{T}
+    n_inverse_points::T = nothing
+    training_phase::Bool = true
 end
 
 

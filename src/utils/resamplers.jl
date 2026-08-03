@@ -1,5 +1,5 @@
 # Half-half random split
-function (::StandardResampling)( data::DataContainer, options::MethodsOptions, index_cache )
+function (RS::StandardResampling)( data::DataContainer, options::MethodsOptions, index_cache )
     ntot = size( data.observations, 2 )
     ntot_half = div( ntot, 2 )
     shuffle!( index_cache )
@@ -19,8 +19,8 @@ end
 
 
 # Time series resampling: sample a contiguous block from the data
-function (TR::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
-    block_size = TR.timeseries_block_size
+function (RS::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
+    block_size = RS.timeseries_block_size
 
     start_ind = rand( index_cache[1:(end-block_size)] )
     end_ind = start_ind + block_size - 1
@@ -34,4 +34,29 @@ end
 
 function get_index_size( sampler::TimeseriesResampling, data, options )
     return size( data, 2 )
+end
+
+
+
+# Random inverse cdf resampling using only trained mean
+function (RS::InverseCDFResampling  )( data::DataContainer, options::MethodsOptions, index_cache )
+
+    y_inds = Vector{Int}(undef, 0)
+    if RS.training_phase
+        x_inds = @view index_cache[:]
+    else
+        x_inds = @view rand!( index_cache )[:]
+    end
+
+    return x_inds, y_inds
+end
+
+function get_index_size( sampler::InverseCDFResampling, data, options )
+    if isnothing( sampler.n_inverse_points )
+        block_size = size( data.observations, 2 )
+        @set sampler.n_inverse_points = block_size
+    else
+        block_size = sampler.n_inverse_points
+    end
+    return block_size
 end

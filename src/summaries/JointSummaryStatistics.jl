@@ -19,8 +19,7 @@ function (SS::JointSummaryStatistics)(
     summaries = SS.statistics
 
     start_ind = 1
-    # foreach(SS.statistics) do summary
-    foreach(summaries) do summary
+    foreach( summaries ) do summary
         summary_length = summary.summary_length
         end_ind = start_ind + summary_length - 1
         view_out = @view view_in[ start_ind:end_ind ]
@@ -45,7 +44,6 @@ function (SS::JointSummaryStatistics)(
     summaries = SS.statistics
 
     start_ind = 1
-    # foreach(SS.statistics) do summary
     foreach(summaries) do summary
         summary_length = summary.summary_length
         end_ind = start_ind + summary_length - 1

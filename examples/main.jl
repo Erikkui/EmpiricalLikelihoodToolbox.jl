@@ -68,7 +68,7 @@ function run_test_mcmc()
 
     summary_statistics = JointSummaryStatistics(
         StandardECDF( nbin, 3 ),
-        # StandardECDFDiff( nbin, 3, 1, dt_obs )
+        StandardECDFDiff( nbin, 3, 1, dt_obs )
         )
 
 
@@ -104,11 +104,19 @@ function run_test_mcmc()
     end
     display(fig)
 
-    # fig = Figure( size=(600, 600) )
-    # ax = Axis(fig[1, 1], xlabel="Parameter 1", ylabel="Parameter 2")
-    # scatter!( ax, results.chain[1, 5000:end], results.chain[2, 5000:end], markersize=6 )
-    # scatter!( ax, [true_params[1]], [true_params[2]], markersize=10, color=:red )
-    # display(fig)
+    fig = Figure( size = ( 300*(npar-1), 300*(npar-1) ) )
+    row = 1
+    col = 1
+    for ii in 1:npar
+        for jj in col+1:npar
+            ax = Axis(fig[row, col], xlabel="Parameter $ii", ylabel="Parameter $jj")
+            scatter!(ax, results.chain[ii, :], results.chain[jj, :], markersize=2.0)
+            row += 1
+        end
+        row = 1
+        col += 1
+    end
+    display(fig)
 
     return results, state
 end

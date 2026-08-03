@@ -74,7 +74,7 @@ function calculate_diffs!( diff_buffer, R, diff_order::Tuple{Vararg{Int}}, dt_ob
 end
 
 
-# Inverse CDF function for y-axis based bin creation
+# Inverse CDF function
 function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
     xi = vec(x)
     cdfi = vec(cdf)
@@ -82,7 +82,7 @@ function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
     r = zeros( Float64, nr )
     n_xi = length(xi)
 
-    for i in 1:nr
+    @inbounds for i in 1:nr
 
         arg = sum( rr[i] .> cdfi ) + 1
         ind = min( arg, n_xi )
