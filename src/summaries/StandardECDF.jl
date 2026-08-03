@@ -50,7 +50,7 @@ end
 
 function get_bin_quantity( summary_statistic::StandardECDF, data::DataContainer, inds_X, inds_Y )
     data_X = @view data.observations[ :, inds_X ]
-    return vec(data_X)
+    return vec( data_X )
 end
 
 function allocate_buffer( statistic::StandardECDF, data::DataContainer )

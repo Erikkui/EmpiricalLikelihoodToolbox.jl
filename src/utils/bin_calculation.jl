@@ -47,7 +47,6 @@ function initialize_bins(
     ind_size = get_index_size( resampler, data.observations, options )
     index_cache = collect( 1:ind_size )
     for ii in 1:bins_resamplings
-        # Half-half random split
         x_inds, y_inds = resampler( data, options, index_cache )
         summary = get_bin_quantity( statistic, data, x_inds, y_inds )
 
@@ -61,6 +60,50 @@ function initialize_bins(
 
     # Create bins
     bins = bin_select( minmax, nbin, options.axis_uniform, resampled_summaries_all )
+
+    new_statistic = @set statistic.bins = bins
+    return new_statistic
+end
+
+
+# Bin initializaion for n-dimensional standard ecdf
+function initialize_bins(
+    data::DataContainer,
+    statistic::ECDFMultiDimensionalSummary,
+    options::MethodsOptions )
+
+    resampler = options.resampling_type
+    bins_resamplings = options.bins_resamplings
+    nbin = statistic.nbin
+    ndim = statistic.ndim
+
+    minmax = zeros(2, ndim)
+    mins = zeros( bins_resamplings, ndim )
+    maxs = zeros( bins_resamplings, ndim )
+
+    resampled_summaries_all = Vector{ Matrix{Float64} }( undef, bins_resamplings )
+    ind_size = get_index_size( resampler, data.observations, options )
+    index_cache = collect( 1:ind_size )
+    for ii in 1:bins_resamplings
+        x_inds, y_inds = resampler( data, options, index_cache )
+        summary = get_bin_quantity( statistic, data, x_inds, y_inds )
+
+        resampled_summaries_all[ii] = summary
+        mins[ii, :] = minimum( summary, dims = 2 )
+        maxs[ii, :] = maximum( summary, dims = 2 )
+    end
+    minmax[1, :] = maximum( mins, dims = 1 )
+    minmax[2, :] = minimum( maxs, dims = 1 )
+    resampled_summaries_all = hcat( resampled_summaries_all... )
+
+    # Create bins
+    ndim = statistic.ndim
+    bins = Vector{ Vector{Float64} }( undef, ndim )
+    for ii in 1:ndim
+        minmax_ii = minmax[:, ii]
+        resampled_summaries_ii = resampled_summaries_all[ii, :]
+        bins[ii] = bin_select( minmax_ii, nbin, options.axis_uniform, resampled_summaries_ii )
+    end
 
     new_statistic = @set statistic.bins = bins
     return new_statistic
@@ -102,7 +145,6 @@ function initialize_bins(
     for ii in 1:length(statistic.neighbors)
         bins[ii] = bin_select( minmax[:, ii], nbin, options.axis_uniform, resampled_summaries_all[:, ii] )
     end
-    # bins = bin_select( minmax, nbin, options.axis_uniform, resampled_summaries_all )
 
     new_statistic = @set statistic.bins = bins
     return new_statistic

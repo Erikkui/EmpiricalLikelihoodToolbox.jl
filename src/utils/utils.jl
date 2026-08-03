@@ -76,8 +76,8 @@ end
 
 # Inverse CDF function for y-axis based bin creation
 function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
-    xi = x[:]
-    cdfi = cdf[:]
+    xi = vec(x)
+    cdfi = vec(cdf)
     rr = range(1.01 * minimum(cdf), stop=0.99 * maximum(cdf), length=nr)
     r = zeros( Float64, nr )
     n_xi = length(xi)

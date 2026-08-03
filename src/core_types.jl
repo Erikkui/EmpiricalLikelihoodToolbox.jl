@@ -5,6 +5,7 @@ abstract type AbstractECDFSummary <: AbstractSummaryStatistic end
 abstract type AbstractChamferSummary <: AbstractSummaryStatistic end
 
 abstract type DifferenceECDFSummary <: AbstractECDFSummary end
+abstract type ECDFMultiDimensionalSummary <: AbstractECDFSummary end
 abstract type IDSummary <: AbstractECDFSummary end
 abstract type ChamferDifference <: AbstractChamferSummary end
 

@@ -41,13 +41,9 @@ function run_test_mcmc()
     # model = PredatorModel( dt_obs=dt_obs)
     data = solve_model( model, Ndata*dt_obs )
 
-    npar = length( get_active_model_params( model ) )
-    default_params = collect( get_active_model_params( model ) )
+    _, default_params = get_active_model_params( model )
+    npar = length( default_params )
     initial_params = default_params .+ (1 .+ 0.1 .* randn( npar ) )
-
-    println( initial_params)
-    sleep(3)
-
 
     ########
     # fig = Figure()
@@ -62,29 +58,24 @@ function run_test_mcmc()
 
     resampler = StandardResampling()
     # resampler = TimeseriesResampling()
+
     lossfun = LogLikelihood( scaling_parameter = 1.0)
-    println(lossfun)
+
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
+
     priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]... )
 
-
     summary_statistics = JointSummaryStatistics(
-        # StandardECDF(10),
-        # StandardECDFDiff(10, 1, dt_obs),
-        # StandardECDFDiff(10, 2, dt_obs),
-        ChamferDistance(1),
-        # ChamferDistance(1:10)
-        # ChamferECDF( 10, 1 )
-        # CIL(10),
-        # ID(10, 1:2)
+        StandardECDF( nbin, 3 ),
+        # StandardECDFDiff( nbin, 3, 1, dt_obs )
         )
+
 
     methods_options = MethodsOptions(
         resampling_type=resampler,
         axis_uniform=axis_unif,
         training_resamplings=nrep_training,
-        timeseries_block_size=timeseries_block_size,
         n_loss_evals = n_loss_evals,
         n_summaries = n_summaries,
         standardize = standardize,
@@ -105,13 +96,11 @@ function run_test_mcmc()
 
     results, state = mcmcrun( target, model, mcmc_options )
 
-    true_params = collect( get_active_model_params( model ) )
-    npara = size(results.chain, 1)
-    fig = Figure(size=(800, 200*npara))
-    for i in 1:npara
+    fig = Figure(size=(800, 200*npar))
+    for i in 1:npar
         ax = Axis(fig[i, 1], xlabel="Iteration", ylabel="Parameter $i")
         lines!(ax, results.chain[i, :])
-        hlines!(ax, [true_params[i]], color=:red, linestyle=:dash)
+        hlines!(ax, [default_params[i]], color=:red, linestyle=:dash)
     end
     display(fig)
 

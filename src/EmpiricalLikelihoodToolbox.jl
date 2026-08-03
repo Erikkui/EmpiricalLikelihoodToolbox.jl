@@ -42,6 +42,8 @@ module EmpiricalLikelihoodToolbox
 
     include("summaries/StandardECDF.jl")
     include("summaries/StandardECDFDiff.jl")
+    include("summaries/StandardECDF_multidim.jl")
+    include("summaries/StandardECDFDiff_multidim.jl")
     include("summaries/CIL.jl")
     include("summaries/CILDiff.jl")
     include("summaries/ChamferDistance.jl")
