@@ -75,7 +75,7 @@ end
 
 
 # Inverse CDF function
-function invcdf(x, cdf, nr, cont=1)::Vector{Float64}
+function invcdf( x, cdf, nr, cont=1 )::Vector{Float64}
     xi = vec(x)
     cdfi = vec(cdf)
     rr = range(1.01 * minimum(cdf), stop=0.99 * maximum(cdf), length=nr)

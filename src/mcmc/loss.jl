@@ -43,7 +43,6 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
         x_inds, y_inds = resampler( R0_all, options, index_cache )
         summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
     end
-    # copyto!( sim_statistic, vec( mean(resample_buffer, dims=2) ) )
 
     mean!( sim_statistic, resample_buffer )
 
