@@ -73,6 +73,7 @@ function train_target( statistics, data_container, buffer_container, options )
 
     resampling_type = options.resampling_type
     training_resamplings = options.training_resamplings
+    cov_type = options.covariance_type
 
     if options.verbose
         println( "Resampling data for target mean and covariance, ndata = $(size(data_container.observations, 2))" )
@@ -89,7 +90,15 @@ function train_target( statistics, data_container, buffer_container, options )
     end
 
     mean_summary = mean( training_summaries, dims=2 ) |> vec
-    C = cov( training_summaries' )
+
+    C = nothing
+    if cov_type == :cov
+        C = cov( training_summaries' )
+    elseif cov_type == :donsker
+        ndata = size( data_container.observations, 2 )
+        C = donsker_covariance( mean_summary, ndata )
+    end
+
     return mean_summary, C, training_summaries
 end
 

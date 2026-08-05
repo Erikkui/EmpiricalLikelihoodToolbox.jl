@@ -51,22 +51,43 @@ function calculate_summary_statistic!(  # To be used in MCMC
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
+    use_ecdf_sampling = obs_data_all.options.use_ecdf_sampling
+
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
     diff_order = summary_statistic.diff_order
 
-    R0_diff = obs_data_all.differences[ diff_order ]
+    Rsim_diff = sim_data_all.differences[ diff_order ]
 
-    data_X = @view R0_diff[ :, x_inds ]
+    ndata = size( Rsim_diff, 2 )
 
     start_ind = 1
-    for (ii, row) in enumerate( eachrow(data_X) )
-        end_ind = start_ind + summary_statistic.nbin - 1
+    if use_ecdf_sampling
+        data_X = @view Rsim_diff[ :, : ]
+        yax_values = rand( ndata )
+        for (ii, row) in enumerate( eachrow(data_X) )
+            end_ind = start_ind + summary_statistic.nbin - 1
 
-        ecdf_view_out = @view view_out[ start_ind:end_ind ]
-        empcdf!( ecdf_view_out, row, nbins, bins[ii] )
+            xmin, xmax = minimum(row), maximum(row)
+            bins_dense_temp = range( 1.01*xmin, 0.99*xmax, length = ndata ) |> collect
+            ecdf_view_out = @view view_out[ start_ind:end_ind ]
 
-        start_ind += summary_statistic.nbin
+            ecdf_sim = empcdf( row, nbins, bins_dense_temp )
+            data_X_new = invcdf( yax_values, ecdf_sim, nbins, 1 )
+            empcdf!( ecdf_view_out, data_X_new, nbins, bins[ii] )
+
+            start_ind += summary_statistic.nbin
+        end
+    else
+        data_X = @view Rsim_diff[ :, x_inds ]
+        for (ii, row) in enumerate( eachrow(data_X) )
+            end_ind = start_ind + summary_statistic.nbin - 1
+
+            ecdf_view_out = @view view_out[ start_ind:end_ind ]
+            empcdf!( ecdf_view_out, row, nbins, bins[ii] )
+
+            start_ind += summary_statistic.nbin
+        end
     end
 
     return nothing

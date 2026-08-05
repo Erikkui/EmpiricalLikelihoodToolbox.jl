@@ -44,6 +44,8 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
         summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
     end
 
+    # Average the resampled summaries to get the final simulated statistic which is then
+    # compared to the target statistic to calculate the loss.
     mean!( sim_statistic, resample_buffer )
 
     return sim_statistic
@@ -56,7 +58,8 @@ function calculate_loss( params, target, model, mcmc_options )
 
     logprior = evaluate_log_prior( params, target.priors )
 
-    # Parameters with zero prior density should have zero likelihood so we can return to avoid unnecessary simulations
+    # Parameters with zero prior density should have zero likelihood so we can return -Inf
+    # to avoid unnecessary simulations
     if isinf( logprior )
         # println( "Parameters with zero prior density encountered. Returning -Inf for likelihood." )
         return -Inf
@@ -71,7 +74,8 @@ function calculate_loss( params, target, model, mcmc_options )
 
     Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
 
-    # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can return -Inf for the likelihood to reject this parameter proposal
+    # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can
+    # return -Inf for the likelihood to reject this parameter proposal
     if isinf( Rsim_container.observations[1] )
         # println("Simulation failed for parameters: ", params, " with log prior: ", logprior, ". Returning -Inf for likelihood.")
         return -Inf
@@ -79,6 +83,8 @@ function calculate_loss( params, target, model, mcmc_options )
 
     # Resample data and calculate summary statistics for current parameters
     loss = 0.0
+
+    # Add noise to the likelihood to simulate noisy likelihood evaluations. This is useful for testing MCMC convergence and robustness to noise in the likelihood function. n_loss_evals is the number of times to evaluate the loss function and average the result to reduce the effect of noise.
     for _ in 1:options.n_loss_evals
         sim_statistic = calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options )
         loss += loss_function( target, sim_statistic )

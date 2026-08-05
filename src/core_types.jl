@@ -29,12 +29,14 @@ end
 #------------Main options struct
 Base.@kwdef struct MethodsOptions{R}
     axis_uniform::Symbol = :xax
+    covariance_type::Symbol = :cov
     bins_resamplings::Int = 40
     resampling_type::R = StandardResampling()
     training_resamplings::Int = 1000
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     n_loss_evals::Int = 1
+    use_ecdf_sampling::Bool = false
     standardize::Bool = false
     verbose::Bool = false
 end

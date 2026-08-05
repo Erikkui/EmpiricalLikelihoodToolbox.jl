@@ -182,3 +182,23 @@ end
 
 # Same as above, but prints stuff prettily in the REPL
 Base.show(io::IO, ::MIME"text/plain", x::AbstractSummaryStatistic) = show( io, x )
+
+function donsker_covariance( ecdf, ndata::Int )
+    # Calculate the Donsker covariance matrix for a given ECDF and number of data points.
+
+    nbin = length( ecdf )
+    cov_matrix = zeros( nbin, nbin )
+    inv_ndata = 1.0 / ndata
+
+    for ii in 1:nbin
+        for jj in 1:nbin
+            F_i, F_j = ecdf[ii], ecdf[jj]
+            min_FiFj = min( F_i, F_j )
+            cov_matrix[ ii, jj ] = min_FiFj - F_i*F_j
+        end
+    end
+
+    cov_matrix .*= inv_ndata
+
+    return cov_matrix
+end

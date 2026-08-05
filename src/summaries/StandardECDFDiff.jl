@@ -39,15 +39,30 @@ function calculate_summary_statistic!(  # To be used in MCMC
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
+    use_ecdf_sampling = obs_data_all.options.use_ecdf_sampling
+
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
     diff_order = summary_statistic.diff_order
 
-    R0_diff = obs_data_all.differences[ diff_order ]
+    Rsim_diff = sim_data_all.differences[ diff_order ]
 
-    data_X = @view R0_diff[ :, x_inds ]
+    if use_ecdf_sampling
+        ndata = size( Rsim_diff, 2 )
+        data_X = @view Rsim_diff[ :, : ]
+        yax_values = rand( ndata )  # uniform random values for y-axis
 
-    empcdf!( view_out, data_X, nbins, bins )
+        xmin, xmax = minimum( data_X ), maximum( data_X )
+        bins_dense_temp = range( 1.01*xmin, 0.99*xmax, length = ndata ) |> collect
+
+        ecdf_sim = empcdf( data_X, nbins, bins_dense_temp )    # ecdf of simulation according to observed data bins
+        data_X_new = invcdf( yax_values, ecdf_sim, nbins, 1 )  # inverse cdf to get simulated data values according to observed data bins
+        empcdf!( view_out, data_X_new, nbins, bins )    # ecdf of simulation according to observed data bins
+    else
+        data_X = @view Rsim_diff[ :, x_inds ]
+        empcdf!( view_out, data_X, nbins, bins )
+    end
+
     return nothing
 end
 
