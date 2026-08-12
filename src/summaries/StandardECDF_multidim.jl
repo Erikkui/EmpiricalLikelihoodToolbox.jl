@@ -6,8 +6,12 @@ struct StandardECDFMultiDimensional{B} <: ECDFMultiDimensionalSummary
     summary_length::Int
 end
 
-function StandardECDF( nbin::Int, ndim::Int)
-    return StandardECDFMultiDimensional( nothing, nbin, ndim, ndim*nbin )
+function StandardECDF( nbin::Int, ndim::Int )
+    if ndim == 1
+        return StandardECDF( nothing, nbin, nbin )
+    else
+        return StandardECDFMultiDimensional( nothing, nbin, ndim, ndim*nbin )
+    end
 end
 
 
