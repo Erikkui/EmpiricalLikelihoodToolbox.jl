@@ -20,15 +20,27 @@ end
 
 # Time series resampling: sample a contiguous block from the data
 function (RS::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
-    block_size = RS.timeseries_block_size
+    # block_size = RS.timeseries_block_size
 
-    start_ind = rand( index_cache[1:(end-block_size)] )
-    end_ind = start_ind + block_size - 1
-    x_inds = @view index_cache[ start_ind:end_ind ]
-    y_inds = setdiff( index_cache, x_inds )
+    # start_ind = rand( index_cache[1:(end-block_size)] )
+    # end_ind = start_ind + block_size - 1
+    # x_inds = @view index_cache[ start_ind:end_ind ]
+    # y_inds = setdiff( index_cache, x_inds )
 
     # x = @view data[ :, x_inds ]
     # y = @view data[ :, y_inds ]
+
+    block_size = RS.timeseries_block_size
+
+    ndata = size( data.observations, 2 )
+    last_start_ind = ndata - block_size + 1
+
+    start_ind = rand( 1:last_start_ind )
+    end_ind = start_ind + block_size - 1
+
+    x_inds = @view index_cache[ start_ind:end_ind ]
+    y_inds = setdiff( index_cache, x_inds )
+
     return x_inds, y_inds
 end
 
