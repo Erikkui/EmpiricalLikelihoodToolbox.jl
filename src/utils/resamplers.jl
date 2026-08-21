@@ -51,12 +51,26 @@ function (RS::InverseCDFResampling  )( data::DataContainer, options::MethodsOpti
     return x_inds, y_inds
 end
 
-function get_index_size( sampler::InverseCDFResampling, data, options )
-    if isnothing( sampler.n_inverse_points )
-        block_size = size( data.observations, 2 )
-        @set sampler.n_inverse_points = block_size
-    else
-        block_size = sampler.n_inverse_points
-    end
-    return block_size
+
+function resample_sizes(
+    sampler::StandardResampling,
+    ndata::Int
+)
+    nx = div(ndata, 2)
+    ny = ndata - nx
+    return nx, ny
+end
+
+function resample_sizes(
+    sampler::TimeseriesResampling,
+    ndata::Int
+)
+    nx = sampler.timeseries_block_size
+    1 <= nx < ndata ||
+        throw(ArgumentError(
+            "timeseries_block_size must satisfy " *
+            "1 <= block_size < ndata"
+        ))
+    ny = ndata - nx
+    return nx, ny
 end
