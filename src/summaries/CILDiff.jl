@@ -73,13 +73,16 @@ function get_bin_quantity( summary::CILDiff, data::DataContainer, inds_X, inds_Y
 end
 
 function allocate_buffer( statistic::CILDiff, data::DataContainer )
-    if data.options.resampling_type isa TimeseriesResampling
-        rows = data.options.timeseries_block_size
-        cols = size( data.observations, 2 ) - rows
-    else
-        rows = round( Int, size( data.observations, 2 ) / 2 )
-        cols = rows
-    end
+    # if data.options.resampling_type isa TimeseriesResampling
+    #     rows = data.options.timeseries_block_size
+    #     cols = size( data.observations, 2 ) - rows
+    # else
+    #     rows = round( Int, size( data.observations, 2 ) / 2 )
+    #     cols = rows
+    # end
+    ndata = size(data.observations, 2)
+    rows, cols = resample_sizes( data.options.resampling_type, ndata )
+
     buffer = Matrix{Float64}( undef, rows, cols )
     return buffer
 end

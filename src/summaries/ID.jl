@@ -151,19 +151,26 @@ function get_bin_quantity( summary_statistic::ID, data::DataContainer, inds_X, i
 end
 
 function allocate_buffer( statistic::ID, data::DataContainer )
-    if data.options.resampling_type isa TimeseriesResampling
-        rows = data.options.resampling_type.timeseries_block_size
-        cols = size( data.observations, 2 ) - rows
-    else
-        rows = round( Int, size( data.observations, 2 ) / 2 )
-        cols = rows
-    end
+    # if data.options.resampling_type isa TimeseriesResampling
+    #     rows = data.options.resampling_type.timeseries_block_size
+    #     cols = size( data.observations, 2 ) - rows
+    # else
+    #     rows = round( Int, size( data.observations, 2 ) / 2 )
+    #     cols = rows
+    # end
+     # dist_buffer = Matrix{Float64}( undef, rows, cols )
+    # ratio_buffer = Vector{Float64}( undef, rows+cols )
+
+    ndata = size(data.observations, 2)
+    rows, cols = resample_sizes( data.options.resampling_type, ndata )
 
     dist_buffer = Matrix{Float64}( undef, rows, cols )
+    dist_buffer_aux = similar( dist_buffer )
     ratio_buffer = Vector{Float64}( undef, rows+cols )
+
     return (
         dist_buffer=dist_buffer,
-        dist_buffer_aux=similar(dist_buffer),
+        dist_buffer_aux=dist_buffer_aux,
         ratio_buffer=ratio_buffer
         )
 end
