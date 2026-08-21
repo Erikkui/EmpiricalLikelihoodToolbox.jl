@@ -3,6 +3,7 @@ function create_simulated_data( R0_all, model, target, buffers, options )
     ndata = size( R0_all.observations, 2 )
     dt_obs = model.dt_obs
 
+    # TODO impement solve_model!
     Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
 
     if any(isnan, Rsim)
@@ -38,12 +39,21 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     resample_buffer = buffers.mcmc_buffer
     index_cache = buffers.index_cache
     sim_statistic = buffers.simulation_statistic
-    for ii in 1:n_summaries
-        view_in = @view resample_buffer[ :, ii ]
-        x_inds, y_inds = resampler( R0_all, options, index_cache )
-        summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
-    end
 
+    # If only one summary is requested, we do not have to split the data using the resampler
+    # and can calculate the summary using the full data (ie. full index cache).
+    if n_summaries <= 1
+        view_in = @view resample_buffer[ :, 1 ]
+        summaries( view_in, index_cache, index_cache, R0_all, Rsim_container, buffers )
+    else
+        for ii in 1:n_summaries
+            view_in = @view resample_buffer[ :, ii ]
+            x_inds, y_inds = resampler( R0_all, options, index_cache )
+            summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
+        end
+    end
+    # println( resample_buffer )
+    # sleep( 1)
     # Average the resampled summaries to get the final simulated statistic which is then
     # compared to the target statistic to calculate the loss.
     mean!( sim_statistic, resample_buffer )
@@ -72,27 +82,27 @@ function calculate_loss( params, target, model, mcmc_options )
 
     model = update_model_parameters( model, params )    # Update model with new parameters for simulation
 
-    Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
-
-    # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can
-    # return -Inf for the likelihood to reject this parameter proposal
-    if isinf( Rsim_container.observations[1] )
-        # println("Simulation failed for parameters: ", params, " with log prior: ", logprior, ". Returning -Inf for likelihood.")
-        return -Inf
-    end
-
     # Resample data and calculate summary statistics for current parameters
     loss = 0.0
 
     # Add noise to the likelihood to simulate noisy likelihood evaluations. This is useful for testing MCMC convergence and robustness to noise in the likelihood function. n_loss_evals is the number of times to evaluate the loss function and average the result to reduce the effect of noise.
     for _ in 1:options.n_loss_evals
+        Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
+
+        # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can
+        # return -Inf for the likelihood to reject this parameter proposal
+        if isinf( Rsim_container.observations[1] )
+            # println("Simulation failed for parameters: ", params, " with log prior: ", logprior, ". Returning -Inf for likelihood.")
+            return -Inf
+        end
+
         sim_statistic = calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options )
         loss += loss_function( target, sim_statistic )
-        loss += logprior
-
-        loss += noise_scale*randn() # Add noise to likelihood to simulate noisy likelihood
     end
+
     loss /= options.n_loss_evals
+    loss += logprior
+    loss += noise_scale*randn() # Add noise to likelihood to simulate noisy likelihood
 
     return loss
 end
