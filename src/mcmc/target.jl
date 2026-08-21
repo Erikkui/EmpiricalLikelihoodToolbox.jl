@@ -139,15 +139,13 @@ function TargetData(
     mean_standardization = nothing
     sd_standardization = nothing
     if options.standardize
-        mean_standardization = 0.0
-        sd_standardization = 0.0
-        for col in eachcol( training_summaries )
+        losses = zeros( training_resamplings )
+        for (ii, col) in enumerate( eachcol( training_summaries ) )
             temp = loss( col, mean_summary, inv_cov_mat )
-            mean_standardization += temp
-            sd_standardization += (temp - mean_standardization)^2
+            losses[ii] = temp
         end
-        mean_standardization /= training_resamplings
-        sd_standardization = sqrt( sd_standardization / training_resamplings )
+        mean_standardization = mean(losses)
+        sd_standardization = std(losses; corrected=false)
     end
 
     target = TargetData(

@@ -40,17 +40,10 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     index_cache = buffers.index_cache
     sim_statistic = buffers.simulation_statistic
 
-    # If only one summary is requested, we do not have to split the data using the resampler
-    # and can calculate the summary using the full data (ie. full index cache).
-    if n_summaries <= 1
-        view_in = @view resample_buffer[ :, 1 ]
-        summaries( view_in, index_cache, index_cache, R0_all, Rsim_container, buffers )
-    else
-        for ii in 1:n_summaries
-            view_in = @view resample_buffer[ :, ii ]
-            x_inds, y_inds = resampler( R0_all, options, index_cache )
-            summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
-        end
+    for ii in 1:n_summaries
+        view_in = @view resample_buffer[ :, ii ]
+        x_inds, y_inds = resampler( R0_all, options, index_cache )
+        summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
     end
 
     # Average the resampled summaries to get the final simulated statistic which is then

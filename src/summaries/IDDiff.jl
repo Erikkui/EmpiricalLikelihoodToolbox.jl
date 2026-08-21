@@ -168,7 +168,7 @@ function allocate_buffer( statistic::IDDiff, data::DataContainer )
 
     dist_buffer = Matrix{Float64}( undef, rows, cols )
     ratio_buffer = Vector{Float64}( undef, rows+cols )
-    return ( dist_buffer=dist_buffer, dist_buffer_aux=dist_buffer, ratio_buffer=ratio_buffer )
+    return ( dist_buffer=dist_buffer, dist_buffer_aux=similar(dist_buffer), ratio_buffer=ratio_buffer )
 end
 
 required_diff_order(stat::IDDiff) = stat.diff_order
