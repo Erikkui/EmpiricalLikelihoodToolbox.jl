@@ -1,10 +1,10 @@
-function create_simulated_data( R0_all, model, target, buffers, options )
+function create_simulated_data( R0_all, model, target, buffers, options, rng )
     diff_orders = target.data.difference_orders
     ndata = size( R0_all.observations, 2 )
     dt_obs = model.dt_obs
 
-    # TODO impement solve_model!
-    Rsim = solve_model( model, ndata*dt_obs )::Matrix{Float64}
+    # TODO impement solve_model!()
+    Rsim = solve_model( model, ndata*dt_obs; rng = rng )::Matrix{Float64}
 
     if any(isnan, Rsim)
         # println("Simulation returned NaN values. Returning -Inf for likelihood.")
@@ -52,8 +52,7 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
             summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
         end
     end
-    # println( resample_buffer )
-    # sleep( 1)
+
     # Average the resampled summaries to get the final simulated statistic which is then
     # compared to the target statistic to calculate the loss.
     mean!( sim_statistic, resample_buffer )
@@ -61,7 +60,7 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     return sim_statistic
 end
 
-function calculate_loss( params, target, model, mcmc_options )
+function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 = rand(UInt64) )
     loss_function = mcmc_options.loss_function
     noise_scale = mcmc_options.likelihood_noise_scale
     noise_scale = ifelse( isnan(noise_scale), 0.0, noise_scale )
@@ -85,9 +84,12 @@ function calculate_loss( params, target, model, mcmc_options )
     # Resample data and calculate summary statistics for current parameters
     loss = 0.0
 
-    # Add noise to the likelihood to simulate noisy likelihood evaluations. This is useful for testing MCMC convergence and robustness to noise in the likelihood function. n_loss_evals is the number of times to evaluate the loss function and average the result to reduce the effect of noise.
+    # Set the same random seed for each data generation
+    rng = Xoshiro( rng_seed )
+
+    # n_loss_evals is the number of times to evaluate the loss function on new simulations and average the result to reduce the effect of noise.
     for _ in 1:options.n_loss_evals
-        Rsim_container = create_simulated_data( R0_all, model, target, buffers, options )
+        Rsim_container = create_simulated_data( R0_all, model, target, buffers, options, rng )
 
         # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can
         # return -Inf for the likelihood to reject this parameter proposal

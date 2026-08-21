@@ -65,6 +65,7 @@ Base.@kwdef struct MCMCOptions{A, G, F}
     nsteps::Int = 1000
     update_interval::Int = 50
     discard_noisy_updates::Bool = false
+    reevaluate_current_loss::Bool = false
     mcmc_algorithm::A
     initial_params::G = nothing
     loss_function::F = LogLikelihood()

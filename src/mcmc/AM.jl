@@ -21,6 +21,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     chain_length = mcmc_options.nsteps
     update_interval = mcmc_options.update_interval
     discard_noisy_updates = mcmc_options.discard_noisy_updates
+    reevaluate_current_loss = mcmc_options.reevaluate_current_loss
     verbose = target.options.verbose
 
     npar = length( state.current_params )
@@ -73,7 +74,14 @@ function (AM::AM)( target, model, state, mcmc_options, results )
         mul!( params_proposal, proposal_cov_L, noise_buffer ) # params_proposal = proposal_cov_L * noise_buffer
         params_proposal .+= state.current_params
 
-        ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )
+        step_seed = rand(UInt64)
+        if reevaluate_current_loss
+            # Recalculate the loss for the current parameters
+            ss_current_reevaluated = calculate_loss( state.current_params, target, model, mcmc_options, rng_seed=step_seed )
+            @reset state.ss_current = ss_current_reevaluated
+        end
+
+        ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options, rng_seed=step_seed )
 
         # 2. Metropolis accept/reject
         log_ratio = ss_proposal - state.ss_current
