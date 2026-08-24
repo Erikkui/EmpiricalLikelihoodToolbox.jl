@@ -20,7 +20,7 @@ module EmpiricalLikelihoodToolbox
     export StandardECDF, StandardECDFDiff, CIL, CILDiff, ChamferDistance, ChamferDistanceDiff, ChamferECDF, JointSummaryStatistics, ID, IDDiff
 
     # Models and solvers
-    export Lorenz63Model, OUModel, NormalModel, BlowflyModel, NegExpModel, PredatorModel, solve_model
+    export Lorenz63Model, OUModel, NormalModel, BlowflyModel, NegExpModel, PredatorModel, RickerModel, solve_model
 
     # Resamplers and container
     export StandardResampling, TimeseriesResampling, MethodsOptions, TargetData
@@ -32,7 +32,7 @@ module EmpiricalLikelihoodToolbox
     export LogLikelihood, RobustChamfer
 
     # Miscellaneous utilities
-    export get_all_model_params, get_active_model_params
+    export get_all_model_params, get_active_model_params, embedding
 
     # Types user might need
     export AbstractSummaryStatistic, AbstractSimulationModel, AbstractECDFSummary
@@ -68,6 +68,7 @@ module EmpiricalLikelihoodToolbox
     include("models/NormalModel.jl")
     include("models/BlowflyModel.jl")
     include("models/NegExpModel.jl")
+    include("models/RickerModel.jl")
     include("models/solvers.jl")
 
     include("utils/bin_calculation.jl")

@@ -202,3 +202,24 @@ function donsker_covariance( ecdf, ndata::Int )
 
     return cov_matrix
 end
+
+function embedding( data_in, embedding_dims )
+    Nobs = length( obs_inds )
+    max_embed = maximum( embedding_dims )
+    output_dim = 1 + length( embedding_dims )
+    output_length = Nobs - max_embed
+
+    output_data = zeros( output_dim, output_length )
+
+    output_data[1, :] = data_in[ max_embed+1:end ]
+
+    for (ii, tau) in enumerate( embedding_dims )
+        start_ind = max_embed - tau + 1
+        end_ind = Nobs - tau
+
+        embedding_temp = @view data_in[ start_ind:end_ind ]
+        output_data[ ii+1, :] = embedding_temp
+    end
+
+    return output_data
+end
