@@ -33,6 +33,7 @@ Base.@kwdef struct MethodsOptions{R}
     bins_resamplings::Int = 40
     resampling_type::R = StandardResampling()
     training_resamplings::Int = 1000
+    N_obs::Int
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     n_loss_evals::Int = 1

@@ -9,7 +9,7 @@ struct StandardECDFDiffMultiDimensional{B} <: ECDFMultiDimensionalSummary
 end
 
 function StandardECDFDiff( nbin::Int, ndim::Int, diff_order::Int, dt_obs::Float64 )
-    if ndim == 1
+    if ndim < 2
         return StandardECDFDiff( nothing, nbin, dt_obs, diff_order, nbin )
     else
         return StandardECDFDiffMultiDimensional( nothing, nbin, ndim, dt_obs, diff_order, ndim*nbin )

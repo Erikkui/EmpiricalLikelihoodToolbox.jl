@@ -204,6 +204,9 @@ function donsker_covariance( ecdf, ndata::Int )
 end
 
 function embedding( data_in, embedding_dims )
+    if embedding_dims == 0 || isempty(embedding_dims)
+        return data_in
+    end
     Nobs = length( data_in )
     max_embed = maximum( embedding_dims )
     output_dim = 1 + length( embedding_dims )

@@ -7,7 +7,7 @@ struct StandardECDFMultiDimensional{B} <: ECDFMultiDimensionalSummary
 end
 
 function StandardECDF( nbin::Int, ndim::Int )
-    if ndim == 1
+    if ndim < 2
         return StandardECDF( nothing, nbin, nbin )
     else
         return StandardECDFMultiDimensional( nothing, nbin, ndim, ndim*nbin )

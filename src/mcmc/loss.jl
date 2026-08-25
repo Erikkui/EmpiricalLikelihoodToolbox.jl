@@ -1,6 +1,6 @@
 function create_simulated_data( R0_all, model, target, buffers, options, rng )
     diff_orders = target.data.difference_orders
-    ndata = size( R0_all.observations, 2 )
+    ndata = options.N_obs
     dt_obs = model.dt_obs
 
     # TODO impement solve_model!()
