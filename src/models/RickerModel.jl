@@ -32,7 +32,7 @@ function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng
     dt_sol = model.dt_sol
     embedding_dims = model.embedding_dim
 
-    end_time_total = t_end + transient_time + maximum( embedding_dims )*dt_obs
+    end_time_total = t_end + transient_time
     steps = round(Int, end_time_total/dt_sol )
 
     obs_start_ind = round( Int, (transient_time+dt_obs)/dt_sol )
@@ -66,11 +66,14 @@ function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng
     # If embedding dimension is specified, compute the lag embedding
     if embedding_dims != 0
         y_out = embedding( trajectory, embedding_dims )
+
         if return_hidden_states
             hidden_states = hidden_states[ :, obs_inds ]
             n_out = embedding( hidden_states, embedding_dims )
             return y_out, n_out
         end
+
+        return y_out
     else
         return trajectory # Return as a 2D array with one row
     end

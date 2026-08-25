@@ -5,6 +5,12 @@ evaluate_single_prior( prior::Distribution, val::Real ) = logpdf( prior, val )
 evaluate_single_prior( ::Nothing, val::Real) = 0.0
 
 function evaluate_log_prior( params::AbstractVector, priors )
+
+    # If no priors for any of the parameters are specified, return 0.0
+    if isnothing( priors )
+        return 0.0
+    end
+
     log_prior_val = 0.0
     for (ii, param) in enumerate( keys(priors) )
         log_prior_val += evaluate_single_prior( priors[param], params[ii] )

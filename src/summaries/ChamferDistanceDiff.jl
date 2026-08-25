@@ -27,9 +27,9 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data_X = @view data.differences[ diff_order ][ :, x_inds ]
     data_Y = @view data.differences[ diff_order ][ :, y_inds ]
 
-    max_neighbor = summary_statistic.highest_neighbor
+    kvals = summary_statistic.neighbors
 
-    chamfer_distance!( view_out, data_X, data_Y, k=max_neighbor )
+    chamfer_distance!( view_out, data_X, data_Y, kvals )
 
     return nothing
 end
@@ -49,9 +49,9 @@ function calculate_summary_statistic!(  # To be used in MCMC
     Rsim = @view sim_data_all.differences[ diff_order ][ :, y_inds ]
     ytree = KDTree( Rsim )
 
-    max_neighbor = summary_statistic.highest_neighbor
+    kvals = summary_statistic.neighbors
 
-    chamfer_distance!( view_out, data_X, Rsim, ytree, k=max_neighbor )
+    chamfer_distance!( view_out, data_X, Rsim, ytree, kvals )
 
     return nothing
 end

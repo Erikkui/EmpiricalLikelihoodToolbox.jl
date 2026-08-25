@@ -13,7 +13,7 @@ using CairoMakie
 function run_test_mcmc()
     axis_unif = :yax
     covariance_type = :cov
-    use_ecdf_sampling = true
+    use_ecdf_sampling = false
 
     nrep_training = 5000
     chain_length = 20000
@@ -21,34 +21,26 @@ function run_test_mcmc()
     nbin = 10
     knn = 1
 
-    n_loss_evals = 1
+    n_loss_evals = 20
     n_summaries = 1
 
-    # t_end = 60
-    # dt_obs = 1.0
-    # Ndata = t_end / dt_obs
-
-    Ndata = 500
+    Ndata = 50
     dt_obs = 1.0
     t_end = Ndata * dt_obs
-    active_parameters = ( :theta, :sigma )
 
     timeseries_block_size = 100
     standardize = true
+    reevaluate_current_loss = false
 
     likelihood_noise_scale = 0.0
 
-    # model = OUModel( dt_obs = dt_obs, x0 = 2.0, active_parameters = active_parameters )
-    # model = NegExpModel( dt_obs = dt_obs, theta1 = 1.0, theta2 = 0.1, noise_scale = 0.01 )
-    model = Lorenz63Model( dt_obs = dt_obs )
-    # model = BlowflyModel( dt_obs = dt_obs, active_parameters = active_parameters )
-    # model = RickerModel( r = 3.7, K = 1000.0, x0 = 10.0, dt_obs = dt_obs )
-    # model = PredatorModel( dt_obs=dt_obs)
+    model = RickerModel( embedding_dim = 2 )
     data = solve_model( model, t_end )
 
     _, default_params = get_active_model_params( model )
     npar = length( default_params )
     initial_params = default_params .+ (1 .+ 0.1 .* randn( npar ) )
+    initial_params = exp.( [2.8, -2.3, 1.79] )
 
     #######
     # fig = Figure()
@@ -69,11 +61,17 @@ function run_test_mcmc()
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
 
-    priors = tuple( [Uniform(0.0, 10*default_params[i]) for i in 1:npar]... )
+    param_names, _ = get_active_model_params( model )
+    prior_distributions = tuple( [Uniform(0.0, 10e6) for i in 1:npar]... )
+    prior_distributions = (
+        Uniform( exp(2.0), exp(5.0) ),
+        Uniform( exp(-3.0), exp(-0.22) ),
+        Uniform( exp(1.61), exp(3.0) ),
+    )
+    priors = NamedTuple{ param_names }( prior_distributions)
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF( nbin),
-        StandardECDFDiff( nbin, 1, dt_obs ),
+        StandardECDF( 10, 2 ),
         )
 
 
@@ -93,6 +91,7 @@ function run_test_mcmc()
         initial_params = initial_params,
         nsteps = chain_length,
         mcmc_algorithm = sampler,
+        reevaluate_current_loss = reevaluate_current_loss,
         update_interval = 30,
         loss_function = lossfun,
         discard_noisy_updates = false,
