@@ -16,12 +16,12 @@ function run_test_mcmc()
     use_ecdf_sampling = false
 
     nrep_training = 5000
-    chain_length = 20000
+    chain_length = 30000
 
     nbin = 10
     knn = 1
 
-    n_loss_evals = 20
+    n_loss_evals = 10
     n_summaries = 1
 
     Ndata = 50
@@ -30,7 +30,7 @@ function run_test_mcmc()
 
     timeseries_block_size = 100
     standardize = true
-    reevaluate_current_loss = false
+    reevaluate_current_loss = true
 
     likelihood_noise_scale = 0.0
 
@@ -76,6 +76,7 @@ function run_test_mcmc()
 
 
     methods_options = MethodsOptions(
+        N_obs = Ndata,
         resampling_type=resampler,
         covariance_type=covariance_type,
         axis_uniform=axis_unif,

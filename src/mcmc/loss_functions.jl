@@ -51,6 +51,12 @@ end
 
 function RobustChamfer( scaling_parameter::Real )
     scaling = Float64( scaling_parameter )
+    inverse_scaling = 1.0/scaling
+    return RobustChamfer( scaling, inverse_scaling )
+end
+
+function RobustChamfer(; scaling_parameter::Real)
+    scaling = Float64( scaling_parameter )
     inverse_scaling = 1.0/Float64( scaling_parameter )
     return RobustChamfer( scaling, inverse_scaling )
 end
@@ -59,9 +65,7 @@ function (loss::RobustChamfer)( target::TargetData, sim_mean::AbstractVector )
 
     standardize_loss = target.options.standardize
 
-    inverse_std = sqrt.( diag(target.inverse_cov) )
-
-    ss = -sum( ( sim_mean .* inverse_std )  )
+    ss = -sum( sim_mean )
 
     if standardize_loss
         standardize!( ss, target.standardization_mean, target.standardization_sd )

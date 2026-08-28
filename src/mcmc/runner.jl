@@ -35,6 +35,10 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     MCMCRun = mcmc_options.mcmc_algorithm
     proposal_width = MCMCRun.proposal_width
 
+    if isnan( mcmc_options.likelihood_noise_scale )
+        mcmc_options = @set mcmc_options.likelihood_noise_scale = 0.0
+    end
+
     chain_length = mcmc_options.nsteps
 
     active_param_names, active_param_values = get_active_model_params( model )

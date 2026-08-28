@@ -31,7 +31,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     n_resample = data.options.training_resamplings
-    chamfers = zeros( n_resample, summary_statistic.highest_neighbor )
+    chamfers = zeros( n_resample, length( kvals ) )
     for ii in 1:n_resample
         x_inds, y_inds = data.options.resampling_type( data, data.options, buffers.index_cache )
         data_X = @view data.observations[ :, x_inds ]
@@ -39,7 +39,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
         chamfer_distance!( buffer, data_X, data_Y, kvals )
         chamfers[ii, :] .= buffer
     end
-    for jj in 1:summary_statistic.highest_neighbor
+    for jj in eachindex( kvals )
         view_jj = @view view_out[ (jj-1)*nbins+1 : jj*nbins ]
         bins_jj = bins[jj]
         empcdf!( view_jj, chamfers[:, jj], nbins, bins_jj )
@@ -71,14 +71,14 @@ function calculate_summary_statistic!(      # To be used in MCMC
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     resampler = obs_data_all.options.resampling_type
     n_resample = obs_data_all.options.training_resamplings
-    chamfers = zeros( n_resample, summary_statistic.highest_neighbor )
+    chamfers = zeros( n_resample, length( kvals ) )
     for ii in 1:n_resample
         x_inds, _ = resampler( obs_data_all, obs_data_all.options, buffers.index_cache )
         data_X = @view R0[ :, x_inds ]
         chamfer_distance!( buffer, data_X, Rsim, ytree, kvals )
         chamfers[ii, :] .= buffer
     end
-    for jj in 1:summary_statistic.highest_neighbor
+    for jj in eachindex( kvals )
         view_jj = @view view_out[ (jj-1)*nbins+1 : jj*nbins ]
         bins_jj = bins[jj]
         empcdf!( view_jj, chamfers[:, jj], nbins, bins_jj )
@@ -92,7 +92,7 @@ function get_bin_quantity( summary_statistic::ChamferECDF, data::DataContainer, 
     kvals = summary_statistic.neighbors
     R0 = data.observations
     n_resampling = data.options.bins_resamplings
-    chamfers = Matrix{Float64}( undef, n_resampling, summary_statistic.highest_neighbor )
+    chamfers = Matrix{Float64}( undef, n_resampling, length( kvals ) )
     indices = collect( 1:size(R0, 2) )
     for ii in 1:n_resampling
         x_inds, y_inds = data.options.resampling_type( data, data.options, indices )
@@ -103,8 +103,9 @@ function get_bin_quantity( summary_statistic::ChamferECDF, data::DataContainer, 
     return chamfers
 end
 
+
 function allocate_buffer( statistic::ChamferECDF, data::DataContainer )
-    buffer = Vector{Float64}( undef, statistic.highest_neighbor )
+    buffer = Vector{Float64}( undef, length( statistic.neighbors ) )
     return buffer
 end
 

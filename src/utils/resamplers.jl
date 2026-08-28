@@ -1,4 +1,6 @@
-# Half-half random split
+# Resampling types
+struct StandardResampling end
+
 function (RS::StandardResampling)( data::DataContainer, options::MethodsOptions, index_cache )
     ntot = size( data.observations, 2 )
     ntot_half = div( ntot, 2 )
@@ -12,13 +14,26 @@ function (RS::StandardResampling)( data::DataContainer, options::MethodsOptions,
     return x_inds, y_inds
 end
 
+
 function get_index_size( sampler::StandardResampling, data, options )
     return size( data, 2 )
 end
 
+function resample_sizes(
+    sampler::StandardResampling,
+    ndata::Int
+)
+    nx = div(ndata, 2)
+    ny = ndata - nx
+    return nx, ny
+end
 
 
 # Time series resampling: sample a contiguous block from the data
+Base.@kwdef struct TimeseriesResampling
+    timeseries_block_size::Int = 100
+end
+
 function (RS::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
     # block_size = RS.timeseries_block_size
 
@@ -48,31 +63,6 @@ function get_index_size( sampler::TimeseriesResampling, data, options )
     return size( data, 2 )
 end
 
-
-
-# Random inverse cdf resampling using only trained mean
-function (RS::InverseCDFResampling  )( data::DataContainer, options::MethodsOptions, index_cache )
-
-    y_inds = Vector{Int}(undef, 0)
-    if RS.training_phase
-        x_inds = @view index_cache[:]
-    else
-        x_inds = @view rand!( index_cache )[:]
-    end
-
-    return x_inds, y_inds
-end
-
-
-function resample_sizes(
-    sampler::StandardResampling,
-    ndata::Int
-)
-    nx = div(ndata, 2)
-    ny = ndata - nx
-    return nx, ny
-end
-
 function resample_sizes(
     sampler::TimeseriesResampling,
     ndata::Int
@@ -85,4 +75,28 @@ function resample_sizes(
         ))
     ny = ndata - nx
     return nx, ny
+end
+
+
+# No resampling:
+
+
+
+# Random inverse cdf resampling using only trained mean
+# NOTE! NOT WOREKING CURRENTLY!!!
+Base.@kwdef struct InverseCDFResampling{T}
+    n_inverse_points::T = nothing
+    training_phase::Bool = true
+end# Half-half random split
+
+function (RS::InverseCDFResampling  )( data::DataContainer, options::MethodsOptions, index_cache )
+
+    y_inds = Vector{Int}(undef, 0)
+    if RS.training_phase
+        x_inds = @view index_cache[:]
+    else
+        x_inds = @view rand!( index_cache )[:]
+    end
+
+    return x_inds, y_inds
 end

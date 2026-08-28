@@ -1,7 +1,7 @@
 Base.@kwdef struct RickerModel{T, E} <: AbstractSimulationModel
-    r::Float64 = 44.7
-    sigma::Float64 = 0.3
-    phi::Float64 = 10.0
+    r::Float64 = log(44.7)
+    sigma::Float64 = log(0.3)
+    phi::Float64 = log(10.0)
     x0::T    = 1.0 # Initial condition
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = dt_obs
@@ -14,7 +14,9 @@ end
 function step!(rng::AbstractRNG, m::RickerModel, n )
     # Ricker map
 
-    (; r, sigma, phi) = m
+    r = exp( m.r )
+    sigma = exp( m.sigma )
+    phi = exp( m.phi )
 
     z_t = sigma*randn( rng )
     n = r * n * exp( -n + z_t )
@@ -27,7 +29,6 @@ end
 
 
 function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng(), transient_time = 500.0, transform_log1p=true, return_hidden_states=false )
-    (; r, sigma, phi) = model
     dt_obs = model.dt_obs
     dt_sol = model.dt_sol
     embedding_dims = model.embedding_dim
@@ -42,7 +43,7 @@ function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng
 
     current_state = initial_state( model )
     trajectory = zeros( 1, steps )
-    trajectory[ :, 1 ] .= rand( rng, Poisson( current_state*model.phi ) )
+    trajectory[ :, 1 ] .= rand( rng, Poisson( current_state*exp(model.phi) ) )
 
     if return_hidden_states
         hidden_states = zeros( 1, steps )
