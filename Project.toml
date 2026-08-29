@@ -30,6 +30,7 @@ PDMats = "0.11.37"
 ProgressBars = "1.5.1"
 SpecialFunctions = "2.7.1"
 StaticArrays = "1.9.17"
+Statistics = "1"
 StatsBase = "0.34.10"
 julia = "1.10"
 
