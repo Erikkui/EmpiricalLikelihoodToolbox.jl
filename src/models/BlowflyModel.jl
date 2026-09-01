@@ -16,18 +16,19 @@ A struct for the Nicholson blowfly model, which is a delay differential equation
 # Examples
 model = BlowflyModel(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
 """
-Base.@kwdef struct BlowflyModel <: AbstractSimulationModel
-    delta::Float64 = 0.16
-    P::Float64    = 6.5
-    N0::Float64   = 400.0
-    sigma2_p::Float64 = 0.1
-    tau::Float64 = 14.0
-    sigma2_d::Float64 = 0.1
+Base.@kwdef struct BlowflyModel{E} <: AbstractSimulationModel
+    delta::Float64 = log(0.16)
+    P::Float64    = log(6.5)
+    N0::Float64   = log(400.0)
+    sigma2_p::Float64 = log(0.1)
+    tau::Float64 = log(14.0)
+    sigma2_d::Float64 = log(0.1)
     x0::Int = 180
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = 1.0
+    embedding_dim::E = 0
     dim::Int = length(x0)
-    burn_in::Int = 20
+    burn_in::Int = 200
     mu::Float64 = 1.0
     all_parameters::Tuple{ Vararg{Symbol} } = (:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d)
     active_parameters::Tuple{ Vararg{Symbol} } = (:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d)
@@ -37,7 +38,7 @@ function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rn
 
     # Unpack parameters
     _, parameters = get_all_model_params(model)
-    delta, P, N_0, sigma2_p, tau, sigma2_d = parameters
+    delta, P, N_0, sigma2_p, tau, sigma2_d = exp.(parameters)
 
     burn_in = model.burn_in
     mu = model.mu
@@ -71,5 +72,17 @@ function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rn
     # Remove initial lag and burn-in period from N
     N = N[:, lag+1+burn_in:end]
 
-    return N
+    if model.embedding_dim != 0
+        y_out = embedding( N, model.embedding_dim )
+
+        # if return_hidden_states
+        #     hidden_states = hidden_states[ :, obs_inds ]
+        #     n_out = embedding( hidden_states, embedding_dims )
+        #     return y_out, n_out
+        # end
+
+        return y_out
+    else
+        return N # Return as a 2D array with one row
+    end
 end

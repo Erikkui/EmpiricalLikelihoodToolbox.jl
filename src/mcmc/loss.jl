@@ -32,7 +32,7 @@ function create_simulated_data( R0_all, model, target, buffers, options, rng )
     return Rsim_container
 end
 
-function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options )
+function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options, lossfun )
     resampler = options.resampling_type
     n_summaries = options.n_summaries
 
@@ -40,7 +40,7 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     index_cache = buffers.index_cache
     sim_statistic = buffers.simulation_statistic
 
-    if n_summaries <= 1
+    if n_summaries <= 1 && lossfun isa RobustChamfer
         view_in = @view resample_buffer[:, 1]
         summaries( view_in, index_cache, index_cache, R0_all, Rsim_container, buffers
         )
@@ -96,7 +96,7 @@ function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 =
             return -Inf
         end
 
-        sim_statistic = calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options )
+        sim_statistic = calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options, loss_function )
         loss += loss_function( target, sim_statistic )
     end
 

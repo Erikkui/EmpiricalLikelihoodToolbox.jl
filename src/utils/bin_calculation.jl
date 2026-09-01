@@ -165,7 +165,7 @@ function initialize_bins(
     mins = zeros( bins_resamplings, length(statistic.neighbors) )
     maxs = zeros( bins_resamplings, length(statistic.neighbors) )
 
-    resampled_summaries_all = Vector{ Matrix{Float64} }( undef, bins_resamplings )
+    resampled_summaries_all = Vector{ Matrix{Float64} }( undef, 0 )
     ind_size = get_index_size( resampler, data.observations, options )
     index_cache = collect( 1:ind_size )
     for ii in 1:bins_resamplings
@@ -173,10 +173,11 @@ function initialize_bins(
         x_inds, y_inds = resampler( data, options, index_cache )
         summary = get_bin_quantity( statistic, data, x_inds, y_inds )
 
-        resampled_summaries_all[ii] = summary
+        push!( resampled_summaries_all, summary )
         mins[ii, :] = minimum( summary, dims = 1 )
         maxs[ii, :] = maximum( summary, dims = 1 )
     end
+
     minmax[1, :] = maximum( mins, dims = 1 )
     minmax[2, :] = minimum( maxs, dims = 1 )
     resampled_summaries_all = vcat( resampled_summaries_all... )

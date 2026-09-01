@@ -71,7 +71,8 @@ function run_test_mcmc()
     priors = NamedTuple{ param_names }( prior_distributions)
 
     summary_statistics = JointSummaryStatistics(
-        StandardECDF( 10, 2 ),
+        ID( 10, 1:2 ),
+        # IDDiff( 10, 1:2, 1, 1.0 )
         )
 
 
