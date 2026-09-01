@@ -29,9 +29,9 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data_X = @view data.differences[ diff_order ][ :, x_inds ]
     data_Y = @view data.differences[ diff_order ][ :, y_inds ]
 
-    pairwise!( buffer, Euclidean(), data_X, data_Y ) |> vec
+    pairwise!( buffer, Euclidean(), data_X, data_Y )
 
-    empcdf!(view_out, buffer, nbins, bins)
+    empcdf!(view_out, vec( buffer ), nbins, bins)
     return nothing
 end
 
@@ -57,9 +57,9 @@ function calculate_summary_statistic!(  # To be used in MCMC
     data_X = @view R0_diff[ :, x_inds ]
     data_Y = @view Rsim_diff[ :, y_inds ]
 
-    pairwise!( buffer, Euclidean(), data_X, data_Y ) |> vec
+    pairwise!( buffer, Euclidean(), data_X, data_Y )
 
-    empcdf!(view_out, buffer, nbins, bins)
+    empcdf!(view_out, vec( buffer ), nbins, bins)
     return nothing
 end
 

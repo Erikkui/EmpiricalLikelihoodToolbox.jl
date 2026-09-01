@@ -17,12 +17,12 @@ A struct for the Nicholson blowfly model, which is a delay differential equation
 model = BlowflyModel(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
 """
 Base.@kwdef struct BlowflyModel{E} <: AbstractSimulationModel
-    delta::Float64 = log(0.16)
-    P::Float64    = log(6.5)
-    N0::Float64   = log(400.0)
-    sigma2_p::Float64 = log(0.1)
-    tau::Float64 = log(14.0)
-    sigma2_d::Float64 = log(0.1)
+    delta::Float64 = 0.16
+    P::Float64    = 6.5
+    N0::Float64   = 400.0
+    sigma2_p::Float64 = 0.1
+    tau::Float64 = 14.0
+    sigma2_d::Float64 = 0.1
     x0::Int = 180
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = 1.0
@@ -38,7 +38,7 @@ function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rn
 
     # Unpack parameters
     _, parameters = get_all_model_params(model)
-    delta, P, N_0, sigma2_p, tau, sigma2_d = exp.(parameters)
+    delta, P, N_0, sigma2_p, tau, sigma2_d = parameters
 
     burn_in = model.burn_in
     mu = model.mu

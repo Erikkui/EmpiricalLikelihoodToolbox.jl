@@ -32,7 +32,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
 
     pairwise!( buffer, Euclidean(), data_X, data_Y )
 
-    empcdf!( view_out, vec(buffer), nbins, bins )
+    empcdf!( view_out, vec( buffer ), nbins, bins )
     return nothing
 end
 
@@ -57,9 +57,9 @@ function calculate_summary_statistic!(  # To be used in MCMC
     data_X = @view R0[ :, x_inds ]
     data_Y = @view Rsim[ :, y_inds ]
 
-    pairwise!( buffer, Euclidean(), data_X, data_Y ) |> vec
+    pairwise!( buffer, Euclidean(), data_X, data_Y )
 
-    empcdf!(view_out, buffer, nbins, bins)
+    empcdf!( view_out, vec( buffer ), nbins, bins )
     return nothing
 end
 
