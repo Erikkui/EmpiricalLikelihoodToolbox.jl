@@ -8,16 +8,28 @@ function bin_select( minmax, nbin, axis_uniform, data )
         bins = collect( range(a, b, length=nbin) )
 
     elseif axis_uniform == :yax
-        nbin_temp = 100
-        a = minmax[1]
-        b = minmax[2]
-        bins_temp = collect( range(a, b, length=nbin_temp) )
+        # nbin_temp = 100
+        # a = minmax[1]
+        # b = minmax[2]
+        # bins_temp = collect( range(a, b, length=nbin_temp) )
 
-        # Dense ecdf for inversion
-        cdf = empcdf( data, nbin_temp, bins_temp )
+        # # Dense ecdf for inversion
+        # cdf = empcdf( data, nbin_temp, bins_temp )
 
-        # Inverse CDF for final bins
-        bins = invcdf( bins_temp, cdf, nbin, 1)
+        # # Inverse CDF for final bins
+        # bins = invcdf( bins_temp, cdf, nbin, 1)
+        pad_iqr = 0.25
+        q = quantile( data, [0.005, 0.25, 0.75, 0.995])
+        lo, q1, q3, hi = q[1], q[2], q[3], q[4]
+        iqr = max( q3 - q1, 1e-9 )
+        lo -= pad_iqr * iqr
+        hi += pad_iqr * iqr
+        if !(isfinite(hi)) || hi <= lo
+            hi = lo + 1.0
+        end
+        d = (hi - lo) / 500.0
+        bins = collect( range(lo + d, hi - d, length=nbin) )
+        return bins
 
     elseif axis_uniform == :log
         R0 = b

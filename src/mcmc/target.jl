@@ -86,7 +86,17 @@ function train_target( statistics, data_container, buffer_container, options )
         x_inds, y_inds = resampling_type( data_container, options, index_cache )
 
         view_in = @view training_summaries[:, ii]
-        statistics( view_in, x_inds, y_inds, data_container, buffer_container )
+        # statistics( view_in, x_inds, y_inds, data_container, buffer_container )
+
+
+        MODEL = RickerModel( dt_obs = 1.0, embedding_dim = 3 )
+        DATA = solve_model( MODEL, 50.0 )
+        ECDF = zeros( 20, 1 )
+        BINS = statistics.statistics[1].bins
+        ECDF[ 1:10, 1 ] = empcdf( DATA[1, :], 10, BINS[1] )
+        ECDF[ 11:20, 1 ] = empcdf( DATA[2, :], 10, BINS[2] )
+        training_summaries[ :, ii ] = ECDF
+
     end
 
     mean_summary = mean( training_summaries, dims=2 ) |> vec

@@ -134,9 +134,6 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                 end
             end
         end
-        if ii % 1000 == 0
-            println("Iteration: $ii, Current Params: $(state.current_params)")
-        end
 
         # Store
         chain[:, ii] .= state.current_params
