@@ -4,10 +4,10 @@ abstract type AbstractSummaryStatistic end
 abstract type AbstractECDFSummary <: AbstractSummaryStatistic end
 abstract type AbstractChamferSummary <: AbstractSummaryStatistic end
 
-abstract type DifferenceECDFSummary <: AbstractECDFSummary end
-abstract type ECDFMultiDimensionalSummary <: AbstractECDFSummary end
+abstract type StandardECDFSummary <: AbstractECDFSummary end
+abstract type CILSummary <: AbstractECDFSummary end
 abstract type IDSummary <: AbstractECDFSummary end
-abstract type ChamferDifference <: AbstractChamferSummary end
+abstract type ChamferECDFSummary <: AbstractECDFSummary end
 
 abstract type AbstractSimulationModel end
 

@@ -1,5 +1,5 @@
 #------------CIL of differences
-struct CILDiff{B} <: AbstractECDFSummary
+struct CILDiff{B} <: CILSummary
     bins::B
     nbin::Int
     dt_obs::Float64
@@ -68,7 +68,8 @@ function get_bin_quantity( summary::CILDiff, data::DataContainer, inds_X, inds_Y
     diff_ind = summary.diff_order
     data_X = @view data.differences[ diff_ind ][ :, inds_X ]
     data_Y = @view data.differences[ diff_ind ][ :, inds_Y ]
-    distances = pairwise( Euclidean(), data_X, data_Y ) |> vec
+    distances = pairwise( Euclidean(), data_X, data_Y )
+    distances = reshape( distances, :, 1 )
     return distances
 end
 

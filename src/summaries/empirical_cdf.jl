@@ -57,7 +57,7 @@ function empcdf(
         return out_view
     end
 
-    s = std(data)
+    s = std(data, corrected=false)
     h = 1.06 * (s + 1e-12) * n^(-1/5) + 1e-12
     inv_n = 1.0 / n
     inv_sqrt2 = inv(sqrt(2.0))
@@ -90,7 +90,7 @@ function empcdf!(out_view::AbstractVector,
         return nothing
     end
 
-    s = std(data)
+    s = std(data, corrected=false)
     h = 1.06 * (s + 1e-12) * n^(-1/5) + 1e-12
     inv_n = 1.0 / n
     inv_sqrt2 = inv(sqrt(2.0))

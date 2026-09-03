@@ -94,7 +94,7 @@ function get_bin_quantity( summary_statistic::ChamferECDF, data::DataContainer, 
     n_resampling = data.options.bins_resamplings
     chamfers = Matrix{Float64}( undef, n_resampling, length( kvals ) )
     indices = collect( 1:size(R0, 2) )
-    for ii in 1:n_resampling
+    for ii in 1:n_resampling^2
         x_inds, y_inds = data.options.resampling_type( data, data.options, indices )
         data_X = @view R0[ :, x_inds ]
         data_Y = @view R0[ :, y_inds ]

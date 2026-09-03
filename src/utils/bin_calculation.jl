@@ -1,6 +1,22 @@
+function calculate_bin_bounds( data::AbstractVector{<:Real} )
+    # Calculate bin bounds for empirical cdf calculation
+    quantiles = quantile( data, [0.005, 0.25, 0.75, 0.995])
+    q_low, q1, q3, q_high = quantiles[1], quantiles[2], quantiles[3], quantiles[4]
+    iqr = max( q3 - q1, 1e-9 )
+
+    bin_min = q_low - 0.25 * iqr
+    bin_max = q_high + 0.25 * iqr
+    if !( isfinite(bin_max) ) || bin_max <= bin_min
+        bin_max = bin_min + 1.0
+    end
+
+    return bin_min, bin_max
+end
+
 #----------Main bin calculation function
-function bin_select( minmax, nbin, axis_uniform, data )
+function bin_select( data, nbin, axis_uniform )
     # Generate bins for empirical cdf calculation
+    a, b = calculate_bin_bounds( data )
 
     if axis_uniform == :xax
         a = minmax[1]
@@ -8,28 +24,14 @@ function bin_select( minmax, nbin, axis_uniform, data )
         bins = collect( range(a, b, length=nbin) )
 
     elseif axis_uniform == :yax
-        # nbin_temp = 100
-        # a = minmax[1]
-        # b = minmax[2]
-        # bins_temp = collect( range(a, b, length=nbin_temp) )
+        nbin_temp = 1000
+        bins_temp = collect( range(a, b, length=nbin_temp) )
 
-        # # Dense ecdf for inversion
-        # cdf = empcdf( data, nbin_temp, bins_temp )
+        # Dense ecdf for inversion
+        cdf = empcdf( data, nbin_temp, bins_temp )
 
-        # # Inverse CDF for final bins
-        # bins = invcdf( bins_temp, cdf, nbin, 1)
-        pad_iqr = 0.25
-        q = quantile( data, [0.005, 0.25, 0.75, 0.995])
-        lo, q1, q3, hi = q[1], q[2], q[3], q[4]
-        iqr = max( q3 - q1, 1e-9 )
-        lo -= pad_iqr * iqr
-        hi += pad_iqr * iqr
-        if !(isfinite(hi)) || hi <= lo
-            hi = lo + 1.0
-        end
-        d = (hi - lo) / 500.0
-        bins = collect( range(lo + d, hi - d, length=nbin) )
-        return bins
+        # Inverse CDF for final bins
+        bins = invcdf( bins_temp, cdf, nbin, 1)
 
     elseif axis_uniform == :log
         R0 = b
@@ -41,7 +43,33 @@ function bin_select( minmax, nbin, axis_uniform, data )
 end
 
 
-# For basic cdf and cil summaries
+
+# For basic and multidimensional cdf summaries
+function initialize_bins(
+    data::DataContainer,
+    statistic::StandardECDFSummary,
+    options::MethodsOptions )
+
+    nbin = statistic.nbin
+    R0 = data.observations
+    axis_uniform = options.axis_uniform
+
+    ndim = size( R0, 1 )
+    bins = Vector{ Vector{Float64} }( undef, ndim )
+
+    # Create bins
+    for ii in 1:ndim
+        data_ii = @view R0[ii, :]
+        bins[ii] = bin_select( data_ii, nbin, axis_uniform )
+    end
+
+    new_statistic = @set statistic.bins = bins
+    return new_statistic
+end
+
+
+
+# Abstract ECDF summaries: when the ECDFs are calculated from other than raw data
 function initialize_bins(
     data::DataContainer,
     statistic::AbstractECDFSummary,
@@ -50,48 +78,7 @@ function initialize_bins(
     resampler = options.resampling_type
     bins_resamplings = options.bins_resamplings
     nbin = statistic.nbin
-
-    minmax = zeros(2)
-    mins = zeros( bins_resamplings )
-    maxs = zeros( bins_resamplings )
-
-    resampled_summaries_all = Vector{ AbstractVector{Float64} }( undef, bins_resamplings )
-    ind_size = get_index_size( resampler, data.observations, options )
-    index_cache = collect( 1:ind_size )
-    for ii in 1:bins_resamplings
-        x_inds, y_inds = resampler( data, options, index_cache )
-        summary = get_bin_quantity( statistic, data, x_inds, y_inds )
-
-        resampled_summaries_all[ii] = summary
-        mins[ii] = minimum( summary )
-        maxs[ii] = maximum( summary )
-    end
-    minmax[1] = maximum( mins )
-    minmax[2] = minimum( maxs )
-    resampled_summaries_all = vcat( resampled_summaries_all... ) |> vec
-
-    # Create bins
-    bins = bin_select( minmax, nbin, options.axis_uniform, resampled_summaries_all )
-
-    new_statistic = @set statistic.bins = bins
-    return new_statistic
-end
-
-
-# Bin initializaion for n-dimensional standard ecdf
-function initialize_bins(
-    data::DataContainer,
-    statistic::ECDFMultiDimensionalSummary,
-    options::MethodsOptions )
-
-    resampler = options.resampling_type
-    bins_resamplings = options.bins_resamplings
-    nbin = statistic.nbin
-    ndim = statistic.ndim
-
-    minmax = zeros(2, ndim)
-    mins = zeros( bins_resamplings, ndim )
-    maxs = zeros( bins_resamplings, ndim )
+    axis_uniform = options.axis_uniform
 
     resampled_summaries_all = Vector{ Matrix{Float64} }( undef, bins_resamplings )
     ind_size = get_index_size( resampler, data.observations, options )
@@ -99,111 +86,27 @@ function initialize_bins(
     for ii in 1:bins_resamplings
         x_inds, y_inds = resampler( data, options, index_cache )
         summary = get_bin_quantity( statistic, data, x_inds, y_inds )
-
         resampled_summaries_all[ii] = summary
-        mins[ii, :] = minimum( summary, dims = 2 )
-        maxs[ii, :] = maximum( summary, dims = 2 )
-    end
-    minmax[1, :] = maximum( mins, dims = 1 )
-    minmax[2, :] = minimum( maxs, dims = 1 )
-    resampled_summaries_all = hcat( resampled_summaries_all... )
-
-    # Create bins
-    ndim = statistic.ndim
-    bins = Vector{ Vector{Float64} }( undef, ndim )
-    for ii in 1:ndim
-        minmax_ii = minmax[:, ii]
-        resampled_summaries_ii = resampled_summaries_all[ii, :]
-        bins[ii] = bin_select( minmax_ii, nbin, options.axis_uniform, resampled_summaries_ii )
     end
 
-    new_statistic = @set statistic.bins = bins
-    return new_statistic
-end
-
-
-# Bin initialization for ChamferECDF
-function initialize_bins(
-    data::DataContainer,
-    statistic::ChamferECDF,
-    options::MethodsOptions )
-
-    resampler = options.resampling_type
-    bins_resamplings = options.bins_resamplings
-    nbin = statistic.nbin
-
-    minmax = zeros( 2, length(statistic.neighbors) )
-    mins = zeros( bins_resamplings, length(statistic.neighbors) )
-    maxs = zeros( bins_resamplings, length(statistic.neighbors) )
-
-    resampled_summaries_all = Vector{ Matrix{Float64} }( undef, bins_resamplings )
-    ind_size = get_index_size( resampler, data.observations, options )
-    index_cache = collect( 1:ind_size )
-    for ii in 1:bins_resamplings
-        # Half-half random split
-        x_inds, y_inds = resampler( data, options, index_cache )
-        summary = get_bin_quantity( statistic, data, x_inds, y_inds )
-
-        resampled_summaries_all[ii] = summary
-        mins[ii, :] = minimum( summary, dims = 1 )
-        maxs[ii, :] = maximum( summary, dims = 1 )
-    end
-    minmax[1, :] = maximum( mins, dims = 1 )
-    minmax[2, :] = minimum( maxs, dims = 1 )
     resampled_summaries_all = vcat( resampled_summaries_all... )
 
     # Create bins
-    bins = Vector{ Vector{Float64} }( undef, length(statistic.neighbors) )
-    for ii in 1:length(statistic.neighbors)
-        bins[ii] = bin_select( minmax[:, ii], nbin, options.axis_uniform, resampled_summaries_all[:, ii] )
+    ndim = size( resampled_summaries_all, 2 )
+    if ndim == 1
+         bins = bin_select( resampled_summaries_all, nbin, axis_uniform )
+    else
+        bins = Vector{ Vector{Float64} }( undef, ndim )
+        for ii in 1:ndim
+            data_ii = @view resampled_summaries_all[:, ii]
+            bins[ii] = bin_select( data_ii, nbin, axis_uniform )
+        end
     end
 
     new_statistic = @set statistic.bins = bins
     return new_statistic
 end
 
-
-# Bin initialization for ID summaries
-function initialize_bins(
-    data::DataContainer,
-    statistic::IDSummary,
-    options::MethodsOptions )
-
-    resampler = options.resampling_type
-    bins_resamplings = options.bins_resamplings
-    nbin = statistic.nbin
-
-    minmax = zeros( 2, length(statistic.neighbors) )
-    mins = zeros( bins_resamplings, length(statistic.neighbors) )
-    maxs = zeros( bins_resamplings, length(statistic.neighbors) )
-
-    resampled_summaries_all = Vector{ Matrix{Float64} }( undef, 0 )
-    ind_size = get_index_size( resampler, data.observations, options )
-    index_cache = collect( 1:ind_size )
-    for ii in 1:bins_resamplings
-        # Half-half random split
-        x_inds, y_inds = resampler( data, options, index_cache )
-        summary = get_bin_quantity( statistic, data, x_inds, y_inds )
-
-        push!( resampled_summaries_all, summary )
-        mins[ii, :] = minimum( summary, dims = 1 )
-        maxs[ii, :] = maximum( summary, dims = 1 )
-    end
-
-    minmax[1, :] = maximum( mins, dims = 1 )
-    minmax[2, :] = minimum( maxs, dims = 1 )
-    resampled_summaries_all = vcat( resampled_summaries_all... )
-
-    # Create bins
-    bins = Vector{ Vector{Float64} }( undef, length(statistic.neighbors) )
-    for ii in 1:length(statistic.neighbors)
-        bins[ii] = bin_select( minmax[:, ii], nbin, options.axis_uniform, resampled_summaries_all[:, ii] )
-    end
-    # bins = bin_select( minmax, nbin, options.axis_uniform, resampled_summaries_all )
-
-    new_statistic = @set statistic.bins = bins
-    return new_statistic
-end
 
 
 # For other summaries, we do not need to initialize bins

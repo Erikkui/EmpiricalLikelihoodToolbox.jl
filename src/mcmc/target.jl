@@ -86,16 +86,16 @@ function train_target( statistics, data_container, buffer_container, options )
         x_inds, y_inds = resampling_type( data_container, options, index_cache )
 
         view_in = @view training_summaries[:, ii]
-        # statistics( view_in, x_inds, y_inds, data_container, buffer_container )
+        statistics( view_in, x_inds, y_inds, data_container, buffer_container )
 
-
-        MODEL = RickerModel( dt_obs = 1.0, embedding_dim = 3 )
-        DATA = solve_model( MODEL, 50.0 )
-        ECDF = zeros( 20, 1 )
-        BINS = statistics.statistics[1].bins
-        ECDF[ 1:10, 1 ] = empcdf( DATA[1, :], 10, BINS[1] )
-        ECDF[ 11:20, 1 ] = empcdf( DATA[2, :], 10, BINS[2] )
-        training_summaries[ :, ii ] = ECDF
+        # NBIN = 15
+        # MODEL = RickerModel( dt_obs = 1.0, embedding_dim = 2 )
+        # DATA = solve_model( MODEL, 50.0 )
+        # ECDF = zeros( 2*NBIN, 1 )
+        # BINS = statistics.statistics[1].bins
+        # ECDF[ 1:15, 1 ] = empcdf( DATA[1, :], NBIN, BINS[1] )
+        # ECDF[ 16:30, 1 ] = empcdf( DATA[2, :], NBIN, BINS[2] )
+        # training_summaries[ :, ii ] = ECDF
 
     end
 
@@ -143,7 +143,11 @@ function TargetData(
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target
     mean_summary, cov_mat, training_summaries = train_target( statistics, data_container, buffer_container, options )
-    inv_cov_mat = pinv( cov_mat )
+    # inv_cov_mat = pinv( cov_mat )
+    cov_mat_reg = cov_mat +
+                    1e-2 * Diagonal(diag(cov_mat)) +
+                    1e-6*I # Regularization to avoid singularity
+    inv_cov_mat = inv( cov_mat_reg )
 
     # Calculate standardization factors for loss function if requested
     mean_standardization = nothing

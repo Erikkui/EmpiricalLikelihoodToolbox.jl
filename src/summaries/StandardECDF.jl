@@ -1,5 +1,5 @@
 #------------Standard ECDF
-struct StandardECDF{B} <: AbstractECDFSummary
+struct StandardECDF{B} <: StandardECDFSummary
     bins::B
     nbin::Int
     summary_length::Int

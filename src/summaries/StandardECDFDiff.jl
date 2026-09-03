@@ -1,5 +1,5 @@
 #------------Standard ECDF from differences
-struct StandardECDFDiff{B} <: DifferenceECDFSummary
+struct StandardECDFDiff{B} <: StandardECDFSummary
     bins::B
     nbin::Int
     dt_obs::Float64

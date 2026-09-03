@@ -1,5 +1,5 @@
 #------------CIL
-struct CIL{B} <: AbstractECDFSummary
+struct CIL{B} <: CILSummary
     bins::B
     nbin::Int
     summary_length::Int
@@ -66,7 +66,8 @@ end
 function get_bin_quantity( summary_statistic::CIL, data::DataContainer, inds_X, inds_Y )
     data_X = @view data.observations[ :, inds_X ]
     data_Y = @view data.observations[ :, inds_Y ]
-    distances = pairwise( Euclidean(), data_X, data_Y ) |> vec
+    distances = pairwise( Euclidean(), data_X, data_Y )
+    distances = reshape( distances, :, 1 )
     return distances
 end
 

@@ -1,5 +1,5 @@
 #------------Standard ECDF
-struct StandardECDFDiffMultiDimensional{B} <: ECDFMultiDimensionalSummary
+struct StandardECDFDiffMultiDimensional{B} <: StandardECDFSummary
     bins::B
     nbin::Int
     ndim::Int
