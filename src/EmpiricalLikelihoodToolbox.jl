@@ -23,7 +23,7 @@ module EmpiricalLikelihoodToolbox
     export Lorenz63Model, OUModel, NormalModel, BlowflyModel, NegExpModel, PredatorModel, RickerModel, solve_model
 
     # Resamplers and container
-    export StandardResampling, TimeseriesResampling, MethodsOptions, TargetData
+    export StandardBootstrap, RademacherSplit, ContiguosBlockSplit, MethodsOptions, TargetData
 
     # MCMC functionalities and loss functions
     export MCMCOptions, mcmcrun, AM, DRAM
@@ -35,7 +35,7 @@ module EmpiricalLikelihoodToolbox
     export get_all_model_params, get_active_model_params, embedding
 
     # Types user might need
-    export AbstractSummaryStatistic, AbstractSimulationModel, AbstractECDFSummary
+    export AbstractSummaryStatistic, AbstractSimulationModel, AbstractECDFSummary, AbstractChamferSummary
 
     include("core_types.jl")
     include("utils/utils.jl")

@@ -22,6 +22,8 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     data::DataContainer,
     buffers::BufferContainer )
 
+    empcdf! = data.options.ecdf_function
+
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
     kvals = summary_statistic.neighbors
@@ -55,6 +57,8 @@ function calculate_summary_statistic!(      # To be used in MCMC
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
+
+    empcdf! = obs_data_all.options.ecdf_function
 
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins

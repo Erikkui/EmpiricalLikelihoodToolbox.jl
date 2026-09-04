@@ -5,28 +5,31 @@ abstract type AbstractECDFSummary <: AbstractSummaryStatistic end
 abstract type AbstractChamferSummary <: AbstractSummaryStatistic end
 
 abstract type StandardECDFSummary <: AbstractECDFSummary end
-abstract type CILSummary <: AbstractECDFSummary end
-abstract type IDSummary <: AbstractECDFSummary end
-abstract type ChamferECDFSummary <: AbstractECDFSummary end
+abstract type TwoSampleSummary <: AbstractECDFSummary end
+
+abstract type CILSummary <: TwoSampleSummary end
+abstract type IDSummary <: TwoSampleSummary end
+abstract type ChamferECDFSummary <: TwoSampleSummary end
 
 abstract type AbstractSimulationModel end
 
 
 # Container structs
 #------------Main options struct
-Base.@kwdef struct MethodsOptions{R}
+Base.@kwdef struct MethodsOptions{R, F}
     axis_uniform::Symbol = :xax
     covariance_type::Symbol = :cov
     bins_resamplings::Int = 40
-    resampling_type::R = StandardResampling()
+    resampling_type::R = RademacherSplit()
     training_resamplings::Int = 1000
     N_obs::Int
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     n_loss_evals::Int = 1
-    use_ecdf_sampling::Bool = false
     standardize::Bool = false
     verbose::Bool = false
+    ecdf_calculation_type::Symbol = :default    # :default, :kernel_smoothed
+    ecdf_function::F = resolve_ecdf( ecdf_calculation_type )
 end
 
 #------------Buffer container for non-allocating in-place computations

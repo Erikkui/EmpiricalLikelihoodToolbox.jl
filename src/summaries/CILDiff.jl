@@ -19,6 +19,8 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data::DataContainer,
     buffers::BufferContainer )
 
+    empcdf! = data.options.ecdf_function
+
     nbins = summary.nbin
     bins = summary.bins
     diff_order = summary.diff_order
@@ -43,6 +45,8 @@ function calculate_summary_statistic!(  # To be used in MCMC
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
+
+    empcdf! = obs_data_all.options.ecdf_function
 
     nbins = summary.nbin
     bins = summary.bins
@@ -74,13 +78,6 @@ function get_bin_quantity( summary::CILDiff, data::DataContainer, inds_X, inds_Y
 end
 
 function allocate_buffer( statistic::CILDiff, data::DataContainer )
-    # if data.options.resampling_type isa TimeseriesResampling
-    #     rows = data.options.timeseries_block_size
-    #     cols = size( data.observations, 2 ) - rows
-    # else
-    #     rows = round( Int, size( data.observations, 2 ) / 2 )
-    #     cols = rows
-    # end
     ndata = size(data.observations, 2)
     rows, cols = resample_sizes( data.options.resampling_type, ndata )
 

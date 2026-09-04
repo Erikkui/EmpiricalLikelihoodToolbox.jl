@@ -1,70 +1,55 @@
-# function empcdf( data::AbstractArray{<:Real}, nbins::Int, bins::Vector{Float64} )
+function empcdf_raw!( out_view::AbstractVector, data, nbins::Int, bins::AbstractVector )
+    n_data = length(data)
 
-#     n_data = length(data)
-#     cdf_out = zeros( nbins )
+    # Precompute the inverse to use multiplication instead of division in the loop
+    # Multiplication is significantly faster on the CPU
+    inv_n = 1.0 / n_data
 
-#     # Precompute the inverse to use multiplication instead of division in the loop
-#     # Multiplication is significantly faster on the CPU
-#     inv_n = 1.0 / n_data
+    @inbounds for ii in 1:nbins
+        b = bins[ii]
+        c = 0
 
-#     @inbounds for ii in 1:nbins
-#         b = bins[ii]
-#         c = 0
+        @inbounds @simd for jj in eachindex(data)
+            c += data[jj] <= b
+        end
 
-#         @inbounds @simd for jj in eachindex(data)
-#             c += data[jj] <= b
-#         end
+        out_view[ii] = c * inv_n
+    end
 
-#         cdf_out[ii] = c * inv_n
-#     end
+    return out_view
+end
 
-#     return cdf_out
-# end
+function empcdf_raw( data::AbstractArray{<:Real}, nbins::Int, bins::Vector{Float64} )
 
-# function empcdf!(out_view::AbstractVector, data, nbins::Int, bins::AbstractVector)
-#     n_data = length(data)
+    cdf_out = similar( bins, typeof( 1.0/first(data) ) )
+    empcdf_raw!( cdf_out, data, nbins, bins )
 
-#     # Precompute the inverse to use multiplication instead of division in the loop
-#     # Multiplication is significantly faster on the CPU
-#     inv_n = 1.0 / n_data
+    return cdf_out
+end
 
-#     @inbounds for ii in 1:nbins
-#         b = bins[ii]
-#         c = 0
 
-#         @inbounds @simd for jj in eachindex(data)
-#             c += data[jj] <= b
-#         end
 
-#         out_view[ii] = c * inv_n
-#     end
-
-#     return nothing
-# end
-using SpecialFunctions: erf
-using Statistics: std
-
-function empcdf(
-                       data::AbstractVector,
-                          nbins::Int,
-                       bins::AbstractVector)
+function empcdf_kernelsmoothed!(
+    out_view::AbstractVector,
+    data::AbstractVector,
+    nbins::Int,
+    bins::AbstractVector
+)
 
     n = length(data)
-    out_view = zeros( nbins )
 
     if n == 0
         fill!(out_view, 0.0)
-        return out_view
+        return nothing
     end
 
-    s = std(data, corrected=false)
+    s = std( data, corrected=false )
     h = 1.06 * (s + 1e-12) * n^(-1/5) + 1e-12
     inv_n = 1.0 / n
-    inv_sqrt2 = inv(sqrt(2.0))
+    inv_sqrt2 = inv( sqrt(2.0) )
 
     @inbounds for ii in eachindex(bins)
         b = bins[ii]
-
         acc = 0.0
 
         @inbounds @simd for jj in eachindex(data)
@@ -78,35 +63,26 @@ function empcdf(
     return out_view
 end
 
-function empcdf!(out_view::AbstractVector,
-                       data::AbstractVector,
-                          nbins::Int,
-                       bins::AbstractVector)
+function empcdf_kernelsmoothed(
+    data::AbstractVector,
+    nbins::Int,
+    bins::AbstractVector
+)
 
-    n = length(data)
+    cdf_out = similar( bins, typeof( 1.0/first(data) ) )
+    empcdf_kernelsmoothed!( cdf_out, data, nbins, bins )
 
-    if n == 0
-        fill!(out_view, 0.0)
-        return nothing
+    return cdf_out
+end
+
+
+
+function resolve_ecdf( type::Symbol )
+    if type === :default
+        return empcdf_raw!
+    elseif type === :kernel_smoothed
+        return empcdf_kernelsmoothed!
+    else
+        throw(ArgumentError("Unknown ecdf_calculation_type: $(repr(type)). Expected :default or :kernel_smoothed."))
     end
-
-    s = std(data, corrected=false)
-    h = 1.06 * (s + 1e-12) * n^(-1/5) + 1e-12
-    inv_n = 1.0 / n
-    inv_sqrt2 = inv(sqrt(2.0))
-
-    @inbounds for ii in eachindex(bins)
-        b = bins[ii]
-
-        acc = 0.0
-
-        @inbounds @simd for jj in eachindex(data)
-            z = (b - data[jj]) / h
-            acc += 0.5 * (1.0 + erf(z * inv_sqrt2))
-        end
-
-        out_view[ii] = acc * inv_n
-    end
-
-    return nothing
 end

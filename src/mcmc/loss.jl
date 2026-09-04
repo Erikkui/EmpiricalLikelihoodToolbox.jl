@@ -40,7 +40,7 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     index_cache = buffers.index_cache
     sim_statistic = buffers.simulation_statistic
 
-    if n_summaries <= 1# && lossfun isa RobustChamfer
+    if n_summaries <= 1 && isa(resampler, LengthPreservingSampler )    #!any( isa.( summaries.statistics, TwoSampleSummary) )
         view_in = @view resample_buffer[:, 1]
         summaries( view_in, index_cache, index_cache, R0_all, Rsim_container, buffers
         )

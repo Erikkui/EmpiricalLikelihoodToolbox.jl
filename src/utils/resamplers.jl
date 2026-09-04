@@ -1,26 +1,31 @@
-# Resampling types
-struct StandardResampling end
+abstract type AbstractResampler end
 
-function (RS::StandardResampling)( data::DataContainer, options::MethodsOptions, index_cache )
-    ntot = size( data.observations, 2 )
+abstract type LengthPreservingSampler <: AbstractResampler end
+abstract type LengthChangingSampler <: AbstractResampler end
+
+# Resampling types
+
+struct RademacherSplit <: LengthChangingSampler end
+
+function (RS::RademacherSplit)( data::DataContainer, options::MethodsOptions, index_cache )
+    ntot = length( index_cache )
     ntot_half = div( ntot, 2 )
     shuffle!( index_cache )
 
-    x_inds = @view index_cache[1:ntot_half]
-    y_inds = @view index_cache[(ntot_half+1):end]
+    x_inds = @view index_cache[ 1:ntot_half ]
+    y_inds = @view index_cache[ (ntot_half+1):end ]
     # x = @view data[ :, x_inds ]
     # y = @view data[ :, y_inds ]
 
     return x_inds, y_inds
 end
 
-
-function get_index_size( sampler::StandardResampling, data, options )
+function get_index_size( sampler::RademacherSplit, data, options )
     return size( data, 2 )
 end
 
 function resample_sizes(
-    sampler::StandardResampling,
+    sampler::RademacherSplit,
     ndata::Int
 )
     nx = div(ndata, 2)
@@ -30,24 +35,14 @@ end
 
 
 # Time series resampling: sample a contiguous block from the data
-Base.@kwdef struct TimeseriesResampling
+Base.@kwdef struct ContiguosBlockSplit <: LengthChangingSampler
     timeseries_block_size::Int = 100
 end
 
-function (RS::TimeseriesResampling)( data::DataContainer, options::MethodsOptions, index_cache )
-    # block_size = RS.timeseries_block_size
-
-    # start_ind = rand( index_cache[1:(end-block_size)] )
-    # end_ind = start_ind + block_size - 1
-    # x_inds = @view index_cache[ start_ind:end_ind ]
-    # y_inds = setdiff( index_cache, x_inds )
-
-    # x = @view data[ :, x_inds ]
-    # y = @view data[ :, y_inds ]
-
+function (RS::ContiguosBlockSplit)( data::DataContainer, options::MethodsOptions, index_cache )
     block_size = RS.timeseries_block_size
 
-    ndata = size( data.observations, 2 )
+    ndata = length( index_cache )
     last_start_ind = ndata - block_size + 1
 
     start_ind = rand( 1:last_start_ind )
@@ -59,12 +54,12 @@ function (RS::TimeseriesResampling)( data::DataContainer, options::MethodsOption
     return x_inds, y_inds
 end
 
-function get_index_size( sampler::TimeseriesResampling, data, options )
+function get_index_size( sampler::ContiguosBlockSplit, data, options )
     return size( data, 2 )
 end
 
 function resample_sizes(
-    sampler::TimeseriesResampling,
+    sampler::ContiguosBlockSplit,
     ndata::Int
 )
     nx = sampler.timeseries_block_size
@@ -78,25 +73,25 @@ function resample_sizes(
 end
 
 
-# No resampling:
 
+# Standard bootstrap resampling
+struct StandardBootstrap <: LengthPreservingSampler end
 
-
-# Random inverse cdf resampling using only trained mean
-# NOTE! NOT WOREKING CURRENTLY!!!
-Base.@kwdef struct InverseCDFResampling{T}
-    n_inverse_points::T = nothing
-    training_phase::Bool = true
-end# Half-half random split
-
-function (RS::InverseCDFResampling  )( data::DataContainer, options::MethodsOptions, index_cache )
-
-    y_inds = Vector{Int}(undef, 0)
-    if RS.training_phase
-        x_inds = @view index_cache[:]
-    else
-        x_inds = @view rand!( index_cache )[:]
-    end
+function (RS::StandardBootstrap)( data::DataContainer, options::MethodsOptions, index_cache )
+    ntot = length( index_cache )
+    x_inds = rand( 1:ntot, ntot )
+    y_inds = rand( 1:ntot, ntot )
 
     return x_inds, y_inds
+end
+
+function get_index_size( sampler::StandardBootstrap, data, options )
+    return size( data, 2 )
+end
+
+function resample_sizes(
+    sampler::StandardBootstrap,
+    ndata::Int
+)
+    return ndata, ndata
 end

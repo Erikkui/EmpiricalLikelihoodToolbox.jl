@@ -23,7 +23,7 @@ function main()
     model = Lorenz63Model( dt_obs = dt_obs )                # Lorenz 63 model
     data = solve_model( model, Ndata*dt_obs )               # Solver for Lorenz model uses DifferentialEquations.jl
 
-    resampler = StandardResampling()                      # 50-50 resampling
+    resampler = RademacherSplit()                      # 50-50 resampling
     objective_fun = LogLikelihood()                       # Standard log-likelihood function as an objective function
 
     # Prior distributions, uninformative priors as nothing. Supports distributions from Distributions.jl.
@@ -100,8 +100,8 @@ Currently, nine summary statistics are available:
 
 Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`, as seen in the code example above.
 
-### Resamplers
-Currently, the package includes two resamplers: `StandardResampling`, which performs random 50-50 division for a data set; and `TimeseriesResampling`, which samples a random contiguous partition from the data. `TimeseriesResampling` requires user to define a `timeseries_block_size` as an input for the resampler type, eg. `TimeseriesResampling( timeseries_block_size = 70 )`. `TimeSeriesResampling` has not been tested as extensively as `StandardResampling`, and may contain bugs. 
+<!-- ### Resamplers
+Currently, the package includes two resamplers: `StandardResampling`, which performs random 50-50 division for a data set; and `TimeseriesResampling`, which samples a random contiguous partition from the data. `TimeseriesResampling` requires user to define a `timeseries_block_size` as an input for the resampler type, eg. `TimeseriesResampling( timeseries_block_size = 70 )`. `TimeSeriesResampling` has not been tested as extensively as `StandardResampling`, and may contain bugs.  -->
 
 ### Additional settings
 

@@ -34,14 +34,14 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
     mcmc_buffer = zeros( training_summary_length, n_summaries )
     simulation_statistic_buffer = zeros( training_summary_length )
 
-    ind_size = get_index_size( resampling_type, observations, options )
-    index_cache = collect( 1:ind_size )
-
     buffer_observations = zeros( size(observations) )
 
+    ind_size = get_index_size( resampling_type, observations, options )
+    max_diff_order = maximum(diff_orders)
     if maximum(diff_orders) > 0
+        index_cache = collect( 1:ind_size )
         buffer_differences = Vector{Matrix{Float64}}(undef, maximum(diff_orders)+2 )
-        for ii in 1:maximum(diff_orders)
+        for ii in 1:max_diff_order
             if ii in diff_orders
                 buffer_differences[ii] = zeros( size(observations) )
             else
@@ -52,6 +52,12 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         buffer_differences[ end ] = zeros( size(observations) )
     else
         buffer_differences = Vector{Matrix{Float64}}(undef, 0)
+
+        # For each diff order, observation is lost at the beginning and end of the data,
+        # so we need to adjust the index cache accordingly.
+        min_ind = max_diff_order + 1
+        max_ind = ind_size-max_diff_order
+        index_cache = collect( min_ind:max_ind )
     end
 
     buffers = BufferContainer(
@@ -87,16 +93,6 @@ function train_target( statistics, data_container, buffer_container, options )
 
         view_in = @view training_summaries[:, ii]
         statistics( view_in, x_inds, y_inds, data_container, buffer_container )
-
-        # NBIN = 15
-        # MODEL = RickerModel( dt_obs = 1.0, embedding_dim = 2 )
-        # DATA = solve_model( MODEL, 50.0 )
-        # ECDF = zeros( 2*NBIN, 1 )
-        # BINS = statistics.statistics[1].bins
-        # ECDF[ 1:15, 1 ] = empcdf( DATA[1, :], NBIN, BINS[1] )
-        # ECDF[ 16:30, 1 ] = empcdf( DATA[2, :], NBIN, BINS[2] )
-        # training_summaries[ :, ii ] = ECDF
-
     end
 
     mean_summary = mean( training_summaries, dims=2 ) |> vec
@@ -138,7 +134,10 @@ function TargetData(
     buffer_container, total_summary_length = allocate_buffers( statistics, data_container, options, diff_orders )
 
     # Initialize bins for all summary statistics, overwriting original summary statistics
-    statistics = map( stat -> initialize_bins( data_container, stat, options ), statistics )
+    statistics = map(
+        stat -> initialize_bins( data_container, stat, options, buffer_container.index_cache ),
+        statistics
+        )
     statistics = JointSummaryStatistics( statistics )
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target

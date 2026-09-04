@@ -26,6 +26,8 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data::DataContainer,
     buffers::BufferContainer )
 
+    empcdf! = data.options.ecdf_function
+
     diff_order = summary_statistic.diff_order
 
     nbins = summary_statistic.nbin
@@ -55,7 +57,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    use_ecdf_sampling = obs_data_all.options.use_ecdf_sampling
+    empcdf! = obs_data_all.options.ecdf_function
 
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
@@ -66,32 +68,14 @@ function calculate_summary_statistic!(  # To be used in MCMC
     ndata = size( Rsim_diff, 2 )
 
     start_ind = 1
-    if use_ecdf_sampling
-        data_X = @view Rsim_diff[ :, : ]
-        yax_values = rand( ndata )
-        for (ii, row) in enumerate( eachrow(data_X) )
-            end_ind = start_ind + summary_statistic.nbin - 1
+    data_X = @view Rsim_diff[ :, x_inds ]
+    for (ii, row) in enumerate( eachrow(data_X) )
+        end_ind = start_ind + summary_statistic.nbin - 1
 
-            xmin, xmax = minimum(row), maximum(row)
-            bins_dense_temp = range( 1.01*xmin, 0.99*xmax, length = ndata ) |> collect
-            ecdf_view_out = @view view_out[ start_ind:end_ind ]
+        ecdf_view_out = @view view_out[ start_ind:end_ind ]
+        empcdf!( ecdf_view_out, row, nbins, bins[ii] )
 
-            ecdf_sim = empcdf( row, nbins, bins_dense_temp )
-            data_X_new = invcdf( yax_values, ecdf_sim, nbins, 1 )
-            empcdf!( ecdf_view_out, data_X_new, nbins, bins[ii] )
-
-            start_ind += summary_statistic.nbin
-        end
-    else
-        data_X = @view Rsim_diff[ :, x_inds ]
-        for (ii, row) in enumerate( eachrow(data_X) )
-            end_ind = start_ind + summary_statistic.nbin - 1
-
-            ecdf_view_out = @view view_out[ start_ind:end_ind ]
-            empcdf!( ecdf_view_out, row, nbins, bins[ii] )
-
-            start_ind += summary_statistic.nbin
-        end
+        start_ind += summary_statistic.nbin
     end
 
     return nothing

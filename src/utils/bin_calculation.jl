@@ -1,4 +1,5 @@
 function calculate_bin_bounds( data::AbstractVector{<:Real} )
+
     # Calculate bin bounds for empirical cdf calculation
     quantiles = quantile( data, [0.005, 0.25, 0.75, 0.995])
     q_low, q1, q3, q_high = quantiles[1], quantiles[2], quantiles[3], quantiles[4]
@@ -17,18 +18,21 @@ end
 function bin_select( data, nbin, axis_uniform )
     # Generate bins for empirical cdf calculation
     a, b = calculate_bin_bounds( data )
-
+    # println( "a = $a, b = $b" )
     if axis_uniform == :xax
-        a = minmax[1]
-        b = minmax[2]
         bins = collect( range(a, b, length=nbin) )
 
     elseif axis_uniform == :yax
         nbin_temp = 1000
         bins_temp = collect( range(a, b, length=nbin_temp) )
 
+        # println( "Calculating ECDF for bin selection, nbin_temp = $bins_temp \n" )
+
+
         # Dense ecdf for inversion
-        cdf = empcdf( data, nbin_temp, bins_temp )
+        cdf = empcdf_raw( data, nbin_temp, bins_temp )
+
+        # println( "Calculating ECDF for bin selection, nbin_temp = $cdf \n" )
 
         # Inverse CDF for final bins
         bins = invcdf( bins_temp, cdf, nbin, 1)
@@ -48,7 +52,8 @@ end
 function initialize_bins(
     data::DataContainer,
     statistic::StandardECDFSummary,
-    options::MethodsOptions )
+    options::MethodsOptions,
+    index_cache::Vector{Int} )
 
     nbin = statistic.nbin
     R0 = data.observations
@@ -73,7 +78,8 @@ end
 function initialize_bins(
     data::DataContainer,
     statistic::AbstractECDFSummary,
-    options::MethodsOptions )
+    options::MethodsOptions,
+    index_cache::Vector{Int} )
 
     resampler = options.resampling_type
     bins_resamplings = options.bins_resamplings
@@ -81,24 +87,22 @@ function initialize_bins(
     axis_uniform = options.axis_uniform
 
     resampled_summaries_all = Vector{ Matrix{Float64} }( undef, bins_resamplings )
-    ind_size = get_index_size( resampler, data.observations, options )
-    index_cache = collect( 1:ind_size )
     for ii in 1:bins_resamplings
         x_inds, y_inds = resampler( data, options, index_cache )
         summary = get_bin_quantity( statistic, data, x_inds, y_inds )
         resampled_summaries_all[ii] = summary
     end
-
     resampled_summaries_all = vcat( resampled_summaries_all... )
 
     # Create bins
     ndim = size( resampled_summaries_all, 2 )
     if ndim == 1
-         bins = bin_select( resampled_summaries_all, nbin, axis_uniform )
+        resampled_summaries_all = vec( resampled_summaries_all )
+        bins = bin_select( resampled_summaries_all, nbin, axis_uniform )
     else
         bins = Vector{ Vector{Float64} }( undef, ndim )
         for ii in 1:ndim
-            data_ii = @view resampled_summaries_all[:, ii]
+            data_ii = filter( isfinite, resampled_summaries_all[:, ii] )
             bins[ii] = bin_select( data_ii, nbin, axis_uniform )
         end
     end
@@ -110,6 +114,10 @@ end
 
 
 # For other summaries, we do not need to initialize bins
-function initialize_bins( data::DataContainer, statistic::AbstractSummaryStatistic, options::MethodsOptions )
+function initialize_bins(
+    data::DataContainer,
+    statistic::AbstractSummaryStatistic,
+    options::MethodsOptions,
+    index_cache::Vector{Int} )
     return statistic
 end

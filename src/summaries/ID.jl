@@ -22,6 +22,8 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data::DataContainer,
     buffers::BufferContainer )
 
+    empcdf! = data.options.ecdf_function
+
     nbin = summary_statistic.nbin
     bins = summary_statistic.bins
     neighbors = summary_statistic.neighbors
@@ -52,10 +54,11 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     for ii in eachindex(neighbors)
         dist_ind = neighbors[ii]
 
+        # Apply transformation u = 1 - 1/ratio, mapping values to [0, 1] instead of [1, Inf)
         # X --> Y
-        @views ratio_buffer[ 1:n_rows ] .= dist_buffer_xy[:, dist_ind+1] ./ dist_buffer_xy[:, dist_ind]
+        @views ratio_buffer[ 1:n_rows ] .= 1.0 .-  dist_buffer_xy[:, dist_ind] ./ dist_buffer_xy[:, dist_ind+1]
         # Y --> X
-        @views ratio_buffer[ n_rows+1:end ] .= dist_buffer_yx[ dist_ind+1, :] ./ dist_buffer_yx[ dist_ind, : ]
+        @views ratio_buffer[ n_rows+1:end ] .= 1.0 .-  dist_buffer_yx[ dist_ind, : ] ./ dist_buffer_yx[ dist_ind+1, :]
 
         bins_ii = bins[ii]
         cdf_view = @view view_out[ (ii-1)*nbin+1 : ii*nbin ]
@@ -73,6 +76,8 @@ function calculate_summary_statistic!(  # To be used in MCMC
     obs_data_all::DataContainer,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
+
+    empcdf! = obs_data_all.options.ecdf_function
 
     nbin = summary_statistic.nbin
     bins = summary_statistic.bins
@@ -107,10 +112,11 @@ function calculate_summary_statistic!(  # To be used in MCMC
     for ii in eachindex(neighbors)
         dist_ind = neighbors[ii]
 
+        # Apply transformation u = 1 - 1/ratio, mapping values to [0, 1] instead of [1, Inf)
         # X --> Y
-        @views ratio_buffer[ 1:n_rows ] .= dist_buffer_xy[:, dist_ind+1] ./ dist_buffer_xy[:, dist_ind]
+        @views ratio_buffer[ 1:n_rows ] .= 1.0 .-  dist_buffer_xy[:, dist_ind] ./ dist_buffer_xy[:, dist_ind+1]
         # Y --> X
-        @views ratio_buffer[ n_rows+1:end ] .= dist_buffer_yx[ dist_ind+1, :] ./ dist_buffer_yx[ dist_ind, : ]
+        @views ratio_buffer[ n_rows+1:end ] .= 1.0 .-  dist_buffer_yx[ dist_ind, : ] ./ dist_buffer_yx[ dist_ind+1, :]
 
         bins_ii = bins[ii]
         cdf_view = @view view_out[ (ii-1)*nbin+1 : ii*nbin ]
@@ -143,24 +149,14 @@ function get_bin_quantity( summary_statistic::ID, data::DataContainer, inds_X, i
     for ii in eachindex(neighbors)
         dist_ind = neighbors[ii]
 
-        @views id_ratios[ 1:n_rows, ii ] .= dists_xy[:, dist_ind+1] ./ dists_xy[:, dist_ind]
-        @views id_ratios[ n_rows+1:end, ii ] .= dists_yx[ dist_ind+1, :] ./ dists_yx[ dist_ind, : ]
+        @views id_ratios[ 1:n_rows, ii ] .= 1.0 .- dists_xy[:, dist_ind] ./ dists_xy[:, dist_ind+1]
+        @views id_ratios[ n_rows+1:end, ii ] .= 1.0 .- dists_yx[ dist_ind, : ] ./ dists_yx[ dist_ind+1, :]
     end
 
     return id_ratios
 end
 
 function allocate_buffer( statistic::ID, data::DataContainer )
-    # if data.options.resampling_type isa TimeseriesResampling
-    #     rows = data.options.resampling_type.timeseries_block_size
-    #     cols = size( data.observations, 2 ) - rows
-    # else
-    #     rows = round( Int, size( data.observations, 2 ) / 2 )
-    #     cols = rows
-    # end
-     # dist_buffer = Matrix{Float64}( undef, rows, cols )
-    # ratio_buffer = Vector{Float64}( undef, rows+cols )
-
     ndata = size(data.observations, 2)
     rows, cols = resample_sizes( data.options.resampling_type, ndata )
 

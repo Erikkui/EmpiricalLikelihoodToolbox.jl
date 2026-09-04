@@ -53,8 +53,8 @@ function run_test_mcmc()
     #######
 
 
-    resampler = StandardResampling()
-    # resampler = TimeseriesResampling()
+    resampler = RademacherSplit()
+    resampler = ContiguousBlockSplit( timeseries_block_size = timeseries_block_size )
 
     lossfun = LogLikelihood( scaling_parameter = 1.0 )
 
