@@ -31,7 +31,7 @@ end
 
 function empcdf_kernelsmoothed!(
     out_view::AbstractVector,
-    data::AbstractVector,
+    data,
     nbins::Int,
     bins::AbstractVector
 )
@@ -64,7 +64,7 @@ function empcdf_kernelsmoothed!(
 end
 
 function empcdf_kernelsmoothed(
-    data::AbstractVector,
+    data::AbstractArray{<:Real},
     nbins::Int,
     bins::AbstractVector
 )

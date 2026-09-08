@@ -11,6 +11,7 @@ Base.@kwdef struct RickerModel{T, E} <: AbstractSimulationModel
     all_parameters::Tuple{Vararg{Symbol}} = (:r, :sigma, :phi)
 end
 
+
 function step!(rng::AbstractRNG, m::RickerModel, n )
     # Ricker map
 

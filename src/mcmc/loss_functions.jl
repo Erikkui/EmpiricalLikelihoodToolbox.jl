@@ -1,15 +1,9 @@
-struct LogLikelihood
-    scaling_parameter::Float64
-    inverse_scaling_parameter::Float64
+@kwdef struct LogLikelihood
+    scaling_parameter::Float64 = 1.0
+    inverse_scaling::Float64 = 1.0/scaling_parameter
 end
 
 function LogLikelihood( scaling_parameter::Real )
-    scaling = Float64( scaling_parameter )
-    inverse_scaling = 1.0/Float64( scaling_parameter )
-    return LogLikelihood( scaling, inverse_scaling )
-end
-
-function LogLikelihood(; scaling_parameter::Real)
     scaling = Float64( scaling_parameter )
     inverse_scaling = 1.0/Float64( scaling_parameter )
     return LogLikelihood( scaling, inverse_scaling )
@@ -30,7 +24,7 @@ function (loss::LogLikelihood)( target::TargetData, sim_mean::AbstractVector )
         standardize!( ss, target.standardization_mean, target.standardization_sd )
     end
 
-    ss *= loss.inverse_scaling_parameter
+    ss *= loss.inverse_scaling
 
     return ss
 end
@@ -46,18 +40,12 @@ end
 
 @kwdef struct RobustChamfer
     scaling_parameter::Float64 = 1.0
-    inverse_scaling::Float64 = 1.0
+    inverse_scaling::Float64 = 1/scaling_parameter
 end
 
 function RobustChamfer( scaling_parameter::Real )
     scaling = Float64( scaling_parameter )
     inverse_scaling = 1.0/scaling
-    return RobustChamfer( scaling, inverse_scaling )
-end
-
-function RobustChamfer(; scaling_parameter::Real)
-    scaling = Float64( scaling_parameter )
-    inverse_scaling = 1.0/Float64( scaling_parameter )
     return RobustChamfer( scaling, inverse_scaling )
 end
 

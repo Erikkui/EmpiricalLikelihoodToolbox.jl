@@ -27,6 +27,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     bins = summary_statistic.bins
 
     data_X = @view data.observations[ :, x_inds ]
+
     empcdf!( view_out, data_X, nbins, bins )
 
     return nothing

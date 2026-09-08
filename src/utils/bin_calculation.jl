@@ -63,9 +63,13 @@ function initialize_bins(
     bins = Vector{ Vector{Float64} }( undef, ndim )
 
     # Create bins
-    for ii in 1:ndim
-        data_ii = @view R0[ii, :]
-        bins[ii] = bin_select( data_ii, nbin, axis_uniform )
+    if ndim == 1
+        bins = bin_select( vec(R0), nbin, axis_uniform )
+    else
+        for ii in 1:ndim
+            data_ii = @view R0[ii, :]
+            bins[ii] = bin_select( data_ii, nbin, axis_uniform )
+        end
     end
 
     new_statistic = @set statistic.bins = bins
