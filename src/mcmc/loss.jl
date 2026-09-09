@@ -87,6 +87,7 @@ function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 =
 
     # n_loss_evals is the number of times to evaluate the loss function on new simulations and average the result to reduce the effect of noise.
     for _ in 1:options.n_loss_evals
+        # println( params)
         Rsim_container = create_simulated_data( R0_all, model, target, buffers, options, rng )
 
         # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can

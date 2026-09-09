@@ -63,13 +63,10 @@ function initialize_bins(
     bins = Vector{ Vector{Float64} }( undef, ndim )
 
     # Create bins
-    if ndim == 1
-        bins = bin_select( vec(R0), nbin, axis_uniform )
-    else
-        for ii in 1:ndim
-            data_ii = @view R0[ii, :]
-            bins[ii] = bin_select( data_ii, nbin, axis_uniform )
-        end
+    bins = Vector{ Vector{Float64} }( undef, ndim )
+    for ii in 1:ndim
+        data_ii = @view R0[ii, :]
+        bins[ii] = bin_select( data_ii, nbin, axis_uniform )
     end
 
     new_statistic = @set statistic.bins = bins
@@ -100,15 +97,10 @@ function initialize_bins(
 
     # Create bins
     ndim = size( resampled_summaries_all, 2 )
-    if ndim == 1
-        resampled_summaries_all = vec( resampled_summaries_all )
-        bins = bin_select( resampled_summaries_all, nbin, axis_uniform )
-    else
-        bins = Vector{ Vector{Float64} }( undef, ndim )
-        for ii in 1:ndim
-            data_ii = filter( isfinite, resampled_summaries_all[:, ii] )
-            bins[ii] = bin_select( data_ii, nbin, axis_uniform )
-        end
+    bins = Vector{ Vector{Float64} }( undef, ndim )
+    for ii in 1:ndim
+        data_ii = filter( isfinite, resampled_summaries_all[:, ii] )
+        bins[ii] = bin_select( data_ii, nbin, axis_uniform )
     end
 
     new_statistic = @set statistic.bins = bins

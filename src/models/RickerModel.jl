@@ -23,6 +23,7 @@ function step!(rng::AbstractRNG, m::RickerModel, n )
     n = r * n * exp( -n + z_t )
 
     lambda = phi*n
+
     y_t = rand( rng, Poisson( lambda ) )
 
     return y_t, n

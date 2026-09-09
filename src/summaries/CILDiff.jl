@@ -22,7 +22,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     empcdf! = data.options.ecdf_function
 
     nbins = summary.nbin
-    bins = summary.bins
+    bins = summary.bins[1]
     diff_order = summary.diff_order
 
     key = Symbol( generate_stat_name( summary ) )
@@ -49,7 +49,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     empcdf! = obs_data_all.options.ecdf_function
 
     nbins = summary.nbin
-    bins = summary.bins
+    bins = summary.bins[1]
     diff_order = summary.diff_order
 
     R0_diff = obs_data_all.differences[ diff_order ]

@@ -24,7 +24,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     empcdf! = data.options.ecdf_function
 
     nbins = summary.nbin
-    bins = summary.bins
+    bins = summary.bins[1]
 
     key = Symbol( generate_stat_name( summary ) )
     buffer = buffers.summary_buffers[ key ]
@@ -50,7 +50,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     empcdf! = obs_data_all.options.ecdf_function
 
     nbins = summary.nbin
-    bins = summary.bins
+    bins = summary.bins[1]
 
     R0 = obs_data_all.observations
     Rsim = sim_data_all.observations
