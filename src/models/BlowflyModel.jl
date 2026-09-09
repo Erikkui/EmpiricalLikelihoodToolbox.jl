@@ -26,7 +26,6 @@ Base.@kwdef struct BlowflyModel{E} <: AbstractSimulationModel
     x0::Int = 180
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = 1.0
-    embedding_dim::E = 0
     dim::Int = length(x0)
     burn_in::Int = 200
     mu::Float64 = 1.0
@@ -72,17 +71,5 @@ function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rn
     # Remove initial lag and burn-in period from N
     N = N[:, lag+1+burn_in:end]
 
-    if model.embedding_dim != 0
-        y_out = embedding( N, model.embedding_dim )
-
-        # if return_hidden_states
-        #     hidden_states = hidden_states[ :, obs_inds ]
-        #     n_out = embedding( hidden_states, embedding_dims )
-        #     return y_out, n_out
-        # end
-
-        return y_out
-    else
-        return N # Return as a 2D array with one row
-    end
+    return N
 end

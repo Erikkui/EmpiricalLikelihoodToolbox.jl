@@ -16,7 +16,7 @@ abstract type AbstractSimulationModel end
 
 # Container structs
 #------------Main options struct
-Base.@kwdef struct MethodsOptions{R, F}
+Base.@kwdef struct MethodsOptions{R, F, E}
     axis_uniform::Symbol = :xax
     covariance_type::Symbol = :cov
     bins_resamplings::Int = 40
@@ -30,6 +30,7 @@ Base.@kwdef struct MethodsOptions{R, F}
     verbose::Bool = false
     ecdf_calculation_type::Symbol = :default    # :default, :kernel_smoothed
     ecdf_function::F = resolve_ecdf( ecdf_calculation_type )
+    embedding_dim::E = 0
 end
 
 #------------Buffer container for non-allocating in-place computations
