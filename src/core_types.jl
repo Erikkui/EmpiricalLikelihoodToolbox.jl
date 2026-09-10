@@ -49,10 +49,11 @@ Base.@kwdef struct MethodsOptions{R, F, E, IM}
     ecdf_calculation_type::Symbol = :default    # :default, :kernel_smoothed
     ecdf_function::F = resolve_ecdf( ecdf_calculation_type )
     embedding_dim::E = 0
+    inference_method::IM = GSL()
 end
 
 #------------Buffer container for non-allocating in-place computations
-struct BufferContainer{S, I, M, SO, SD, ST}
+struct BufferContainer{S, I, M, SO, SD, ST, BB}
     summary_buffers::S
     training_buffer::M
     mcmc_buffer::M
@@ -60,6 +61,7 @@ struct BufferContainer{S, I, M, SO, SD, ST}
     simulation_diffs::SD
     simulation_statistic::ST
     index_cache::I
+    bsl_buffer::BB
 end
 
 #------------Container for passing data, differences and options to functions

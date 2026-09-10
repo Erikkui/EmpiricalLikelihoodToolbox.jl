@@ -74,6 +74,27 @@ end
 
 
 
+# No resampling: returns all available data as both "x" and "y" sets, unchanged. Useful whenever a
+# deterministic, non-resampled evaluation of a summary statistic is wanted, e.g. for the fixed
+# observed-data reference statistic under BSL.
+struct NoResampling <: LengthPreservingSampler end
+
+function (RS::NoResampling)( data::DataContainer, options::MethodsOptions, index_cache )
+    return index_cache, index_cache
+end
+
+function get_index_size( sampler::NoResampling, data, options )
+    return size( data, 2 )
+end
+
+function resample_sizes(
+    sampler::NoResampling,
+    ndata::Int
+)
+    return ndata, ndata
+end
+
+
 # Standard bootstrap resampling
 struct StandardBootstrap <: LengthPreservingSampler end
 
