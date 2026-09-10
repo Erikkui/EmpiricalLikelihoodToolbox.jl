@@ -1,6 +1,3 @@
-# `buffer` is nothing until finalize_summary attaches the preallocated buffer, mirroring how
-# `bins` is filled in by initialize_bins. Holding it directly avoids rebuilding the buffer's
-# NamedTuple key from a runtime field on every evaluation.
 struct ChamferECDF{B, T, BUF} <: AbstractECDFSummary
     bins::B
     nbin::Int
@@ -51,11 +48,12 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     bins = summary_statistic.bins
     kvals = summary_statistic.neighbors
 
-    buffer = summary_statistic.buffer
+    stat_buffer = summary_statistic.buffer
+    buffer = stat_buffer.chamfer
+    chamfers = stat_buffer.chamfers
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     n_resample = summary_statistic.dists_for_ecdf
-    chamfers = zeros( n_resample, length( kvals ) )
     for ii in 1:n_resample
         x_inds, y_inds = data.options.resampling_type( data, data.options, buffers.index_cache )
         data_X = @view data.observations[ :, x_inds ]
@@ -66,7 +64,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     for jj in eachindex( kvals )
         view_jj = @view view_out[ (jj-1)*nbins+1 : jj*nbins ]
         bins_jj = bins[jj]
-        empcdf!( view_jj, chamfers[:, jj], nbins, bins_jj )
+        empcdf!( view_jj, @view( chamfers[:, jj] ), nbins, bins_jj )
     end
     return nothing
 end
@@ -87,15 +85,16 @@ function calculate_summary_statistic!(      # To be used in MCMC
     kvals = summary_statistic.neighbors
 
     R0 = target.data.observations
-    Rsim = @view sim_data_all.observations[ :, y_inds]
+    Rsim = sim_data_all.observations[ :, y_inds ]
     ytree = KDTree( Rsim )
 
-    buffer = summary_statistic.buffer
+    stat_buffer = summary_statistic.buffer
+    buffer = stat_buffer.chamfer
+    chamfers = stat_buffer.chamfers
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     resampler = target.data.options.resampling_type
     n_resample = summary_statistic.dists_for_ecdf
-    chamfers = zeros( n_resample, length( kvals ) )
     for ii in 1:n_resample
         x_inds, _ = resampler( target.data, target.data.options, buffers.index_cache )
         data_X = @view R0[ :, x_inds ]
@@ -107,7 +106,7 @@ function calculate_summary_statistic!(      # To be used in MCMC
     for jj in eachindex( kvals )
         view_jj = @view view_out[ (jj-1)*nbins+1 : jj*nbins ]
         bins_jj = bins[jj]
-        empcdf!( view_jj, chamfers[:, jj], nbins, bins_jj )
+        empcdf!( view_jj, @view( chamfers[:, jj] ), nbins, bins_jj )
     end
     return nothing
 end
@@ -131,8 +130,11 @@ end
 
 
 function allocate_buffer( statistic::ChamferECDF, data::DataContainer )
-    buffer = Vector{Float64}( undef, length( statistic.neighbors ) )
-    return buffer
+    nk = length( statistic.neighbors )
+    return (
+        chamfer = Vector{Float64}( undef, nk ),
+        chamfers = Matrix{Float64}( undef, statistic.dists_for_ecdf, nk ),
+        )
 end
 
 required_diff_order(stat::ChamferECDF) = 0
