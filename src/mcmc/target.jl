@@ -61,8 +61,6 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
     mcmc_buffer = zeros( training_summary_length, n_summaries )
     simulation_statistic_buffer = zeros( training_summary_length )
 
-    buffer_observations = zeros( size(observations) )
-
     inference_method = options.inference_method
     bsl_buffer = isa( inference_method, BSL ) ?
         zeros( training_summary_length, inference_method.n_sim ) :
@@ -72,7 +70,6 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         stat_buffers,
         training_buffer,
         mcmc_buffer,
-        buffer_observations,
         buffer_differences,
         simulation_statistic_buffer,
         index_cache,

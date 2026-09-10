@@ -20,7 +20,6 @@ function create_simulated_data( model, target, buffers, options, rng )
         return Rsim_container
     end
 
-    copyto!( buffers.simulation_obs, Rsim )
     if maximum(diff_orders) > 0
         calculate_diffs!( buffers.simulation_diffs, Rsim, diff_orders, dt_obs )
     end

@@ -53,11 +53,10 @@ Base.@kwdef struct MethodsOptions{R, F, E, IM}
 end
 
 #------------Buffer container for non-allocating in-place computations
-struct BufferContainer{S, I, M, SO, SD, ST, BB}
+struct BufferContainer{S, I, M, SD, ST, BB}
     summary_buffers::S
     training_buffer::M
     mcmc_buffer::M
-    simulation_obs::SO
     simulation_diffs::SD
     simulation_statistic::ST
     index_cache::I
