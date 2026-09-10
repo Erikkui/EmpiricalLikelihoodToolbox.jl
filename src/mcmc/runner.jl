@@ -54,8 +54,6 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     if isnothing( mcmc_options.initial_params )
         current_params = active_param_values .* ( 1 .+ 0.01.*randn( npar_active ) )
     else
-        # Copied because the MCMC algorithms update the current state in place, which would
-        # otherwise overwrite the caller's array and silently change the start point of a rerun.
         current_params = copy( mcmc_options.initial_params )
     end
 

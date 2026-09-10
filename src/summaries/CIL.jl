@@ -1,7 +1,4 @@
-#------------CIL
-# `buffer` is nothing until finalize_summary attaches the preallocated buffer, mirroring how
-# `bins` is filled in by initialize_bins. Holding it directly avoids rebuilding the buffer's
-# NamedTuple key from a runtime field on every evaluation.
+
 struct CIL{B, BUF} <: CILSummary
     bins::B
     nbin::Int
