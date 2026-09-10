@@ -36,11 +36,11 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary_statistic::ChamferDistance,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    data_X = @view obs_data_all.observations[ :, x_inds ]
+    data_X = @view target.data.observations[ :, x_inds ]
     Rsim = @view sim_data_all.observations[ :, y_inds ]
     ytree = KDTree( Rsim )
 
@@ -63,4 +63,10 @@ required_diff_order(stat::ChamferDistance) = 0
 
 function generate_stat_name( stat::ChamferDistance )
     return "ChamferDistance_k=$(stat.neighbors)"
+end
+
+get_summary_length(stat::ChamferDistance, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::ChamferDistance, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

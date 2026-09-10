@@ -42,7 +42,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary::CILDiff,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
@@ -52,7 +52,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     bins = summary.bins[1]
     diff_order = summary.diff_order
 
-    R0_diff = obs_data_all.differences[ diff_order ]
+    R0_diff = target.data.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
 
     key = Symbol( generate_stat_name( summary ) )
@@ -89,4 +89,10 @@ required_diff_order(stat::CILDiff) = stat.diff_order
 
 function generate_stat_name( stat::CILDiff )
     return "CILDiff_diff_order=$(stat.diff_order)_nbin=$(stat.nbin)"
+end
+
+get_summary_length(stat::CILDiff, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::CILDiff, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

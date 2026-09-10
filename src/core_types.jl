@@ -3,13 +3,14 @@ abstract type AbstractSummaryStatistic end
 
 abstract type AbstractECDFSummary <: AbstractSummaryStatistic end
 abstract type AbstractChamferSummary <: AbstractSummaryStatistic end
+abstract type AbstractCumulativeSumSummary <: AbstractSummaryStatistic end
 
 abstract type StandardECDFSummary <: AbstractECDFSummary end
-abstract type TwoSampleSummary <: AbstractECDFSummary end
+abstract type TwoSetSummary <: AbstractECDFSummary end
 
-abstract type CILSummary <: TwoSampleSummary end
-abstract type IDSummary <: TwoSampleSummary end
-abstract type ChamferECDFSummary <: TwoSampleSummary end
+abstract type CILSummary <: TwoSetSummary end
+abstract type IDSummary <: TwoSetSummary end
+abstract type ChamferECDFSummary <: TwoSetSummary end
 
 abstract type AbstractSimulationModel end
 
@@ -23,6 +24,7 @@ Base.@kwdef struct MethodsOptions{R, F, E}
     resampling_type::R = RademacherSplit()
     training_resamplings::Int = 1000
     N_obs::Int
+    effective_N_obs::Int = N_obs
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     n_loss_evals::Int = 1

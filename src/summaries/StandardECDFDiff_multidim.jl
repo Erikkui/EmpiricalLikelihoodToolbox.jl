@@ -53,17 +53,17 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary_statistic::StandardECDFDiffMultiDimensional,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
     diff_order = summary_statistic.diff_order
 
-    Rsim_diff = sim_data_all.differences[ diff_order ]
+    Rsim_diff = target.data.differences[ diff_order ]
 
     ndata = size( Rsim_diff, 2 )
 
@@ -97,4 +97,10 @@ required_diff_order(stat::StandardECDFDiffMultiDimensional) = stat.diff_order
 
 function generate_stat_name( stat::StandardECDFDiffMultiDimensional )
     return "StandardECDFDiff_k=$(stat.nbin)_ndim=$(stat.ndim)_diff_order=$(stat.diff_order)"
+end
+
+get_summary_length(stat::StandardECDFDiffMultiDimensional, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::StandardECDFDiffMultiDimensional, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

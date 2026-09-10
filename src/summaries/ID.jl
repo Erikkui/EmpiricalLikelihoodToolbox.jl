@@ -73,17 +73,17 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary_statistic::ID,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     nbin = summary_statistic.nbin
     bins = summary_statistic.bins
     neighbors = summary_statistic.neighbors
 
-    R0 = obs_data_all.observations
+    R0 = target.data.observations
     Rsim = sim_data_all.observations
 
     key = Symbol( generate_stat_name( summary_statistic ) )
@@ -175,4 +175,10 @@ required_diff_order(stat::ID) = 0
 
 function generate_stat_name( stat::ID )
     return "ID_neighbors=$(stat.neighbors)"
+end
+
+get_summary_length(stat::ID, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::ID, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

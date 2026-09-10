@@ -55,20 +55,19 @@ function calculate_summary_statistic!(      # To be used in MCMC
     summary_statistic::ChamferECDF,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     nbins = summary_statistic.nbin
     bins = summary_statistic.bins
     kvals = summary_statistic.neighbors
 
-    R0 = obs_data_all.observations
+    R0 = target.data.observations
     Rsim = @view sim_data_all.observations[ :, y_inds]
     ytree = KDTree( Rsim )
-
 
     key = Symbol( generate_stat_name( summary_statistic ) )
     buffer = buffers.summary_buffers[ key ]
@@ -120,4 +119,10 @@ required_diff_order(stat::ChamferECDF) = 0
 
 function generate_stat_name( stat::ChamferECDF )
     return "ChamferECDF_k=$(stat.neighbors)"
+end
+
+get_summary_length(stat::ChamferECDF, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::ChamferECDF, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

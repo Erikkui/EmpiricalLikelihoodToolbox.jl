@@ -43,16 +43,16 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary::CIL,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     nbins = summary.nbin
     bins = summary.bins[1]
 
-    R0 = obs_data_all.observations
+    R0 = target.data.observations
     Rsim = sim_data_all.observations
 
     key = Symbol( generate_stat_name( summary ) )
@@ -88,4 +88,10 @@ required_diff_order(stat::CIL) = 0
 
 function generate_stat_name( stat::CIL )
     return "CIL_nbin=$(stat.nbin)"
+end
+
+get_summary_length(stat::CIL, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::CIL, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

@@ -78,18 +78,18 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary_statistic::IDDiff,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     nbin = summary_statistic.nbin
     bins = summary_statistic.bins
     neighbors = summary_statistic.neighbors
     diff_order = summary_statistic.diff_order
 
-    R0_diff = obs_data_all.differences[ diff_order ]
+    R0_diff = target.data.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
 
     key = Symbol( generate_stat_name( summary_statistic ) )
@@ -186,3 +186,9 @@ required_diff_order(stat::IDDiff) = stat.diff_order
 function generate_stat_name( stat::IDDiff )
     return "IDDiff_k=$(stat.neighbors)_diff_order=$(stat.diff_order)"
 end
+
+function finalize_summary( stat::IDDiff, data::DataContainer, buffers::BufferContainer )
+    return stat
+end
+
+get_summary_length(stat::IDDiff, data::DataContainer) = stat.summary_length

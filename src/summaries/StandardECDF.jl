@@ -42,7 +42,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     Rsim = sim_data_all.observations
 
@@ -70,3 +70,9 @@ required_diff_order(stat::StandardECDF) = 0
 function generate_stat_name( stat::StandardECDF )
     return "StandardECDF_k=$(stat.nbin)"
 end
+
+function finalize_summary( stat::StandardECDF, data::DataContainer, buffers::BufferContainer )
+    return stat
+end
+
+get_summary_length(stat::StandardECDF, data::DataContainer) = stat.summary_length

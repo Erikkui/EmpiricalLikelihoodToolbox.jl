@@ -226,3 +226,37 @@ function embedding( data_in, embedding_dims )
 
     return output_data
 end
+
+
+function contract!( output::AbstractVector{<:Real}, input::AbstractArray{<:Real}, window_size::Int )
+
+    nrows, ncols = size( input )
+    n_windows = length( output )
+
+    @assert ncols > window_size  "Window size is too large for the input data."
+
+    start_ind = 1
+    end_ind = window_size
+    for ii in 1:n_windows
+        data_window = @view input[ :, start_ind:end_ind ]
+        contract_sum = sum( sum( data_window ) )
+        output[ii] = contract_sum
+
+        start_ind += window_size
+        end_ind += window_size
+    end
+
+    return nothing
+end
+
+function contract( input, window_size::Int )
+    ndata = size( input, 2 )
+    n_windows = div( ndata, window_size )
+
+    @assert ndata > window_size  "Window size is too large for the input data."
+
+    output = zeros( n_windows )
+    contract!( output, input, window_size )
+
+    return output
+end

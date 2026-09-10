@@ -34,8 +34,9 @@ function run_test_mcmc()
 
     likelihood_noise_scale = 0.0
 
-    model = RickerModel( embedding_dim = 2 )
+    model = RickerModel()
     data = solve_model( model, t_end )
+    # data = embedding( data, 2 )
 
     _, default_params = get_active_model_params( model )
     npar = length( default_params )
@@ -54,7 +55,7 @@ function run_test_mcmc()
 
 
     resampler = RademacherSplit()
-    resampler = ContiguousBlockSplit( timeseries_block_size = timeseries_block_size )
+    # resampler = ContiguousBlockSplit( timeseries_block_size = timeseries_block_size )
 
     lossfun = LogLikelihood( scaling_parameter = 1.0 )
 

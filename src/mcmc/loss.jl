@@ -1,4 +1,4 @@
-function create_simulated_data( R0_all, model, target, buffers, options, rng )
+function create_simulated_data( model, target, buffers, options, rng )
     diff_orders = target.data.difference_orders
     ndata = options.N_obs
     embedding_dim = options.embedding_dim
@@ -34,7 +34,7 @@ function create_simulated_data( R0_all, model, target, buffers, options, rng )
     return Rsim_container
 end
 
-function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options, lossfun )
+function calculate_simulated_statistics( target, Rsim_container, summaries, buffers, options, lossfun )
     resampler = options.resampling_type
     n_summaries = options.n_summaries
 
@@ -42,15 +42,15 @@ function calculate_simulated_statistics( R0_all, Rsim_container, summaries, buff
     index_cache = buffers.index_cache
     sim_statistic = buffers.simulation_statistic
 
-    if n_summaries <= 1 && isa(resampler, LengthPreservingSampler )    #!any( isa.( summaries.statistics, TwoSampleSummary) )
+    if n_summaries <= 1 && isa(resampler, LengthPreservingSampler )
         view_in = @view resample_buffer[:, 1]
-        summaries( view_in, index_cache, index_cache, R0_all, Rsim_container, buffers
+        summaries( view_in, index_cache, index_cache, target, Rsim_container, buffers
         )
     else
         for ii in 1:n_summaries
             view_in = @view resample_buffer[ :, ii ]
-            x_inds, y_inds = resampler( R0_all, options, index_cache )
-            summaries( view_in, x_inds, y_inds, R0_all, Rsim_container, buffers )
+            x_inds, y_inds = resampler( target.data.observations, options, index_cache )
+            summaries( view_in, x_inds, y_inds, target, Rsim_container, buffers )
         end
     end
 
@@ -90,7 +90,7 @@ function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 =
     # n_loss_evals is the number of times to evaluate the loss function on new simulations and average the result to reduce the effect of noise.
     for _ in 1:options.n_loss_evals
         # println( params)
-        Rsim_container = create_simulated_data( R0_all, model, target, buffers, options, rng )
+        Rsim_container = create_simulated_data( model, target, buffers, options, rng )
 
         # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can
         # return -Inf for the likelihood to reject this parameter proposal
@@ -99,7 +99,7 @@ function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 =
             return -Inf
         end
 
-        sim_statistic = calculate_simulated_statistics( R0_all, Rsim_container, summaries, buffers, options, loss_function )
+        sim_statistic = calculate_simulated_statistics( target, Rsim_container, summaries, buffers, options, loss_function )
         loss += loss_function( target, sim_statistic )
     end
 

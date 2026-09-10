@@ -108,7 +108,6 @@ function initialize_bins(
 end
 
 
-
 # For other summaries, we do not need to initialize bins
 function initialize_bins(
     data::DataContainer,

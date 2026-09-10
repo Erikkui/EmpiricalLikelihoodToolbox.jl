@@ -39,13 +39,13 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary_statistic::ChamferDistanceDiff,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
     diff_order = summary_statistic.diff_order
 
-    data_X = @view obs_data_all.differences[ diff_order ][ :, x_inds ]
+    data_X = @view target.data.differences[ diff_order ][ :, x_inds ]
     Rsim = @view sim_data_all.differences[ diff_order ][ :, y_inds ]
     ytree = KDTree( Rsim )
 
@@ -65,4 +65,10 @@ required_diff_order(stat::ChamferDistanceDiff) = stat.diff_order
 
 function generate_stat_name( stat::ChamferDistanceDiff )
     return "ChamferDistanceDiff_k=$(stat.neighbors)_diff=$(stat.diff_order)"
+end
+
+get_summary_length(stat::ChamferDistanceDiff, data::DataContainer) = stat.summary_length
+
+function finalize_summary( stat::ChamferDistanceDiff, data::DataContainer, buffers::BufferContainer )
+    return stat
 end

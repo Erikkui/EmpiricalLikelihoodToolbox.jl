@@ -24,18 +24,6 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
 
     observations = data_container.observations
 
-    training_summary_length = map( stat -> stat.summary_length, statistics ) |> sum
-
-    stat_buffers_vals  = map( stat -> allocate_buffer( stat, data_container ), statistics )
-    stat_buffers_names = map( stat -> Symbol( generate_stat_name( stat ) ), statistics )
-    stat_buffers = NamedTuple{stat_buffers_names}(stat_buffers_vals)
-
-    training_buffer = zeros( training_summary_length, training_resamplings )
-    mcmc_buffer = zeros( training_summary_length, n_summaries )
-    simulation_statistic_buffer = zeros( training_summary_length )
-
-    buffer_observations = zeros( size(observations) )
-
     ind_size = get_index_size( resampling_type, observations, options )
     max_diff_order = maximum(diff_orders)
     if maximum(diff_orders) > 0
@@ -60,6 +48,21 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         index_cache = collect( min_ind:max_ind )
     end
 
+    effective_nobs = length( index_cache )
+    data = @set data_container.options.effective_N_obs = effective_nobs
+
+    stat_buffers_vals  = map( stat -> allocate_buffer( stat, data_container ), statistics )
+    stat_buffers_names = map( stat -> Symbol( generate_stat_name( stat ) ), statistics )
+    stat_buffers = NamedTuple{stat_buffers_names}(stat_buffers_vals)
+
+    training_summary_length = map( stat -> get_summary_length( stat, data_container ), statistics ) |> sum
+
+    training_buffer = zeros( training_summary_length, training_resamplings )
+    mcmc_buffer = zeros( training_summary_length, n_summaries )
+    simulation_statistic_buffer = zeros( training_summary_length )
+
+    buffer_observations = zeros( size(observations) )
+
     buffers = BufferContainer(
         stat_buffers,
         training_buffer,
@@ -69,7 +72,7 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         simulation_statistic_buffer,
         index_cache,
         )
-    return buffers, training_summary_length
+    return buffers, data, training_summary_length
 end
 
 
@@ -131,13 +134,21 @@ function TargetData(
     data_container = initialize_datacontainer( data, statistics, options, diff_orders )
 
     # Create buffers for use in resampling
-    buffer_container, total_summary_length = allocate_buffers( statistics, data_container, options, diff_orders )
+    buffer_container, data_container, total_summary_length = allocate_buffers( statistics, data_container, options, diff_orders )
 
     # Initialize bins for all summary statistics, overwriting original summary statistics
     statistics = map(
         stat -> initialize_bins( data_container, stat, options, buffer_container.index_cache ),
         statistics
         )
+
+    # Finalize summaries if there are some params yet needed to be set
+    statistics = map(
+        stat -> finalize_summary( stat, data_container, buffer_container ),
+        statistics
+        )
+
+    # Create final JointSummaryStatistics object with updated summary statistics
     statistics = JointSummaryStatistics( statistics )
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target
