@@ -100,8 +100,11 @@ struct StandardBootstrap <: LengthPreservingSampler end
 
 function (RS::StandardBootstrap)( data::DataContainer, options::MethodsOptions, index_cache )
     ntot = length( index_cache )
-    x_inds = rand( 1:ntot, ntot )
-    y_inds = rand( 1:ntot, ntot )
+    # Drawn from index_cache's values, not from 1:ntot: when index_cache is trimmed (see
+    # allocate_buffers) its values are not 1:ntot, and sampling positions would resample exactly
+    # the boundary columns the trim excludes.
+    x_inds = rand( index_cache, ntot )
+    y_inds = rand( index_cache, ntot )
 
     return x_inds, y_inds
 end

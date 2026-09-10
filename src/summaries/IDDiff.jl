@@ -185,7 +185,7 @@ function get_bin_quantity( summary_statistic::IDDiff, data::DataContainer, inds_
 end
 
 function allocate_buffer( statistic::IDDiff, data::DataContainer )
-    ndata = size(data.observations, 2)
+    ndata = data.options.effective_N_obs
     rows, cols = resample_sizes( data.options.resampling_type, ndata )
 
     dist_buffer = Matrix{Float64}( undef, rows, cols )

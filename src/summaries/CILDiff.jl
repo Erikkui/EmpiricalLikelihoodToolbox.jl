@@ -83,7 +83,7 @@ function get_bin_quantity( summary::CILDiff, data::DataContainer, inds_X, inds_Y
 end
 
 function allocate_buffer( statistic::CILDiff, data::DataContainer )
-    ndata = size(data.observations, 2)
+    ndata = data.options.effective_N_obs
     rows, cols = resample_sizes( data.options.resampling_type, ndata )
 
     buffer = Matrix{Float64}( undef, rows, cols )

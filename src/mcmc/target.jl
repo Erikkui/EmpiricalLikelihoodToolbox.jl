@@ -26,9 +26,8 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
 
     ind_size = get_index_size( resampling_type, observations, options )
     max_diff_order = maximum(diff_orders)
-    if maximum(diff_orders) > 0
-        index_cache = collect( 1:ind_size )
-        buffer_differences = Vector{Matrix{Float64}}(undef, maximum(diff_orders)+2 )
+    if max_diff_order > 0
+        buffer_differences = Vector{Matrix{Float64}}(undef, max_diff_order+2 )
         for ii in 1:max_diff_order
             if ii in diff_orders
                 buffer_differences[ii] = zeros( size(observations) )
@@ -38,18 +37,24 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         end
         buffer_differences[ end-1 ] = zeros( size(observations) )
         buffer_differences[ end ] = zeros( size(observations) )
+
+        # calculate_diffs pads the boundaries by nearest-neighbour copy to keep the column count
+        # equal to the observations', so index ii means the same time point in both - but the
+        # padded columns are fabricated, and each successive order propagates that fabrication one
+        # column further inward. Dropping max_diff_order columns from each end excludes every
+        # fabricated point while preserving that one-to-one indexing.
+        min_ind = max_diff_order + 1
+        max_ind = ind_size - max_diff_order
+        index_cache = collect( min_ind:max_ind )
     else
         buffer_differences = Vector{Matrix{Float64}}(undef, 0)
-
-        # For each diff order, observation is lost at the beginning and end of the data,
-        # so we need to adjust the index cache accordingly.
-        min_ind = max_diff_order + 1
-        max_ind = ind_size-max_diff_order
-        index_cache = collect( min_ind:max_ind )
+        index_cache = collect( 1:ind_size )
     end
 
+    # Buffers sized off a resampler's output lengths must be built from the effective (post-trim)
+    # count, since that is what the resampler will actually be handed at run time.
     effective_nobs = length( index_cache )
-    data = @set data_container.options.effective_N_obs = effective_nobs
+    data_container = @set data_container.options.effective_N_obs = effective_nobs
 
     stat_buffers_vals  = map( stat -> allocate_buffer( stat, data_container ), statistics )
     stat_buffers_names = map( stat -> Symbol( generate_stat_name( stat ) ), statistics )
@@ -75,7 +80,7 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         index_cache,
         bsl_buffer,
         )
-    return buffers, data, training_summary_length
+    return buffers, data_container, training_summary_length
 end
 
 
