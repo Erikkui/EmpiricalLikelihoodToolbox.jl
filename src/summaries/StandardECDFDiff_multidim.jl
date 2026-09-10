@@ -63,9 +63,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     bins = summary_statistic.bins
     diff_order = summary_statistic.diff_order
 
-    Rsim_diff = target.data.differences[ diff_order ]
-
-    ndata = size( Rsim_diff, 2 )
+    Rsim_diff = sim_data_all.differences[ diff_order ]
 
     start_ind = 1
     data_X = @view Rsim_diff[ :, x_inds ]

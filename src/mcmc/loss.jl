@@ -42,7 +42,12 @@ function calculate_simulated_statistics( target, Rsim_container, summaries, buff
     index_cache = buffers.index_cache
     sim_statistic = buffers.simulation_statistic
 
-    if n_summaries <= 1 && isa(resampler, LengthPreservingSampler )
+    # NoResampling is the only resampler for which skipping the call is equivalent to making it:
+    # it returns index_cache unchanged as both sets. Stochastic length-preserving resamplers
+    # (StandardBootstrap, MovingBlockBootstrap) must still be invoked here, or the simulated
+    # summaries would be built from unresampled data while train_target's reference summary was
+    # built from resampled data - comparing the two would then be meaningless.
+    if n_summaries <= 1 && isa(resampler, NoResampling )
         view_in = @view resample_buffer[:, 1]
         summaries( view_in, index_cache, index_cache, target, Rsim_container, buffers
         )
