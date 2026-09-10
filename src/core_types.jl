@@ -1,6 +1,8 @@
 # Abstract types
 abstract type AbstractSummaryStatistic end
 
+abstract type AbstractInferenceMethod end
+
 abstract type AbstractECDFSummary <: AbstractSummaryStatistic end
 abstract type AbstractChamferSummary <: AbstractSummaryStatistic end
 abstract type AbstractCumulativeSumSummary <: AbstractSummaryStatistic end
@@ -15,9 +17,23 @@ abstract type ChamferECDFSummary <: TwoSetSummary end
 abstract type AbstractSimulationModel end
 
 
+# Inference methods
+#------------Gaussian Subset Likelihood (Haario et al., 2015): the target mean/covariance are
+# estimated once from the observed data (via resampling), and compared against a single simulated
+# summary at each MCMC step.
+struct GSL <: AbstractInferenceMethod end
+
+#------------Bayesian Synthetic Likelihood (Wood, 2010): the observed summary is a fixed quantity,
+# and the mean/covariance used in the likelihood are re-estimated at every MCMC step from `n_sim`
+# fresh simulations at the current parameter proposal.
+Base.@kwdef struct BSL <: AbstractInferenceMethod
+    n_sim::Int = 10
+end
+
+
 # Container structs
 #------------Main options struct
-Base.@kwdef struct MethodsOptions{R, F, E}
+Base.@kwdef struct MethodsOptions{R, F, E, IM}
     axis_uniform::Symbol = :xax
     covariance_type::Symbol = :cov
     bins_resamplings::Int = 40
