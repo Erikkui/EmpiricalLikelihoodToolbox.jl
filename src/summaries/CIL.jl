@@ -10,7 +10,8 @@ function CIL( nbin::Int)
 end
 
 function CIL( bins::AbstractVector{<:Real} )
-    return CIL( collect(vec(bins)), length(bins), length(bins) )
+    bins_vec = collect( vec(bins) )
+    return CIL( [bins_vec], length(bins_vec), length(bins_vec) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization

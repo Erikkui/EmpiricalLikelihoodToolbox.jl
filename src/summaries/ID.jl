@@ -14,6 +14,24 @@ function ID( nbin::Int, neighbors::AbstractVector{<:Int} )
     return ID( nothing, nbin, vec(neighbors), length(neighbors)*nbin )
 end
 
+function ID( bins::AbstractVector{<:Real}, neighbors::Int )
+    bins_vec = collect( vec(bins) )
+    nbin = length( bins_vec )
+    return ID( [bins_vec], nbin, [neighbors], nbin )
+end
+
+function ID( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int} )
+    length(bins) == length(neighbors) || throw( ArgumentError(
+        "bins and neighbors must have the same length, got $(length(bins)) and $(length(neighbors))" ) )
+
+    bins_vecs = [ collect(vec(b)) for b in bins ]
+    nbin = length( bins_vecs[1] )
+    all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
+        "all bins vectors must have the same length" ) )
+
+    return ID( bins_vecs, nbin, vec(neighbors), length(neighbors)*nbin )
+end
+
 function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary_statistic::ID,

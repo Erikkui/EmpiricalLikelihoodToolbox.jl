@@ -15,6 +15,24 @@ function ChamferECDF( nbin::Int, neighbors::Vector{Int} )
     return ChamferECDF( nothing, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000 )
 end
 
+function ChamferECDF( bins::AbstractVector{<:Real}, neighbors::Int )
+    bins_vec = collect( vec(bins) )
+    nbin = length( bins_vec )
+    return ChamferECDF( [bins_vec], nbin, [neighbors], neighbors, nbin, 1000 )
+end
+
+function ChamferECDF( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Vector{Int} )
+    length(bins) == length(neighbors) || throw( ArgumentError(
+        "bins and neighbors must have the same length, got $(length(bins)) and $(length(neighbors))" ) )
+
+    bins_vecs = [ collect(vec(b)) for b in bins ]
+    nbin = length( bins_vecs[1] )
+    all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
+        "all bins vectors must have the same length" ) )
+
+    return ChamferECDF( bins_vecs, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000 )
+end
+
 function calculate_summary_statistic!(      # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary_statistic::ChamferECDF,
@@ -73,11 +91,11 @@ function calculate_summary_statistic!(      # To be used in MCMC
     buffer = buffers.summary_buffers[ key ]
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
-    resampler = obs_data_all.options.resampling_type
+    resampler = target.data.options.resampling_type
     n_resample = summary_statistic.dists_for_ecdf
     chamfers = zeros( n_resample, length( kvals ) )
     for ii in 1:n_resample
-        x_inds, _ = resampler( obs_data_all, obs_data_all.options, buffers.index_cache )
+        x_inds, _ = resampler( target.data, target.data.options, buffers.index_cache )
         data_X = @view R0[ :, x_inds ]
         chamfer_distance!( buffer, data_X, Rsim, ytree, kvals )
         chamfers[ii, :] .= buffer

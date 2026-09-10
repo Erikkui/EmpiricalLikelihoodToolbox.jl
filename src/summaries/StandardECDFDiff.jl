@@ -11,6 +11,11 @@ function StandardECDFDiff( nbin::Int, diff_order::Int, dt_obs::Float64 )
     return StandardECDFDiff( nothing, nbin, dt_obs, diff_order, nbin )
 end
 
+function StandardECDFDiff( bins::AbstractVector{<:Real}, diff_order::Int, dt_obs::Float64 )
+    bins_vec = collect( vec(bins) )
+    return StandardECDFDiff( [bins_vec], length(bins_vec), dt_obs, diff_order, length(bins_vec) )
+end
+
 function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary_statistic::StandardECDFDiff,
@@ -24,7 +29,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     diff_order = summary_statistic.diff_order
 
     nbins = summary_statistic.nbin
-    bins = summary_statistic.bins
+    bins = summary_statistic.bins[1]
 
     data_X = @view data.differences[ diff_order ][ :, x_inds ]
 
@@ -44,7 +49,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     empcdf! = target.data.options.ecdf_function
 
     nbins = summary_statistic.nbin
-    bins = summary_statistic.bins
+    bins = summary_statistic.bins[1]
     diff_order = summary_statistic.diff_order
 
     Rsim_diff = sim_data_all.differences[ diff_order ]

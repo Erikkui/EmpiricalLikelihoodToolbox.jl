@@ -10,7 +10,8 @@ function StandardECDF( nbin::Int)
 end
 
 function StandardECDF( bins::AbstractVector{<:Real} )
-    return StandardECDF( collect(vec(bins)), length(bins), length(bins) )
+    bins_vec = collect( vec(bins) )
+    return StandardECDF( [bins_vec], length(bins_vec), length(bins_vec) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -24,7 +25,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     empcdf! = data.options.ecdf_function
 
     nbins = summary_statistic.nbin
-    bins = summary_statistic.bins
+    bins = summary_statistic.bins[1]
 
     data_X = @view data.observations[ :, x_inds ]
 
@@ -38,7 +39,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     summary_statistic::StandardECDF,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data_all::DataContainer,
+    target::TargetData,
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
@@ -47,7 +48,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     Rsim = sim_data_all.observations
 
     nbins = summary_statistic.nbin
-    bins = summary_statistic.bins
+    bins = summary_statistic.bins[1]
 
     data_X = @view Rsim[ :, x_inds ]
     empcdf!( view_out, data_X, nbins, bins )

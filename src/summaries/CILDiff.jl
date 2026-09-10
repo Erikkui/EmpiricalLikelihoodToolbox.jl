@@ -11,6 +11,11 @@ function CILDiff( nbin::Int, diff_order::Int, dt_obs::Float64 )
     return CILDiff( nothing, nbin, dt_obs, diff_order, nbin )
 end
 
+function CILDiff( bins::AbstractVector{<:Real}, diff_order::Int, dt_obs::Float64 )
+    bins_vec = collect( vec(bins) )
+    return CILDiff( [bins_vec], length(bins_vec), dt_obs, diff_order, length(bins_vec) )
+end
+
 function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary::CILDiff,
@@ -46,7 +51,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     sim_data_all::DataContainer,
     buffers::BufferContainer )
 
-    empcdf! = obs_data_all.options.ecdf_function
+    empcdf! = target.data.options.ecdf_function
 
     nbins = summary.nbin
     bins = summary.bins[1]

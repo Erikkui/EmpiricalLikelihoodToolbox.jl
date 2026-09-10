@@ -17,6 +17,24 @@ function IDDiff( nbin::Int, neighbors::AbstractVector{<:Int}, diff_order::Int, d
     return IDDiff( nothing, nbin, dt_obs, diff_order, vec(neighbors), summary_len )
 end
 
+function IDDiff( bins::AbstractVector{<:Real}, neighbors::Int, diff_order::Int, dt_obs::Float64 )
+    bins_vec = collect( vec(bins) )
+    nbin = length( bins_vec )
+    return IDDiff( [bins_vec], nbin, dt_obs, diff_order, [neighbors], nbin )
+end
+
+function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int}, diff_order::Int, dt_obs::Float64 )
+    length(bins) == length(neighbors) || throw( ArgumentError(
+        "bins and neighbors must have the same length, got $(length(bins)) and $(length(neighbors))" ) )
+
+    bins_vecs = [ collect(vec(b)) for b in bins ]
+    nbin = length( bins_vecs[1] )
+    all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
+        "all bins vectors must have the same length" ) )
+
+    return IDDiff( bins_vecs, nbin, dt_obs, diff_order, vec(neighbors), length(neighbors)*nbin )
+end
+
 function calculate_summary_statistic!(  # To be used in target and bin initialization
     view_out::AbstractVector{Float64},
     summary_statistic::IDDiff,

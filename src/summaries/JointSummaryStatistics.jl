@@ -32,12 +32,13 @@ function (SS::JointSummaryStatistics)(
     return nothing
 end
 
-# Called during MCMC
+# Called during MCMC. obs_data is the full TargetData (not just its DataContainer), since summaries
+# need access to the fixed observed data alongside options/buffers, eg. R0 = target.data.observations.
 function (SS::JointSummaryStatistics)(
     view_in,
     x_inds::AbstractVector{<:Integer},
     y_inds::AbstractVector{<:Integer},
-    obs_data::DataContainer,
+    obs_data::TargetData,
     sim_data::DataContainer,
     buffers::BufferContainer )
 
