@@ -1,23 +1,27 @@
-struct ID{B, T} <: IDSummary
+# `buffer` is nothing until finalize_summary attaches the preallocated buffer, mirroring how
+# `bins` is filled in by initialize_bins. Holding it directly avoids rebuilding the buffer's
+# NamedTuple key from a runtime field on every evaluation.
+struct ID{B, T, BUF} <: IDSummary
     bins::B
     nbin::Int
     neighbors::T
     summary_length::Int
+    buffer::BUF
 end
 
 function ID( nbin::Int, neighbors::Int )
     summary_len = length( neighbors )*nbin
-    return ID( nothing, nbin, [neighbors], summary_len )
+    return ID( nothing, nbin, [neighbors], summary_len, nothing )
 end
 
 function ID( nbin::Int, neighbors::AbstractVector{<:Int} )
-    return ID( nothing, nbin, vec(neighbors), length(neighbors)*nbin )
+    return ID( nothing, nbin, vec(neighbors), length(neighbors)*nbin, nothing )
 end
 
 function ID( bins::AbstractVector{<:Real}, neighbors::Int )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return ID( [bins_vec], nbin, [neighbors], nbin )
+    return ID( [bins_vec], nbin, [neighbors], nbin, nothing )
 end
 
 function ID( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int} )
@@ -29,7 +33,7 @@ function ID( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Abstract
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return ID( bins_vecs, nbin, vec(neighbors), length(neighbors)*nbin )
+    return ID( bins_vecs, nbin, vec(neighbors), length(neighbors)*nbin, nothing )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -46,10 +50,10 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     bins = summary_statistic.bins
     neighbors = summary_statistic.neighbors
 
-    key = Symbol( generate_stat_name( summary_statistic ) )
-    dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
-    dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
-    ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
+    stat_buffer = summary_statistic.buffer
+    dist_buffer_xy = stat_buffer.dist_buffer
+    dist_buffer_yx = stat_buffer.dist_buffer_aux
+    ratio_buffer = stat_buffer.ratio_buffer
 
     sort_max = maximum( neighbors ) + 1
     n_rows = size( dist_buffer_xy, 1 )
@@ -104,10 +108,10 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0 = target.data.observations
     Rsim = sim_data_all.observations
 
-    key = Symbol( generate_stat_name( summary_statistic ) )
-    dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
-    dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
-    ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
+    stat_buffer = summary_statistic.buffer
+    dist_buffer_xy = stat_buffer.dist_buffer
+    dist_buffer_yx = stat_buffer.dist_buffer_aux
+    ratio_buffer = stat_buffer.ratio_buffer
 
     sort_max = maximum( neighbors ) + 1
     n_rows = size( dist_buffer_xy, 1 )
@@ -198,5 +202,5 @@ end
 get_summary_length(stat::ID, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ID, data::DataContainer, buffers::BufferContainer )
-    return stat
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
 end

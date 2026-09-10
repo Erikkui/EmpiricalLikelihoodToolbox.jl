@@ -1,24 +1,28 @@
-struct ChamferECDF{B, T} <: AbstractECDFSummary
+# `buffer` is nothing until finalize_summary attaches the preallocated buffer, mirroring how
+# `bins` is filled in by initialize_bins. Holding it directly avoids rebuilding the buffer's
+# NamedTuple key from a runtime field on every evaluation.
+struct ChamferECDF{B, T, BUF} <: AbstractECDFSummary
     bins::B
     nbin::Int
     neighbors::T
     highest_neighbor::Int
     summary_length::Int
     dists_for_ecdf::Int
+    buffer::BUF
 end
 
 function ChamferECDF( nbin::Int, neighbors::Int )
-    return ChamferECDF( nothing, nbin, [neighbors], neighbors, nbin, 1000 )
+    return ChamferECDF( nothing, nbin, [neighbors], neighbors, nbin, 1000, nothing )
 end
 
 function ChamferECDF( nbin::Int, neighbors::Vector{Int} )
-    return ChamferECDF( nothing, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000 )
+    return ChamferECDF( nothing, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000, nothing )
 end
 
 function ChamferECDF( bins::AbstractVector{<:Real}, neighbors::Int )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return ChamferECDF( [bins_vec], nbin, [neighbors], neighbors, nbin, 1000 )
+    return ChamferECDF( [bins_vec], nbin, [neighbors], neighbors, nbin, 1000, nothing )
 end
 
 function ChamferECDF( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Vector{Int} )
@@ -30,7 +34,7 @@ function ChamferECDF( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors:
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return ChamferECDF( bins_vecs, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000 )
+    return ChamferECDF( bins_vecs, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000, nothing )
 end
 
 function calculate_summary_statistic!(      # To be used in target and bin initialization
@@ -47,8 +51,7 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     bins = summary_statistic.bins
     kvals = summary_statistic.neighbors
 
-    key = Symbol( generate_stat_name( summary_statistic ) )
-    buffer = buffers.summary_buffers[ key ]
+    buffer = summary_statistic.buffer
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     n_resample = summary_statistic.dists_for_ecdf
@@ -87,8 +90,7 @@ function calculate_summary_statistic!(      # To be used in MCMC
     Rsim = @view sim_data_all.observations[ :, y_inds]
     ytree = KDTree( Rsim )
 
-    key = Symbol( generate_stat_name( summary_statistic ) )
-    buffer = buffers.summary_buffers[ key ]
+    buffer = summary_statistic.buffer
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     resampler = target.data.options.resampling_type
@@ -142,5 +144,5 @@ end
 get_summary_length(stat::ChamferECDF, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ChamferECDF, data::DataContainer, buffers::BufferContainer )
-    return stat
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
 end

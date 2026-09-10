@@ -1,26 +1,30 @@
-struct IDDiff{B, T} <: IDSummary
+# `buffer` is nothing until finalize_summary attaches the preallocated buffer, mirroring how
+# `bins` is filled in by initialize_bins. Holding it directly avoids rebuilding the buffer's
+# NamedTuple key from a runtime field on every evaluation.
+struct IDDiff{B, T, BUF} <: IDSummary
     bins::B
     nbin::Int
     dt_obs::Float64
     diff_order::Int
     neighbors::T
     summary_length::Int
+    buffer::BUF
 end
 
 function IDDiff( nbin::Int, neighbors::Int, diff_order::Int, dt_obs::Float64 )
     summary_len = length( neighbors )*nbin
-    return IDDiff( nothing, nbin, dt_obs, diff_order, [neighbors], summary_len )
+    return IDDiff( nothing, nbin, dt_obs, diff_order, [neighbors], summary_len, nothing )
 end
 
 function IDDiff( nbin::Int, neighbors::AbstractVector{<:Int}, diff_order::Int, dt_obs::Float64 )
     summary_len = length( neighbors )*nbin
-    return IDDiff( nothing, nbin, dt_obs, diff_order, vec(neighbors), summary_len )
+    return IDDiff( nothing, nbin, dt_obs, diff_order, vec(neighbors), summary_len, nothing )
 end
 
 function IDDiff( bins::AbstractVector{<:Real}, neighbors::Int, diff_order::Int, dt_obs::Float64 )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return IDDiff( [bins_vec], nbin, dt_obs, diff_order, [neighbors], nbin )
+    return IDDiff( [bins_vec], nbin, dt_obs, diff_order, [neighbors], nbin, nothing )
 end
 
 function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int}, diff_order::Int, dt_obs::Float64 )
@@ -32,7 +36,7 @@ function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Abst
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return IDDiff( bins_vecs, nbin, dt_obs, diff_order, vec(neighbors), length(neighbors)*nbin )
+    return IDDiff( bins_vecs, nbin, dt_obs, diff_order, vec(neighbors), length(neighbors)*nbin, nothing )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -50,10 +54,10 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     neighbors = summary_statistic.neighbors
     diff_order = summary_statistic.diff_order
 
-    key = Symbol( generate_stat_name( summary_statistic ) )
-    dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
-    dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
-    ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
+    stat_buffer = summary_statistic.buffer
+    dist_buffer_xy = stat_buffer.dist_buffer
+    dist_buffer_yx = stat_buffer.dist_buffer_aux
+    ratio_buffer = stat_buffer.ratio_buffer
 
     sort_max = maximum( neighbors ) + 1
     n_rows = size( dist_buffer_xy, 1 )
@@ -110,10 +114,10 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0_diff = target.data.differences[ diff_order ]
     Rsim_diff = sim_data_all.differences[ diff_order ]
 
-    key = Symbol( generate_stat_name( summary_statistic ) )
-    dist_buffer_xy = buffers.summary_buffers[ key ].dist_buffer
-    dist_buffer_yx = buffers.summary_buffers[ key ].dist_buffer_aux
-    ratio_buffer = buffers.summary_buffers[ key ].ratio_buffer
+    stat_buffer = summary_statistic.buffer
+    dist_buffer_xy = stat_buffer.dist_buffer
+    dist_buffer_yx = stat_buffer.dist_buffer_aux
+    ratio_buffer = stat_buffer.ratio_buffer
 
     sort_max = maximum( neighbors ) + 1
     n_rows = size( dist_buffer_xy, 1 )
@@ -206,7 +210,7 @@ function generate_stat_name( stat::IDDiff )
 end
 
 function finalize_summary( stat::IDDiff, data::DataContainer, buffers::BufferContainer )
-    return stat
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
 end
 
 get_summary_length(stat::IDDiff, data::DataContainer) = stat.summary_length

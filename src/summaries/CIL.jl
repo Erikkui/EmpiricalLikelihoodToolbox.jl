@@ -1,17 +1,21 @@
 #------------CIL
-struct CIL{B} <: CILSummary
+# `buffer` is nothing until finalize_summary attaches the preallocated buffer, mirroring how
+# `bins` is filled in by initialize_bins. Holding it directly avoids rebuilding the buffer's
+# NamedTuple key from a runtime field on every evaluation.
+struct CIL{B, BUF} <: CILSummary
     bins::B
     nbin::Int
     summary_length::Int
+    buffer::BUF
 end
 
 function CIL( nbin::Int)
-    return CIL( nothing, nbin, nbin )
+    return CIL( nothing, nbin, nbin, nothing )
 end
 
 function CIL( bins::AbstractVector{<:Real} )
     bins_vec = collect( vec(bins) )
-    return CIL( [bins_vec], length(bins_vec), length(bins_vec) )
+    return CIL( [bins_vec], length(bins_vec), length(bins_vec), nothing )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -27,8 +31,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     nbins = summary.nbin
     bins = summary.bins[1]
 
-    key = Symbol( generate_stat_name( summary ) )
-    buffer = buffers.summary_buffers[ key ]
+    buffer = summary.buffer
 
     data_X = @view data.observations[ :, x_inds ]
     data_Y = @view data.observations[ :, y_inds ]
@@ -56,8 +59,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     R0 = target.data.observations
     Rsim = sim_data_all.observations
 
-    key = Symbol( generate_stat_name( summary ) )
-    buffer = buffers.summary_buffers[ key ]
+    buffer = summary.buffer
 
     data_X = @view R0[ :, x_inds ]
     data_Y = @view Rsim[ :, y_inds ]
@@ -94,5 +96,5 @@ end
 get_summary_length(stat::CIL, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::CIL, data::DataContainer, buffers::BufferContainer )
-    return stat
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
 end
