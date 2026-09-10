@@ -49,7 +49,7 @@ function calculate_simulated_statistics( target, Rsim_container, summaries, buff
     else
         for ii in 1:n_summaries
             view_in = @view resample_buffer[ :, ii ]
-            x_inds, y_inds = resampler( target.data.observations, options, index_cache )
+            x_inds, y_inds = resampler( target.data, options, index_cache )
             summaries( view_in, x_inds, y_inds, target, Rsim_container, buffers )
         end
     end
@@ -62,9 +62,6 @@ function calculate_simulated_statistics( target, Rsim_container, summaries, buff
 end
 
 function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 = rand(UInt64) )
-    loss_function = mcmc_options.loss_function
-    noise_scale = mcmc_options.likelihood_noise_scale
-
     logprior = evaluate_log_prior( params, target.priors )
 
     # Parameters with zero prior density should have zero likelihood so we can return -Inf
@@ -74,28 +71,36 @@ function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 =
         return -Inf
     end
 
+    model = update_model_parameters( model, params )    # Update model with new parameters for simulation
+    rng = Xoshiro( rng_seed )                           # Set the same random seed for each data generation
+
+    loss = calculate_loss( target.options.inference_method, target, model, mcmc_options, rng )
+    isinf( loss ) && return loss
+
+    noise_scale = mcmc_options.likelihood_noise_scale
+    loss += logprior
+    loss += noise_scale*randn() # Add noise to likelihood to simulate noisy likelihood
+
+    return loss
+end
+
+# GSL: simulate once (or n_loss_evals times, averaging), and compare against the fixed target
+# mean/covariance estimated once from the observed data (see train_target/TargetData).
+function calculate_loss( ::GSL, target, model, mcmc_options, rng )
+    loss_function = mcmc_options.loss_function
     options = target.options
-    R0_all = target.data
     summaries = target.summary_statistics
     buffers = target.buffers
 
-    model = update_model_parameters( model, params )    # Update model with new parameters for simulation
-
-    # Resample data and calculate summary statistics for current parameters
     loss = 0.0
-
-    # Set the same random seed for each data generation
-    rng = Xoshiro( rng_seed )
 
     # n_loss_evals is the number of times to evaluate the loss function on new simulations and average the result to reduce the effect of noise.
     for _ in 1:options.n_loss_evals
-        # println( params)
         Rsim_container = create_simulated_data( model, target, buffers, options, rng )
 
         # If the simulation failed (e.g. due to numerical instability) and returned NaNs, we can
         # return -Inf for the likelihood to reject this parameter proposal
         if isinf( Rsim_container.observations[1] )
-            # println("Simulation failed for parameters: ", params, " with log prior: ", logprior, ". Returning -Inf for likelihood.")
             return -Inf
         end
 

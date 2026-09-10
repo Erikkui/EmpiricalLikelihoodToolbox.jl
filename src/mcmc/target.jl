@@ -63,6 +63,11 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
 
     buffer_observations = zeros( size(observations) )
 
+    inference_method = options.inference_method
+    bsl_buffer = isa( inference_method, BSL ) ?
+        zeros( training_summary_length, inference_method.n_sim ) :
+        Matrix{Float64}( undef, 0, 0 )
+
     buffers = BufferContainer(
         stat_buffers,
         training_buffer,
@@ -71,12 +76,13 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         buffer_differences,
         simulation_statistic_buffer,
         index_cache,
+        bsl_buffer,
         )
     return buffers, data, training_summary_length
 end
 
 
-function train_target( statistics, data_container, buffer_container, options )
+function train_target( ::GSL, statistics, data_container, buffer_container, options )
     training_summaries = buffer_container.training_buffer
     index_cache = buffer_container.index_cache
 
@@ -110,6 +116,37 @@ function train_target( statistics, data_container, buffer_container, options )
 
     return mean_summary, C, training_summaries
 end
+
+# Under BSL the observed summary is a fixed reference value; its covariance is irrelevant, since
+# the likelihood's covariance is re-estimated from simulations at every MCMC step (see calculate_loss).
+# With a deterministic, length-preserving resampler (eg. NoResampling), a single pass over all the
+# available data already *is* the reference statistic, so the training_resamplings loop is skipped
+# entirely. For any other resampler (eg. length-changing splitters like RademacherSplit, which have
+# no well-defined "use all the data" shortcut), we still need to average over the resampler's own
+# variability to get a stable reference value, computed consistently with how simulated summaries
+# will be resampled during MCMC - so we simply reuse GSL's training loop and discard its covariance.
+function train_target( ::BSL, statistics, data_container, buffer_container, options )
+    if options.resampling_type isa NoResampling
+        index_cache = buffer_container.index_cache
+        view_in = @view buffer_container.training_buffer[:, 1]
+        statistics( view_in, index_cache, index_cache, data_container, buffer_container )
+
+        mean_summary = collect( view_in )
+        training_summaries = reshape( mean_summary, :, 1 )
+    else
+        mean_summary, _, training_summaries = train_target( GSL(), statistics, data_container, buffer_container, options )
+    end
+
+    return mean_summary, nothing, training_summaries
+end
+
+# GSL's target covariance is fixed for the whole run, so it is regularized and inverted once here.
+finalize_target_covariance( ::GSL, cov_mat, summary_length ) = regularized_inverse( cov_mat )
+
+# BSL re-estimates and inverts its covariance from simulations at every MCMC step (see
+# calculate_loss); the placeholder here only needs to give `target.inverse_cov` a concrete,
+# correctly-sized type up front so later `@set`s in the MCMC loop don't change its element type.
+finalize_target_covariance( ::BSL, cov_mat, summary_length ) = zeros( summary_length, summary_length )
 
 
 
@@ -152,12 +189,15 @@ function TargetData(
     statistics = JointSummaryStatistics( statistics )
 
     # Resample observations and calculate summary statistics mean and cov for MCMC target
-    mean_summary, cov_mat, training_summaries = train_target( statistics, data_container, buffer_container, options )
-    # inv_cov_mat = pinv( cov_mat )
-    cov_mat_reg = cov_mat +
-                    1e-2 * Diagonal(diag(cov_mat)) +
-                    1e-6*I # Regularization to avoid singularity
-    inv_cov_mat = inv( cov_mat_reg )
+    inference_method = options.inference_method
+    mean_summary, cov_mat, training_summaries = train_target( inference_method, statistics, data_container, buffer_container, options )
+    inv_cov_mat = finalize_target_covariance( inference_method, cov_mat, total_summary_length )
+
+    # Standardization is calibrated from the spread of training-resampled losses, which BSL does not
+    # compute (its covariance instead comes from per-step simulations, see calculate_loss).
+    if inference_method isa BSL && options.standardize
+        throw( ArgumentError( "standardize=true is not supported with BSL." ) )
+    end
 
     # Calculate standardization factors for loss function if requested
     mean_standardization = nothing
