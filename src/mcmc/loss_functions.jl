@@ -14,11 +14,11 @@ function (loss::LogLikelihood)( target::TargetData, sim_mean::AbstractVector )
     standardize_loss = target.options.standardize
 
     obs_mean = target.obs_mean
-    inv_C = target.inverse_cov
+    C = target.cov_factorization
 
     delta = sim_mean - obs_mean
 
-    ss = -0.5*dot( delta, inv_C*delta )
+    ss = -0.5*dot( delta, C \ delta )
 
     if standardize_loss
         standardize!( ss, target.standardization_mean, target.standardization_sd )
@@ -29,9 +29,9 @@ function (loss::LogLikelihood)( target::TargetData, sim_mean::AbstractVector )
     return ss
 end
 
-function (loss::LogLikelihood)( x::AbstractVector, x_star::AbstractVector, inv_cov::AbstractMatrix )
+function (loss::LogLikelihood)( x::AbstractVector, x_star::AbstractVector, cov_factorization )
     delta = x - x_star
-    ss = -0.5*dot( delta, inv_cov*delta )
+    ss = -0.5*dot( delta, cov_factorization \ delta )
     return ss
 end
 
@@ -64,10 +64,8 @@ function (loss::RobustChamfer)( target::TargetData, sim_mean::AbstractVector )
     return ss
 end
 
-function (loss::RobustChamfer)( x::AbstractVector, x_star::AbstractVector, inv_cov::AbstractMatrix )
-    # delta = x - x_star
-    # ss = -0.5*dot( delta, inv_cov*delta )
-    inverse_std = sqrt.( diag(inv_cov) )
+function (loss::RobustChamfer)( x::AbstractVector, x_star::AbstractVector, cov_factorization )
+    inverse_std = sqrt.( diag( inv(cov_factorization) ) )
     ss = -sum( ( x .* inverse_std )  )
     return ss
 end

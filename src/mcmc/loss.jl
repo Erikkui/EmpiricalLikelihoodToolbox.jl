@@ -133,9 +133,9 @@ function calculate_loss( bsl::BSL, target, model, mcmc_options, rng )
     end
 
     sim_mean = vec( mean( sim_summaries, dims=2 ) )
-    sim_inv_cov = regularized_inverse( cov( sim_summaries' ) )
+    sim_cov_factorization = regularized_cholesky( cov( sim_summaries' ) )
 
-    target = @set target.inverse_cov = sim_inv_cov
+    target = @set target.cov_factorization = sim_cov_factorization
 
     return loss_function( target, sim_mean )
 end

@@ -142,13 +142,12 @@ function train_target( ::BSL, statistics, data_container, buffer_container, opti
     return mean_summary, nothing, training_summaries
 end
 
-# GSL's target covariance is fixed for the whole run, so it is regularized and inverted once here.
-finalize_target_covariance( ::GSL, cov_mat, summary_length ) = regularized_inverse( cov_mat )
+# GSL's target covariance is fixed for the whole run, so it is factorized once here.
+finalize_target_covariance( ::GSL, cov_mat, summary_length ) = regularized_cholesky( cov_mat )
 
-# BSL re-estimates and inverts its covariance from simulations at every MCMC step (see
-# calculate_loss); the placeholder here only needs to give `target.inverse_cov` a concrete,
-# correctly-sized type up front so later `@set`s in the MCMC loop don't change its element type.
-finalize_target_covariance( ::BSL, cov_mat, summary_length ) = zeros( summary_length, summary_length )
+# BSL refactorizes from simulations at every MCMC step; this placeholder only fixes the type and
+# size up front so the later @set in the MCMC loop does not change it.
+finalize_target_covariance( ::BSL, cov_mat, summary_length ) = cholesky( Matrix( 1.0I, summary_length, summary_length ) )
 
 
 
@@ -193,7 +192,7 @@ function TargetData(
     # Resample observations and calculate summary statistics mean and cov for MCMC target
     inference_method = options.inference_method
     mean_summary, cov_mat, training_summaries = train_target( inference_method, statistics, data_container, buffer_container, options )
-    inv_cov_mat = finalize_target_covariance( inference_method, cov_mat, total_summary_length )
+    cov_factorization = finalize_target_covariance( inference_method, cov_mat, total_summary_length )
 
     # Standardization is calibrated from the spread of losses across training_summaries. NoResampling
     # is deterministic, so every training draw is identical regardless of inference_method (GSL loops
@@ -210,7 +209,7 @@ function TargetData(
     if options.standardize
         losses = zeros( training_resamplings )
         for (ii, col) in enumerate( eachcol( training_summaries ) )
-            temp = loss( col, mean_summary, inv_cov_mat )
+            temp = loss( col, mean_summary, cov_factorization )
             losses[ii] = temp
         end
         mean_standardization = mean(losses)
@@ -224,7 +223,7 @@ function TargetData(
         options,
         buffer_container,
         mean_summary,
-        inv_cov_mat,
+        cov_factorization,
         total_summary_length,
         mean_standardization,
         sd_standardization )

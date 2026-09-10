@@ -91,7 +91,7 @@ struct TargetData{C, S, P, O, B, T, OM, IC, SL}
     options::O
     buffers::B
     obs_mean::OM
-    inverse_cov::IC
+    cov_factorization::IC
     summary_length::SL
     standardization_mean::T
     standardization_sd::T
