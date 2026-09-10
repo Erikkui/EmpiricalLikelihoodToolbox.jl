@@ -193,10 +193,13 @@ function TargetData(
     mean_summary, cov_mat, training_summaries = train_target( inference_method, statistics, data_container, buffer_container, options )
     inv_cov_mat = finalize_target_covariance( inference_method, cov_mat, total_summary_length )
 
-    # Standardization is calibrated from the spread of training-resampled losses, which BSL does not
-    # compute (its covariance instead comes from per-step simulations, see calculate_loss).
-    if inference_method isa BSL && options.standardize
-        throw( ArgumentError( "standardize=true is not supported with BSL." ) )
+    # Standardization is calibrated from the spread of losses across training_summaries. NoResampling
+    # is deterministic, so every training draw is identical regardless of inference_method (GSL loops
+    # training_resamplings times over the same fixed indices; BSL skips the loop and uses a single
+    # deterministic pass, see train_target above) - the resulting spread is degenerate (zero variance),
+    # so standardization is meaningless and disallowed under NoResampling for both GSL and BSL.
+    if options.resampling_type isa NoResampling && options.standardize
+        throw( ArgumentError( "standardize=true is not supported with NoResampling (no variability to standardize against)." ) )
     end
 
     # Calculate standardization factors for loss function if requested
