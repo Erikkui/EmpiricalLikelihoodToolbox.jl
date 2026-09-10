@@ -142,12 +142,13 @@ summary_statistics_2 = JointSummaryStatistics( CIL( cached_bins ) )
 
 ### Resamplers
 
-Resamplers decide how a dataset is split into an "x" and a "y" set for two-set summaries (`CIL`, `ID`, `ChamferECDF`), and are also used to build GSL's target sampling distribution and, under BSL, each simulation's resampled summary. Four resamplers are currently available:
+Resamplers decide how a dataset is split into an "x" and a "y" set for two-set summaries (`CIL`, `ID`, `ChamferECDF`), and are also used to build GSL's target sampling distribution and, under BSL, each simulation's resampled summary. Five resamplers are currently available:
 
 * `RademacherSplit()` — splits the available indices into two equal halves at random. Length-changing (the x/y sets are half the size of the original data). This is the default `resampling_type`.
 * `ContiguosBlockSplit(timeseries_block_size=100)` — samples one random contiguous block of the given size as the "x" set and everything else as "y". Length-changing; intended for time series data where random reshuffling (as in `RademacherSplit`) would destroy temporal structure. Has not been tested as extensively as `RademacherSplit` and may contain bugs.
 * `StandardBootstrap()` — draws two independent bootstrap samples (with replacement), each the same size as the original data. Length-preserving.
 * `NoResampling()` — returns all available data, unchanged, as both the "x" and "y" set. Length-preserving and deterministic (no randomness at all). Mainly useful for BSL (see above) or for any deterministic, non-resampled evaluation of a summary statistic.
+* `MovingBlockBootstrap(block_size=100)` — a moving block bootstrap : builds each of the x/y sets by concatenating random contiguous blocks of `block_size` observations (sampled with replacement) until reaching the original data length, truncating the last block to fit exactly. Length-preserving — unlike `ContiguosBlockSplit`, both x and y always have the same length as the original data. **Note:** like `StandardBootstrap`, this resampler's randomness is only actually exercised at MCMC time when `n_summaries > 1` — with the default `n_summaries=1`, the `n_summaries<=1` fast path substitutes the unresampled data directly for any length-preserving resampler, so MCMC-time comparisons would silently skip resampling while `train_target`'s training-phase loop always resamples. Set `n_summaries > 1` if this resampler's randomness should also apply at MCMC time.
 
 ### Additional settings
 

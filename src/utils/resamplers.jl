@@ -116,3 +116,56 @@ function resample_sizes(
 )
     return ndata, ndata
 end
+
+
+# Moving block bootstrap (Kunsch, 1989): builds each of the x/y sets by concatenating random
+# contiguous blocks of length `block_size` (sampled with replacement, ie. blocks may overlap or
+# repeat) until reaching length `ndata` (the last block is truncated to fit exactly). Unlike
+# ContiguosBlockSplit - which takes a single block as "x" and everything else as "y", an asymmetric
+# length-changing split - this is a LengthPreservingSampler: both x_inds and y_inds always have
+# length exactly `ndata`, the same size used everywhere else (training and MCMC), so summaries
+# computed from it remain comparable across training and simulation.
+Base.@kwdef struct MovingBlockBootstrap <: LengthPreservingSampler
+    block_size::Int = 100
+end
+
+function (RS::MovingBlockBootstrap)( data::DataContainer, options::MethodsOptions, index_cache )
+    ndata = length( index_cache )
+
+    x_inds = Vector{Int}( undef, ndata )
+    y_inds = Vector{Int}( undef, ndata )
+    _fill_moving_block_bootstrap!( x_inds, index_cache, RS.block_size )
+    _fill_moving_block_bootstrap!( y_inds, index_cache, RS.block_size )
+
+    return x_inds, y_inds
+end
+
+function _fill_moving_block_bootstrap!( out::Vector{Int}, index_cache, block_size::Int )
+    ndata = length( index_cache )
+    last_start_ind = ndata - block_size + 1
+
+    pos = 1
+    while pos <= ndata
+        start_ind = rand( 1:last_start_ind )
+        len = min( block_size, ndata - pos + 1 )
+        @views out[ pos:pos+len-1 ] .= index_cache[ start_ind:start_ind+len-1 ]
+        pos += len
+    end
+
+    return out
+end
+
+function get_index_size( sampler::MovingBlockBootstrap, data, options )
+    return size( data, 2 )
+end
+
+function resample_sizes(
+    sampler::MovingBlockBootstrap,
+    ndata::Int
+)
+    1 <= sampler.block_size <= ndata ||
+        throw(ArgumentError(
+            "block_size must satisfy 1 <= block_size <= ndata"
+        ))
+    return ndata, ndata
+end
