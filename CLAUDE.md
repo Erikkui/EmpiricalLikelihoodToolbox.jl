@@ -5,10 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 `EmpiricalLikelihoodToolbox` is a Julia package for Bayesian inference on intractable-likelihood
-(simulator-based) models using empirical-likelihood-style summary statistics. Inference currently
-uses Gaussian Subset Likelihood (GSL, Haario et al. 2015); Bayesian Synthetic Likelihood (BSL) is
-planned but not implemented. See the README for the full summary-statistic catalog, references, and
-a runnable usage example (`examples/main.jl` mirrors it).
+(simulator-based) models using empirical-likelihood-style summary statistics. Two likelihood
+approximations are supported, selected via `MethodsOptions.inference_method`: Gaussian Subset
+Likelihood (`GSL()`, Haario et al. 2015, the default) and Bayesian Synthetic Likelihood (`BSL(n_sim)`,
+Wood 2010). See the README for the full summary-statistic catalog, resamplers, the GSL/BSL tradeoffs,
+references, and a runnable usage example (`examples/main.jl` mirrors it).
 
 ## Commands
 
@@ -57,7 +58,8 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
    resampled training data using IQR-based robust bounds (`axis_uniform` option controls whether bins
    are uniform in `:xax`, uniform in CDF-space via `:yax`, or `:log`-spaced).
 3. **Resamplers** (`src/utils/resamplers.jl`) — callable structs (`RademacherSplit` 50/50 split,
-   `ContiguosBlockSplit` contiguous block for time series, `StandardBootstrap`) subtyping either
+   `ContiguosBlockSplit` contiguous block for time series, `StandardBootstrap`, `NoResampling` a
+   deterministic identity split that returns all data unchanged as both sets) subtyping either
    `LengthPreservingSampler` or `LengthChangingSampler`. Called as `resampler(data_container, options,
    index_cache)` → `(x_inds, y_inds)`, used both to build the training distribution of summaries and,
    per MCMC step, to resample simulated data before comparing to the observed target.
@@ -69,19 +71,33 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
 5. **`TargetData(data, summary_statistics, methods_options)`** (`src/mcmc/target.jl`) is the main
    entry point that ties everything together: builds a `DataContainer`, precomputes numerical
    derivatives if any summary needs them, allocates all buffers up front (`BufferContainer` — the
-   package is written to avoid allocations in the MCMC hot loop), finalizes bin edges per summary,
-   then repeatedly resamples the observed data (`training_resamplings` times) to estimate the mean
-   summary vector and its covariance (`:cov` or `:donsker`, regularized before inversion) that
-   becomes the GSL target. Returns `(target::TargetData, training_summaries)`.
+   package is written to avoid allocations in the MCMC hot loop, including a `bsl_buffer` sized
+   `(summary_length, n_sim)` used only under BSL), finalizes bin edges per summary, then computes the
+   fixed reference summary via `train_target`, dispatched on `options.inference_method`: `GSL()`
+   resamples the observed data `training_resamplings` times to estimate both the target mean and its
+   covariance (`:cov` or `:donsker`); `BSL()` only needs the mean (its covariance instead comes from
+   simulations at every MCMC step, see below) — a single deterministic pass over all the data when
+   `resampling_type isa NoResampling`, otherwise GSL's same resampling loop with the covariance
+   discarded. `finalize_target_covariance` (also dispatched on `inference_method`) regularizes+inverts
+   GSL's covariance once, or allocates a correctly-shaped zero-matrix placeholder for BSL (overwritten
+   every MCMC step). Returns `(target::TargetData, training_summaries)`.
 6. **MCMC** (`src/mcmc/`) — `mcmcrun(target, model, mcmc_options)` (`runner.jl`) drives the chain via
    a pluggable `mcmc_algorithm` (`AM.jl` = adaptive Metropolis, `DRAM.jl` = delayed rejection AM),
    each implemented as a callable struct `(target, model, state, mcmc_options, results_buffer) ->
-   (results, state)`. Per step, `calculate_loss` (`loss.jl`) simulates data from the proposed
-   parameters, resamples/summarizes it (mirroring the training-time resampling), and compares to the
-   target mean/covariance via a `loss_function` (`loss.jl` defines the struct-call interface;
-   `loss_functions.jl` implements `LogLikelihood` and `RobustChamfer`). Priors (`prior_eval.jl`) are
-   `NamedTuple`s keyed by parameter name, valued as `Distributions.jl` distributions or `nothing`
-   (flat/uninformative). `mcmcrun` catches exceptions mid-chain and returns the partial chain rather
-   than losing progress. `AM` supports a "noisy likelihood" heuristic (`update_interval`,
-   `discard_noisy_updates`) to detect and kick the chain out of a run of suspiciously good proposals.
+   (results, state)`. Per step, `calculate_loss` (`loss.jl`) is dispatched on `target.options.
+   inference_method`: under `GSL()` it simulates once (or `n_loss_evals` times, averaged), resamples/
+   summarizes via `calculate_simulated_statistics` (honoring `n_summaries`), and compares against the
+   *fixed* target mean/covariance from `TargetData`; under `BSL()` it runs `n_sim` fresh simulations
+   (each resampled/summarized the same way, so any resampler — including length-changing ones — works
+   unchanged), estimates the mean/covariance *from the spread across those simulations*, and
+   `@set`s that covariance into a local copy of `target` before calling the *same* `loss_function` —
+   the quadratic form is symmetric in which side is "observed" vs "simulated", so `LogLikelihood`/
+   `RobustChamfer` (`loss_functions.jl`) need no BSL-specific logic. `regularized_inverse`
+   (`utils/utils.jl`) is the shared ridge-regularization-then-invert helper used by both engines.
+   Priors (`prior_eval.jl`) are `NamedTuple`s keyed by parameter name, valued as `Distributions.jl`
+   distributions or `nothing` (flat/uninformative). `mcmcrun` catches exceptions mid-chain and returns
+   the partial chain rather than losing progress. `AM` supports a "noisy likelihood" heuristic
+   (`update_interval`, `discard_noisy_updates`) to detect and kick the chain out of a run of
+   suspiciously good proposals; `reevaluate_current_loss` is particularly relevant under BSL, where
+   the current and proposed states' covariances are independent per-step Monte Carlo estimates.
 

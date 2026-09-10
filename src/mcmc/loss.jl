@@ -108,9 +108,35 @@ function calculate_loss( ::GSL, target, model, mcmc_options, rng )
         loss += loss_function( target, sim_statistic )
     end
 
-    loss /= options.n_loss_evals
-    loss += logprior
-    loss += noise_scale*randn() # Add noise to likelihood to simulate noisy likelihood
+    return loss / options.n_loss_evals
+end
 
-    return loss
+# BSL: simulate n_sim fresh datasets at the current parameters, resample/summarize each one exactly
+# as GSL does at MCMC time (calculate_simulated_statistics, so any resampler works), and estimate
+# the mean and covariance of the likelihood from the spread across those n_sim simulations. The
+# fixed observed summary (target.obs_mean) was computed once in TargetData.
+function calculate_loss( bsl::BSL, target, model, mcmc_options, rng )
+    loss_function = mcmc_options.loss_function
+    options = target.options
+    summaries = target.summary_statistics
+    buffers = target.buffers
+    sim_summaries = buffers.bsl_buffer
+
+    for jj in 1:bsl.n_sim
+        Rsim_container = create_simulated_data( model, target, buffers, options, rng )
+
+        if isinf( Rsim_container.observations[1] )
+            return -Inf
+        end
+
+        sim_statistic = calculate_simulated_statistics( target, Rsim_container, summaries, buffers, options, loss_function )
+        sim_summaries[:, jj] .= sim_statistic
+    end
+
+    sim_mean = vec( mean( sim_summaries, dims=2 ) )
+    sim_inv_cov = regularized_inverse( cov( sim_summaries' ) )
+
+    target = @set target.inverse_cov = sim_inv_cov
+
+    return loss_function( target, sim_mean )
 end

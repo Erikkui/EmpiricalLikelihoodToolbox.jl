@@ -1,7 +1,7 @@
 # EmpiricalLikelihoodToolbox
-Toolbox for performing Bayesian inference using empirical likelihoods. The package features several summary statistics, which can be almost freely combined; currently, inference is based on so-called "Gaussian Subset Likelihood" (GSL) (Haario et al., 2015), but support Bayesian Synthetic Likelihood (BSL) (Wood, 2010) approach is planned. See also Kuitunen (2026) for definitions for majority of the summary statistics.
+Toolbox for performing Bayesian inference using empirical likelihoods on simulator-based (intractable-likelihood) models. Inference is based on user-selectable summary statistics and one of two likelihood-approximation engines: Gaussian Subset Likelihood (GSL) (Haario et al., 2015) or Bayesian Synthetic Likelihood (BSL) (Wood, 2010). See also Kuitunen (2026) for definitions of the majority of the summary statistics.
 
-## Usage 
+## Usage
 ### Installation
 Enter Julia package manager (`]`), and copy the following: `add https://github.com/Erikkui/EmpiricalLikelihoodToolbox.jl.git`
 
@@ -46,9 +46,11 @@ function main()
         )
 
     methods_options = MethodsOptions(                        # Collecting defined options into single struct
+        N_obs = Ndata,
         resampling_type=resampler,
         axis_uniform=axis_unif,
         training_resamplings=nrep_training,
+        inference_method = GSL(),                 # GSL() is the default; shown here for clarity
         )
 
     mcmc_options = MCMCOptions(                               # Defining MCMC options
@@ -67,6 +69,29 @@ function main()
 
 end
 ```
+
+### Bayesian Synthetic Likelihood (BSL)
+
+By default `MethodsOptions` uses `GSL()`: the target mean and covariance are estimated once from the *observed* data (by resampling it `training_resamplings` times), and are then compared against a single simulated summary at every MCMC step.
+
+Passing `inference_method = BSL(n_sim = k)` instead switches to Bayesian Synthetic Likelihood: the observed summary becomes a single fixed reference value, and the mean/covariance used in the likelihood are instead re-estimated at *every* MCMC step from `k` fresh simulations at the current parameter proposal. This trades a large amount of extra simulation cost (`k` model simulations per MCMC step, instead of one) for a likelihood approximation that adapts to how the summary statistic's variability changes across parameter space, which GSL's fixed target covariance cannot capture.
+
+```julia
+methods_options = MethodsOptions(
+    N_obs = Ndata,
+    resampling_type = RademacherSplit(),      # any resampler works, see below
+    inference_method = BSL( n_sim = 10 ),     # 10 fresh simulations per MCMC step
+    )
+```
+
+Everything else (summary statistics, resamplers, priors, MCMC algorithms, loss functions) is used identically under BSL and GSL — only `MethodsOptions.inference_method` changes. A few things to keep in mind:
+
+* **Any resampler works**, including length-changing ones like `RademacherSplit`. Each of the `n_sim` simulated datasets is resampled/summarized exactly as GSL does at MCMC time (honoring `n_summaries` as well, if set above 1), so two-set summaries such as `CIL`/`ID`/`ChamferECDF` keep the same meaning under BSL as under GSL.
+* **`NoResampling()`** (see [Resamplers](#resamplers)) is a useful `resampling_type` choice when your summary statistics don't need a train/test split at all (eg. plain `StandardECDF`): it skips resampling entirely and uses all available data, both for the one-off observed reference statistic and for each simulated dataset.
+* **`standardize = true` is not supported under BSL** and raises an error — standardization is calibrated from the spread of `training_resamplings` real-data draws, which BSL does not compute (it gets its covariance from simulations instead).
+* **`covariance_type`** is ignored under BSL for the same reason: the covariance always comes from the spread of the `n_sim` simulated summaries, never from resampling the observed data.
+* Because BSL's covariance at the current and proposed parameters are each independent Monte Carlo estimates, consider setting `MCMCOptions( reevaluate_current_loss = true, ... )` so the "current" state's log-likelihood is refreshed at every step rather than compared against a stale estimate from a previous proposal — this reduces acceptance-ratio bias that is otherwise a known issue with synthetic-likelihood MCMC.
+* Runtime scales directly with `n_sim` (and, for two-set summaries, with `N_obs^2` per simulation on top of that) — tune `n_sim` with the cost of one model simulation in mind.
 
 ### Summary Statistics
 
@@ -100,8 +125,29 @@ Currently, nine summary statistics are available:
 
 Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`, as seen in the code example above.
 
-<!-- ### Resamplers
-Currently, the package includes two resamplers: `StandardResampling`, which performs random 50-50 division for a data set; and `TimeseriesResampling`, which samples a random contiguous partition from the data. `TimeseriesResampling` requires user to define a `timeseries_block_size` as an input for the resampler type, eg. `TimeseriesResampling( timeseries_block_size = 70 )`. `TimeSeriesResampling` has not been tested as extensively as `StandardResampling`, and may contain bugs.  -->
+#### Reusing bin edges
+
+By default, a summary statistic's bin edges (`nbin` of them) are computed automatically from the data the first time `TargetData(...)` is called, and stored on the summary object (`stat.bins`). Every eCDF-based summary statistic above also accepts those bin edges directly instead of `nbin`, which is useful for reusing bins already computed from a previous run (eg. `some_stat.bins[1]`) instead of recomputing them:
+
+* `StandardECDF(bins)`, `StandardECDFDiff(bins, diff_order, dt_obs)`, `CIL(bins)`, `CILDiff(bins, diff_order, dt_obs)` — `bins` is a plain vector of bin edges (`AbstractVector{<:Real}`).
+* `ID(bins, neighbors)`, `IDDiff(bins, neighbors, diff_order, dt_obs)`, `ChamferECDF(bins, neighbors)` — since these support multiple `neighbors`, `bins` is either a plain vector (reused for the single given `neighbors::Int`), or a vector of one bins vector per neighbor (`bins[ii]` for `neighbors[ii]`) when `neighbors` is itself a vector; in the latter case `length(bins)` must equal `length(neighbors)`, and every per-neighbor bins vector must have the same length.
+
+```julia
+# Compute bins once, reuse them for a second (eg. faster) TargetData construction
+target, _ = TargetData( data, JointSummaryStatistics( CIL(10) ), methods_options )
+cached_bins = target.summary_statistics.statistics[1].bins[1]
+
+summary_statistics_2 = JointSummaryStatistics( CIL( cached_bins ) )
+```
+
+### Resamplers
+
+Resamplers decide how a dataset is split into an "x" and a "y" set for two-set summaries (`CIL`, `ID`, `ChamferECDF`), and are also used to build GSL's target sampling distribution and, under BSL, each simulation's resampled summary. Four resamplers are currently available:
+
+* `RademacherSplit()` — splits the available indices into two equal halves at random. Length-changing (the x/y sets are half the size of the original data). This is the default `resampling_type`.
+* `ContiguosBlockSplit(timeseries_block_size=100)` — samples one random contiguous block of the given size as the "x" set and everything else as "y". Length-changing; intended for time series data where random reshuffling (as in `RademacherSplit`) would destroy temporal structure. Has not been tested as extensively as `RademacherSplit` and may contain bugs.
+* `StandardBootstrap()` — draws two independent bootstrap samples (with replacement), each the same size as the original data. Length-preserving.
+* `NoResampling()` — returns all available data, unchanged, as both the "x" and "y" set. Length-preserving and deterministic (no randomness at all). Mainly useful for BSL (see above) or for any deterministic, non-resampled evaluation of a summary statistic.
 
 ### Additional settings
 
@@ -114,12 +160,42 @@ User can choose to infer only a subset of parameters, in which case the the rema
     model = Lorenz63Model( dt_obs = dt_obs, active_parameters = active_parameters )
 ```
 
-#### Settings for summary generation
+#### `MethodsOptions` settings
 
-The following keyword settings are input to MethodsOptions struct:  
-* `n_summaries::Int`: Number of sumaries to generate for each proposal parameter. When `n_summaries` > 1, their mean is calculated. Default: `1`. 
-* `n_loss_evals::Int`: Number of loss evaluations to calculate for a proposal parameter. Each loss evaluation involves calculating `n_summaries` summaries, after which loss is calculated. Mean of the the evaluated losses is then used in MCMCM acceptance. Default: `1`.    
-* `standardize::Bool`: Whether to perform z-score standardization for the summaries. Default: `false`.
+The following keyword settings are input to the `MethodsOptions` struct:
+* `N_obs::Int`: Number of observations in the (simulated) dataset. Required, no default.
+* `resampling_type`: Which resampler to use, see [Resamplers](#resamplers). Default: `RademacherSplit()`.
+* `axis_uniform::Symbol`: How ECDF-style summaries pick their bin edges — `:xax` (bins uniform in the data's own units), `:yax` (bins chosen so the eCDF is approximately uniform, via inverse-CDF), or `:log` (log-spaced bins). Default: `:xax`.
+* `bins_resamplings::Int`: Number of resamplings used to determine bin edges for two-set ECDF-style summaries (`CILDiff`, `ID`, `ChamferECDF`, ...). Default: `40`.
+* `training_resamplings::Int`: Number of times to resample the observed data when estimating GSL's target mean/covariance (or BSL's fixed reference statistic, when `resampling_type` is not `NoResampling()`). Default: `1000`.
+* `covariance_type::Symbol`: How GSL estimates the target covariance from the `training_resamplings` draws — `:cov` (sample covariance) or `:donsker` (Donsker's-theorem covariance derived from the mean eCDF). Ignored under BSL. Default: `:cov`.
+* `n_summaries::Int`: Number of summaries to generate for each proposal parameter at MCMC time. When `n_summaries` > 1, their mean is calculated (this happens per simulated dataset under BSL as well). Default: `1`.
+* `n_loss_evals::Int`: Number of loss evaluations to calculate for a proposal parameter under GSL. Each loss evaluation involves calculating `n_summaries` summaries from a fresh simulation, after which loss is calculated; the mean of the evaluated losses is then used in MCMC acceptance. Not used under BSL, which always aggregates over `n_sim` simulations instead. Default: `1`.
+* `standardize::Bool`: Whether to perform z-score standardization for the summaries. Not supported under BSL. Default: `false`.
+* `ecdf_calculation_type::Symbol`: `:default` for the raw empirical CDF, or `:kernel_smoothed` for a Gaussian-kernel-smoothed variant. Default: `:default`.
+* `embedding_dim`: Time-delay embedding dimension(s) applied to simulated data before summarization (via `embedding()`); `0` disables embedding. Default: `0`.
+* `inference_method`: `GSL()` or `BSL(n_sim=...)`, see [Bayesian Synthetic Likelihood (BSL)](#bayesian-synthetic-likelihood-bsl). Default: `GSL()`.
+* `verbose::Bool`: Print progress bars/diagnostics during target training and MCMC. Default: `false`.
+
+#### MCMC algorithms, loss functions, and `MCMCOptions` settings
+
+Two MCMC algorithms are available for `mcmc_algorithm`:
+* `AM(proposal_width=0.01, adaptation_interval=50)` — adaptive Metropolis, adapting the proposal covariance from the running chain covariance every `adaptation_interval` steps.
+* `DRAM(proposal_width=0.01, adaptation_interval=50, n_stages=2, proposal_scale=[1.0, 0.5])` — delayed rejection adaptive Metropolis: on rejection, up to `n_stages` progressively smaller-scaled proposals are attempted before moving on.
+
+Two loss functions are available for `loss_function`:
+* `LogLikelihood(scaling_parameter=1.0)` — the standard GSL/BSL Gaussian log-likelihood, `-0.5*(x - x*)ᵀΣ⁻¹(x - x*)`, comparing a summary against the target mean/covariance (scaled by `1/scaling_parameter`).
+* `RobustChamfer(scaling_parameter=1.0)` — an alternative loss geared towards Chamfer-distance-based summaries.
+
+The following keyword settings are input to the `MCMCOptions` struct:
+* `nsteps::Int`: MCMC chain length. Default: `1000`.
+* `mcmc_algorithm`: `AM(...)` or `DRAM(...)`, see above. Required, no default.
+* `loss_function`: `LogLikelihood(...)` or `RobustChamfer(...)`, see above. Default: `LogLikelihood()`.
+* `initial_params`: Initial parameter values for the chain. Default: `nothing`, in which case the model's active parameter values are perturbed by 1% noise.
+* `update_interval::Int`: Number of consecutive rejections after which the "noisy likelihood" heuristic kicks in and recalculates the current state's loss from a fresh simulation. Default: `50`.
+* `discard_noisy_updates::Bool`: When the heuristic above triggers, whether to roll the chain back to its last accepted state (`true`) or just recalculate in place (`false`). Default: `false`.
+* `reevaluate_current_loss::Bool`: Recalculate the current state's loss from a fresh simulation at every step, before proposing. Recommended for BSL, see [above](#bayesian-synthetic-likelihood-bsl). Default: `false`.
+* `likelihood_noise_scale::Float64`: Standard deviation of artificial Gaussian noise added to every loss evaluation, useful for testing MCMC robustness to a noisy likelihood. Default: `NaN`, treated as `0.0`.
 
 ## References
 Heikki Haario, Leonid Kalachev, Janne Hakkarainen; Generalized correlation integral vectors: A distance concept for chaotic dynamical systems. Chaos 1 June 2015; 25 (6): 063102. https://doi.org/10.1063/1.4921939
