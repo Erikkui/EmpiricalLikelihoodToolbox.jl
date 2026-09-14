@@ -11,9 +11,10 @@ using Distributions
 using CairoMakie
 
 function run_test_mcmc()
+
+    inference_method = BSL(500)
     axis_unif = :yax
     covariance_type = :cov
-    use_ecdf_sampling = false
 
     nrep_training = 5000
     chain_length = 30000
@@ -21,27 +22,27 @@ function run_test_mcmc()
     nbin = 10
     knn = 1
 
-    n_loss_evals = 10
+    n_loss_evals = 1
     n_summaries = 1
 
     Ndata = 50
     dt_obs = 1.0
     t_end = Ndata * dt_obs
 
-    timeseries_block_size = 100
-    standardize = true
+    timeseries_block_size = 24
+    standardize = false
     reevaluate_current_loss = true
 
     likelihood_noise_scale = 0.0
 
-    model = RickerModel()
+    model = RickerModel( embedding_dim = 0,  )
     data = solve_model( model, t_end )
     # data = embedding( data, 2 )
 
     _, default_params = get_active_model_params( model )
     npar = length( default_params )
-    initial_params = default_params .+ (1 .+ 0.1 .* randn( npar ) )
-    initial_params = exp.( [2.8, -2.3, 1.79] )
+    # initial_params = default_params .+ (1 .+ 0.1 .* randn( npar ) )
+    initial_params = [2.8, -2.3, 1.79]
 
     #######
     # fig = Figure()
@@ -53,9 +54,10 @@ function run_test_mcmc()
     # sleep(3)
     #######
 
-
-    resampler = RademacherSplit()
-    # resampler = ContiguousBlockSplit( timeseries_block_size = timeseries_block_size )
+    # resampler = NoResampling()
+    # resampler = StandardBootstrap()
+    # resampler = RademacherSplit()
+    resampler = ContiguousBlockSplit( timeseries_block_size = timeseries_block_size )
 
     lossfun = LogLikelihood( scaling_parameter = 1.0 )
 
@@ -63,26 +65,25 @@ function run_test_mcmc()
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
 
     param_names, _ = get_active_model_params( model )
-    prior_distributions = tuple( [Uniform(0.0, 10e6) for i in 1:npar]... )
+    # prior_distributions = tuple( [Uniform(0.0, 10e6) for i in 1:npar]... )
     prior_distributions = (
-        Uniform( exp(2.0), exp(5.0) ),
-        Uniform( exp(-3.0), exp(-0.22) ),
-        Uniform( exp(1.61), exp(3.0) ),
+        Uniform( 2.0, 5.0 ),
+        Uniform( -3.0, -0.22 ),
+        Uniform( 1.61, 3.0 ),
     )
     priors = NamedTuple{ param_names }( prior_distributions)
 
     summary_statistics = JointSummaryStatistics(
-        ID( 10, 1:2 ),
-        # IDDiff( 10, 1:2, 1, 1.0 )
+        StandardECDF(10), CumulativeSum( 7 )
         )
 
 
     methods_options = MethodsOptions(
+        inference_method=inference_method,
         N_obs = Ndata,
         resampling_type=resampler,
         covariance_type=covariance_type,
         axis_uniform=axis_unif,
-        use_ecdf_sampling=use_ecdf_sampling,
         training_resamplings=nrep_training,
         n_loss_evals = n_loss_evals,
         n_summaries = n_summaries,
@@ -105,11 +106,18 @@ function run_test_mcmc()
 
     results, state = mcmcrun( target, model, mcmc_options )
 
+    chain = results.chain
+    if ndims( chain ) == 3
+        chain = reshape( chain, size( chain, 1 ), : )
+    end
+    chain = exp.( chain )
+    true_params = exp.( default_params )
+
     fig = Figure(size=(800, 200*npar))
     for i in 1:npar
         ax = Axis(fig[i, 1], xlabel="Iteration", ylabel="Parameter $i")
-        lines!(ax, results.chain[i, :])
-        hlines!(ax, [default_params[i]], color=:red, linestyle=:dash)
+        lines!(ax, chain[i, :])
+        hlines!(ax, [true_params[i]], color=:red, linestyle=:dash)
     end
     display(fig)
 
@@ -119,11 +127,19 @@ function run_test_mcmc()
     for ii in 1:npar
         for jj in col+1:npar
             ax = Axis(fig[row, col], xlabel="Parameter $ii", ylabel="Parameter $jj")
-            scatter!(ax, results.chain[ii, :], results.chain[jj, :], markersize=2.0)
+            scatter!(ax, chain[ii, :], chain[jj, :], markersize=2.0)
             row += 1
         end
         row = 1
         col += 1
+    end
+    display(fig)
+
+    fig = Figure(size=(350*npar, 350))
+    for i in 1:npar
+        ax = Axis(fig[1, i], xlabel="Parameter $i", ylabel="Count")
+        hist!(ax, chain[i, :], bins=50, normalization=:pdf)
+        vlines!(ax, [true_params[i]], color=:red, linestyle=:dash)
     end
     display(fig)
 

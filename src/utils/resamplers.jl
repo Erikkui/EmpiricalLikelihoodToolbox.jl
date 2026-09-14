@@ -35,11 +35,11 @@ end
 
 
 # Time series resampling: sample a contiguous block from the data
-Base.@kwdef struct ContiguosBlockSplit <: LengthChangingSampler
+Base.@kwdef struct ContiguousBlockSplit <: LengthChangingSampler
     timeseries_block_size::Int = 100
 end
 
-function (RS::ContiguosBlockSplit)( data::DataContainer, options::MethodsOptions, index_cache )
+function (RS::ContiguousBlockSplit)( data::DataContainer, options::MethodsOptions, index_cache )
     block_size = RS.timeseries_block_size
 
     ndata = length( index_cache )
@@ -54,12 +54,12 @@ function (RS::ContiguosBlockSplit)( data::DataContainer, options::MethodsOptions
     return x_inds, y_inds
 end
 
-function get_index_size( sampler::ContiguosBlockSplit, data, options )
+function get_index_size( sampler::ContiguousBlockSplit, data, options )
     return size( data, 2 )
 end
 
 function resample_sizes(
-    sampler::ContiguosBlockSplit,
+    sampler::ContiguousBlockSplit,
     ndata::Int
 )
     nx = sampler.timeseries_block_size
@@ -100,9 +100,7 @@ struct StandardBootstrap <: LengthPreservingSampler end
 
 function (RS::StandardBootstrap)( data::DataContainer, options::MethodsOptions, index_cache )
     ntot = length( index_cache )
-    # Drawn from index_cache's values, not from 1:ntot: when index_cache is trimmed (see
-    # allocate_buffers) its values are not 1:ntot, and sampling positions would resample exactly
-    # the boundary columns the trim excludes.
+
     x_inds = rand( index_cache, ntot )
     y_inds = rand( index_cache, ntot )
 
@@ -121,10 +119,10 @@ function resample_sizes(
 end
 
 
-# Moving block bootstrap (Kunsch, 1989): builds each of the x/y sets by concatenating random
+# Moving block bootstrap: builds each of the x/y sets by concatenating random
 # contiguous blocks of length `block_size` (sampled with replacement, ie. blocks may overlap or
 # repeat) until reaching length `ndata` (the last block is truncated to fit exactly). Unlike
-# ContiguosBlockSplit - which takes a single block as "x" and everything else as "y", an asymmetric
+# ContiguousBlockSplit - which takes a single block as "x" and everything else as "y", an asymmetric
 # length-changing split - this is a LengthPreservingSampler: both x_inds and y_inds always have
 # length exactly `ndata`, the same size used everywhere else (training and MCMC), so summaries
 # computed from it remain comparable across training and simulation.

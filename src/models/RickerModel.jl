@@ -1,12 +1,10 @@
-Base.@kwdef struct RickerModel{T, E} <: AbstractSimulationModel
+Base.@kwdef struct RickerModel{T} <: AbstractSimulationModel
     r::Float64 = log(44.7)
     sigma::Float64 = log(0.3)
     phi::Float64 = log(10.0)
     x0::T    = 1.0 # Initial condition
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = dt_obs
-    embedding_dim::E = 0
-    dim::Int = 1+length( embedding_dim )
     active_parameters::Tuple{Vararg{Symbol}} = (:r, :sigma, :phi)
     all_parameters::Tuple{Vararg{Symbol}} = (:r, :sigma, :phi)
 end
@@ -30,7 +28,7 @@ function step!(rng::AbstractRNG, m::RickerModel, n )
 end
 
 
-function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng(), transient_time = 500.0, transform_log1p=true, return_hidden_states=false )
+function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng(), transient_time = 100.0, transform_log1p=true, return_hidden_states=false )
     dt_obs = model.dt_obs
     dt_sol = model.dt_sol
 

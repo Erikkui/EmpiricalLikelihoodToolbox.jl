@@ -5,9 +5,8 @@ struct CumulativeSum{S, BUF} <: AbstractCumulativeSumSummary
     buffer::BUF
 end
 
-function CumulativeSum( contracting_window::Int, Ndata::Int )
-    summary_length = div( Ndata, contracting_window )
-    return CumulativeSum( contracting_window, summary_length, NaN, nothing )
+function CumulativeSum( contracting_window::Int )
+    return CumulativeSum( contracting_window, 0, NaN, nothing )
 end
 
 # The cumsum is taken over the resampled x set, so its length - and hence the contracted output

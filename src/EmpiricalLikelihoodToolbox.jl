@@ -23,7 +23,7 @@ module EmpiricalLikelihoodToolbox
     export Lorenz63Model, OUModel, NormalModel, BlowflyModel, NegExpModel, PredatorModel, RickerModel, solve_model
 
     # Resamplers and container
-    export StandardBootstrap, RademacherSplit, ContiguosBlockSplit, NoResampling, MovingBlockBootstrap, MethodsOptions, TargetData
+    export StandardBootstrap, RademacherSplit, ContiguousBlockSplit, NoResampling, MovingBlockBootstrap, MethodsOptions, TargetData
 
     # Inference methods
     export GSL, BSL
