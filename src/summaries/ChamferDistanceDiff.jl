@@ -1,3 +1,28 @@
+"""
+    ChamferDistanceDiff{T}
+
+Chamfer distance computed on a numerical derivative of the data.
+
+Identical to [`ChamferDistance`](@ref), except the point sets compared are the `diff_order`-th
+central difference of the series rather than the raw series. `TargetData` trims `diff_order` points
+from each end of the index cache, because central differences fabricate their boundary columns by
+padding.
+
+# Fields
+- `neighbors::T`: The neighbour index (or indices) to evaluate. An `Int` or a vector of `Int`.
+- `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
+- `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
+- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
+- `summary_length::Int`: `1` for a scalar `neighbors`, otherwise `length(neighbors)`.
+
+# Examples
+```julia
+stat = ChamferDistanceDiff(1, 1, 1.0)        # first derivative, nearest neighbour
+stat = ChamferDistanceDiff([1, 3], 1, 1.0)   # summary_length == 2
+```
+
+See also [`ChamferDistance`](@ref).
+"""
 struct ChamferDistanceDiff{T} <: AbstractChamferSummary
     neighbors::T
     highest_neighbor::Int

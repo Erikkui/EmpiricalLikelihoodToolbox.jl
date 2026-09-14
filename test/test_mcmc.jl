@@ -194,4 +194,23 @@ end
             @test results.current_iter[] == 50
         end
     end
+
+    @testset "a mid-chain failure returns the partial chain" begin
+        # runner.jl catches the exception, truncates at the last completed iteration and returns.
+        # Regression test: ResultsBuffer ties current_iter and stuck_kicks to one type parameter,
+        # so the count must be wrapped in a Ref here or the handler itself throws a MethodError.
+        target, _ = make_target(wiggly(20), StandardECDF(3);
+                                resampling_type = NoResampling(), training_resamplings = 10)
+        opts = MCMCOptions(nsteps = 200, mcmc_algorithm = AM(), initial_params = [0.0, 0.0],
+                           likelihood_noise_scale = 0.0)
+
+        EXPLODE_CALLS[] = 0
+        results, _ = mcmcrun(target, ExplodingModel(), opts)
+
+        iters = results.current_iter[]
+        @test 0 < iters < opts.nsteps                  # truncated, not a complete run
+        @test size(results.chain) == (2, iters)
+        @test length(results.sschain) == iters
+        @test all(isfinite, results.chain)
+    end
 end

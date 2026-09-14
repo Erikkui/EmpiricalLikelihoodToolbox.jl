@@ -134,3 +134,22 @@ with_priors(t::TargetData, priors) = TargetData(
     t.obs_mean, t.cov_factorization, t.summary_length,
     t.standardization_mean, t.standardization_sd,
 )
+
+# A model whose loss throws part-way through a chain, for exercising mcmcrun's recovery path.
+struct ExplodingModel <: AbstractSimulationModel
+    p1::Float64
+    p2::Float64
+    all_parameters::Tuple{Vararg{Symbol}}
+    active_parameters::Tuple{Vararg{Symbol}}
+end
+ExplodingModel() = ExplodingModel(0.0, 0.0, (:p1, :p2), (:p1, :p2))
+
+const EXPLODE_AFTER = Ref(20)
+const EXPLODE_CALLS = Ref(0)
+
+function EmpiricalLikelihoodToolbox.calculate_loss(
+        params, target, ::ExplodingModel, mcmc_options; rng_seed::UInt64 = rand(UInt64))
+    EXPLODE_CALLS[] += 1
+    EXPLODE_CALLS[] > EXPLODE_AFTER[] && error("simulated mid-chain failure")
+    return -0.5 * sum(abs2, params)
+end

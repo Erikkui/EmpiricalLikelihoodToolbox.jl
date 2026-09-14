@@ -1,3 +1,44 @@
+"""
+    ChamferECDF{B, T, BUF}
+
+Empirical CDF of repeatedly resampled Chamfer distances.
+
+Where [`ChamferDistance`](@ref) returns a single distance per neighbour, this draws
+`dists_for_ecdf` fresh resamplings of the data, computes a Chamfer distance for each, and returns
+the ECDF of that collection over `nbin` bins. The result describes the *distribution* of the Chamfer
+distance under the resampler rather than one realization of it, giving a summary of
+`length(neighbors) * nbin` values.
+
+!!! warning "Cost"
+    This resamples internally, on top of whatever resampling the caller is already doing.
+    Evaluating it once performs `dists_for_ecdf` (fixed at 1000) resampling operations, so building
+    a target with `training_resamplings = 1000` costs on the order of a million. Budget accordingly.
+
+Unlike the other two-set summaries, the `x_inds`/`y_inds` handed in by the caller are ignored: this
+summary draws its own splits from `MethodsOptions.resampling_type`.
+
+# Fields
+- `bins::B`: One vector of bin edges per requested neighbour. If `nothing`, calculated from the data.
+- `nbin::Int`: The number of bins per neighbour.
+- `neighbors::T`: The neighbour indices to use, always stored as a vector.
+- `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
+- `summary_length::Int`: Equal to `length(neighbors) * nbin`.
+- `dists_for_ecdf::Int`: How many Chamfer distances to draw for the ECDF. Fixed at `1000`.
+- `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+
+# Examples
+```julia
+stat = ChamferECDF(10, 1)        # summary_length == 10
+stat = ChamferECDF(10, [1, 3])   # summary_length == 20
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`ChamferDistance`](@ref), [`ID`](@ref).
+"""
 struct ChamferECDF{B, T, BUF} <: AbstractECDFSummary
     bins::B
     nbin::Int

@@ -1,4 +1,36 @@
 #------------Standard ECDF
+"""
+    StandardECDFMultiDimensional{B}
+
+Per-dimension empirical CDF for data with more than one row (dimension).
+
+One separate ECDF is computed for each of the `ndim` rows of the data, each with its own bin edges,
+and the results are concatenated into a single vector of length `ndim * nbin`. This is a marginal
+summary: it captures each coordinate separately and not their joint distribution.
+
+Constructed through [`StandardECDF`](@ref) with two arguments. `StandardECDF(nbin, ndim)` returns a
+plain `StandardECDF` when `ndim < 2`, so one-dimensional data does not pay for the multidimensional
+code path.
+
+# Fields
+- `bins::B`: One vector of bin edges per dimension. If `nothing`, calculated from the data.
+- `nbin::Int`: The number of bins per dimension.
+- `ndim::Int`: The number of data dimensions (rows) summarized.
+- `summary_length::Int`: The length of the summary statistic vector, equal to `ndim * nbin`.
+
+# Examples
+```julia
+stat = StandardECDF(10, 3)   # 3-dimensional data, 10 bins each, summary_length == 30
+stat = StandardECDF(10, 1)   # falls back to a plain StandardECDF
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`StandardECDF`](@ref), [`StandardECDFDiffMultiDimensional`](@ref).
+"""
 struct StandardECDFMultiDimensional{B} <: StandardECDFSummary
     bins::B
     nbin::Int

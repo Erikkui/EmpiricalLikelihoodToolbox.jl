@@ -1,4 +1,34 @@
 #------------Standard ECDF from differences
+"""
+    StandardECDFDiff{B}
+
+Empirical CDF of a numerical derivative of the data, rather than of the raw series.
+
+The derivatives are central differences, `(x[j+1] - x[j-1]) / (2*dt_obs)`, applied `diff_order`
+times. `TargetData` computes them once and shares them with every summary that asks for the same
+order. Because the boundary columns of a central difference are fabricated by padding, `TargetData`
+also trims `diff_order` points from each end of the index cache.
+
+# Fields
+- `bins::B`: The bin edges for the ECDF. If `nothing`, the bins are calculated from the data.
+- `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
+- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
+- `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
+- `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
+
+# Examples
+```julia
+stat = StandardECDFDiff(10, 1, 1.0)   # 10 bins, first derivative, unit time step
+stat = StandardECDFDiff(10, 2, 0.5)   # second derivative of data sampled every 0.5 time units
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`StandardECDF`](@ref), [`CILDiff`](@ref).
+"""
 struct StandardECDFDiff{B} <: StandardECDFSummary
     bins::B
     nbin::Int

@@ -1,4 +1,40 @@
 
+"""
+    IDDiff{B, T, BUF}
+
+Intrinsic-dimension nearest-neighbour ratio ECDF computed on a numerical derivative of the data.
+
+Identical to [`ID`](@ref), except the nearest-neighbour distances are taken between points of the
+`diff_order`-th central difference of the series rather than of the raw series. `TargetData` trims
+`diff_order` points from each end of the index cache, because central differences fabricate their
+boundary columns by padding.
+
+!!! note "Degenerate on constant derivatives"
+    A linear ramp has a constant first derivative, which makes every pairwise distance zero and
+    every ratio undefined. Use with data whose derivative actually varies.
+
+# Fields
+- `bins::B`: One vector of bin edges per requested neighbour. If `nothing`, calculated from the data.
+- `nbin::Int`: The number of bins per neighbour.
+- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
+- `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
+- `neighbors::T`: The neighbour indices to use, always stored as a vector.
+- `summary_length::Int`: Equal to `length(neighbors) * nbin`.
+- `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+
+# Examples
+```julia
+stat = IDDiff(10, 1, 1, 1.0)        # 10 bins, 1st/2nd neighbour ratio, first derivative
+stat = IDDiff(10, [1, 3], 1, 1.0)   # two ratios, summary_length == 20
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`ID`](@ref), [`CILDiff`](@ref).
+"""
 struct IDDiff{B, T, BUF} <: IDSummary
     bins::B
     nbin::Int

@@ -1,3 +1,39 @@
+"""
+    CumulativeSum{S, BUF}
+
+Normalized cumulative sum of the data, coarse-grained into non-overlapping windows.
+
+Takes the running cumulative sum of an "x" set, sums it within consecutive windows of
+`contracting_window` observations, and divides through by the final window so the summary ends at
+`1.0` for the observed data. Being an integral of the series, it responds to trends and drift
+that distribution-shaped summaries like [`StandardECDF`](@ref) discard.
+
+A ragged tail is dropped: the summary has `div(n, contracting_window)` entries, where `n` is the
+length the resampler produces, and any leftover observations are unused.
+
+!!! note "One-dimensional data only"
+    `allocate_buffer` throws an `ArgumentError` unless the data is shaped `(1, N)`.
+
+Unlike the other summaries, `summary_length` and `normalization_factor` are not known at
+construction. Both are filled in by `TargetData`, which is also when `buffer` is bound. A
+`CumulativeSum` that has not been through `TargetData` has `summary_length == 0` and would produce
+a zero-width slice inside a [`JointSummaryStatistics`](@ref).
+
+# Fields
+- `contracting_window::Int`: Number of observations summed into each output entry.
+- `summary_length::Int`: `div(n, contracting_window)`. `0` until `TargetData` fills it in.
+- `normalization_factor::S`: The final contracted value of the observed data. `NaN` until filled in.
+- `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+
+# Examples
+```julia
+stat = CumulativeSum(7)   # sum the running total in blocks of 7 observations
+
+# On data [1 2 3 4] with window 2: cumsum [1 3 6 10] -> blocks [4, 16] -> normalized [0.25, 1.0]
+```
+
+See also [`StandardECDF`](@ref), [`JointSummaryStatistics`](@ref).
+"""
 struct CumulativeSum{S, BUF} <: AbstractCumulativeSumSummary
     contracting_window::Int
     summary_length::Int

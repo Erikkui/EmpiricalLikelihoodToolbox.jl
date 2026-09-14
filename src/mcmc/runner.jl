@@ -87,7 +87,7 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
             partial_chain,
             partial_sschain,
             state.proposal_cov,
-            last_successful_step,
+            Ref(last_successful_step),
             acceptance ./ last_successful_step,
             results_buffers.stuck_kicks,
             )

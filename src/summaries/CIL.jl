@@ -1,4 +1,37 @@
 
+"""
+    CIL{B, BUF}
+
+Correlation Integral Likelihood summary statistic (Haario et al. 2015).
+
+Computes every pairwise Euclidean distance between the sets "x" and "y" and returns the
+empirical CDF of those distances, evaluated at `nbin` bin edges. The correlation integral is the
+fraction of point pairs closer than a given radius, so this is that integral sampled at `nbin` radii.
+
+This is a two-set summary: it consumes the "x" and "y" index sets produced by the configured
+resampler (`MethodsOptions.resampling_type`), not the raw series. Which resampler you choose
+therefore changes what this statistic measures.
+
+Cost is O(N^2) in both time and memory, since the full pairwise distance matrix is materialized.
+
+# Fields
+- `bins::B`: The bin edges (radii) for the ECDF. If `nothing`, calculated from the data.
+- `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
+- `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
+- `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+
+# Examples
+```julia
+stat = CIL(10)   # correlation integral evaluated at 10 radii (bins)
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`CILDiff`](@ref), [`ID`](@ref).
+"""
 struct CIL{B, BUF} <: CILSummary
     bins::B
     nbin::Int

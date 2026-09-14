@@ -1,4 +1,46 @@
 
+"""
+    ID{B, T, BUF}
+
+Empirical CDF of intrinsic-dimension nearest-neighbour distance ratios.
+
+For each requested neighbour index `k`, this takes the ratio of the `k`-th to the `(k+1)`-th
+nearest-neighbour distance and maps it to `[0, 1)` as `u = 1 - r_k / r_{k+1}`. Ratios are collected
+in both directions (x to y and y to x) and pooled, then summarized by an ECDF over `nbin` bins.
+The distribution of these ratios is the basis of two-NN style intrinsic dimension estimators, so the
+summary is sensitive to the local geometry of the attractor rather than to the marginal
+distribution of the data.
+
+Requesting several neighbours concatenates one `nbin`-long ECDF block per neighbour, in the order
+given, so `summary_length == length(neighbors) * nbin`.
+
+This is a two-set summary: it consumes the "x" and "y" index sets produced by the configured
+resampler (`MethodsOptions.resampling_type`), not the raw series. Which resampler you choose
+therefore changes what this statistic measures.
+
+!!! note "Degenerate on constant data"
+    If all pairwise distances are equal, every ratio is `0/0` and the statistic is undefined.
+
+# Fields
+- `bins::B`: One vector of bin edges per requested neighbour. If `nothing`, calculated from the data.
+- `nbin::Int`: The number of bins per neighbour.
+- `neighbors::T`: The neighbour indices to use, always stored as a vector.
+- `summary_length::Int`: Equal to `length(neighbors) * nbin`.
+- `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+
+# Examples
+```julia
+stat = ID(10, 1)        # ratio of the 1st to the 2nd nearest neighbour, summary_length == 10
+stat = ID(10, [1, 3])   # two ratios concatenated, summary_length == 20
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`IDDiff`](@ref), [`CIL`](@ref).
+"""
 struct ID{B, T, BUF} <: IDSummary
     bins::B
     nbin::Int

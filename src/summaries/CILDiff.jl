@@ -1,4 +1,37 @@
 
+"""
+    CILDiff{B, BUF}
+
+Correlation Integral Likelihood computed on a numerical derivative of the data.
+
+Identical to [`CIL`](@ref), except the pairwise distances are taken between points of the
+`diff_order`-th central difference of the series rather than of the raw series. Pairing `CIL` with
+`CILDiff` in a [`JointSummaryStatistics`](@ref) is a way to capture both the amplitude and
+the local slope structure of a time series.
+
+Because central differences fabricate their boundary columns by padding, `TargetData` trims
+`diff_order` points from each end of the index cache.
+
+# Fields
+- `bins::B`: The bin edges (radii) for the ECDF. If `nothing`, calculated from the data.
+- `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
+- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
+- `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
+- `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
+- `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+
+# Examples
+```julia
+stats = JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly.
+
+See also [`CIL`](@ref), [`StandardECDFDiff`](@ref).
+"""
 struct CILDiff{B, BUF} <: CILSummary
     bins::B
     nbin::Int

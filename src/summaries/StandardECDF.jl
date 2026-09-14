@@ -1,4 +1,27 @@
-#------------Standard ECDF
+"""
+    StandardECDF{B}
+
+Standard empirical cumulative distribution function summary statistic, with a fixed number of bins.
+
+# Fields
+- `bins::B`: The bin edges for the ECDF. If `nothing`, the bins will be automatically calculated from the data.
+- `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
+- `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
+
+# Examples
+```julia
+stat = StandardECDF(10)  # Create a StandardECDF with 10 bins
+stat = StandardECDF([0.0, 0.1, 0.2, 0.3, 0.4, 0.5])  # Create a StandardECDF with specified bin edges
+```
+
+!!! warning "Supplied bin edges are currently discarded"
+    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
+    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
+    pipeline run. It does take effect when the summary is evaluated directly. Prefer the `nbin`
+    constructor until this is fixed.
+
+See also [`StandardECDFDiff`](@ref), [`StandardECDFMultiDimensional`](@ref), [`CIL`](@ref).
+"""
 struct StandardECDF{B} <: StandardECDFSummary
     bins::B
     nbin::Int

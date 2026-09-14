@@ -2,25 +2,6 @@
 # open. They report as Broken today; the moment one is fixed CI turns red, which is the signal to
 # promote it to a plain @test.
 
-# A model whose loss throws part-way through a chain, used to exercise mcmcrun's recovery path.
-struct ExplodingModel <: AbstractSimulationModel
-    p1::Float64
-    p2::Float64
-    all_parameters::Tuple{Vararg{Symbol}}
-    active_parameters::Tuple{Vararg{Symbol}}
-end
-ExplodingModel() = ExplodingModel(0.0, 0.0, (:p1, :p2), (:p1, :p2))
-
-const EXPLODE_AFTER = Ref(20)
-const EXPLODE_CALLS = Ref(0)
-
-function EmpiricalLikelihoodToolbox.calculate_loss(
-        params, target, ::ExplodingModel, mcmc_options; rng_seed::UInt64 = rand(UInt64))
-    EXPLODE_CALLS[] += 1
-    EXPLODE_CALLS[] > EXPLODE_AFTER[] && error("simulated mid-chain failure")
-    return -0.5 * sum(abs2, params)
-end
-
 @testset "known issues" begin
 
     data = wiggly(40)
@@ -167,34 +148,30 @@ end
         @test_broken (try; RickerModel(embedding_dim = 0); true; catch; false; end)
     end
 
-    @testset "mcmcrun cannot actually return a partial chain" begin
-        # runner.jl advertises recovery from a mid-chain exception, but ResultsBuffer{M,I,T} ties
-        # current_iter::I and stuck_kicks::I to one type parameter, and the catch block passes an
-        # Int for the first and a Ref{Int} for the second. So the handler throws a MethodError and
-        # the partial chain is lost -- the feature never works.
-        target, _ = make_target(wiggly(20), StandardECDF(3);
-                                resampling_type = NoResampling(), training_resamplings = 10)
-        opts = MCMCOptions(nsteps = 200, mcmc_algorithm = AM(), initial_params = [0.0, 0.0],
-                           likelihood_noise_scale = 0.0)
-
-        EXPLODE_CALLS[] = 0
-        outcome = try
-            results, _ = mcmcrun(target, ExplodingModel(), opts)
-            (:returned, results.current_iter isa Ref ? results.current_iter[] : results.current_iter)
-        catch e
-            (:threw, typeof(e))
-        end
-
-        @test outcome[1] === :threw && outcome[2] === MethodError   # current behaviour
-        @test_broken outcome[1] === :returned                        # desired: a truncated chain
-    end
-
-    @testset "the ResultsBuffer type parameters cannot express the recovery path" begin
-        # The direct cause of the above, isolated.
+    @testset "ResultsBuffer still cannot hold an Int alongside a Ref" begin
+        # current_iter::I and stuck_kicks::I share one type parameter, so the struct cannot express
+        # the recovery path directly. mcmcrun works around this by wrapping the count in a Ref at
+        # the call site; giving the two fields separate parameters would remove the need.
         @test_broken (try
             EmpiricalLikelihoodToolbox.ResultsBuffer(zeros(2, 3), zeros(3), zeros(2, 2),
                                                      3, zeros(1), Ref(0))
             true
         catch; false; end)
+    end
+
+    @testset "supplied bin edges are discarded by TargetData" begin
+        # The README documents reusing cached bin edges, but initialize_bins recomputes them from
+        # the data for every eCDF summary and overwrites whatever the constructor was given. The
+        # bins constructors do work when a summary is evaluated directly.
+        custom = [-5.0, -2.0, 0.0, 2.0, 5.0]
+
+        direct = summarize(data, StandardECDF(custom); resampling_type = NoResampling())
+        @test direct == empcdf_raw(data, length(custom), custom)   # honoured on a direct call
+
+        for stat in (StandardECDF(custom), CIL(custom), ID(custom, 1))
+            target, _ = make_target(data, stat; training_resamplings = 20)
+            kept = target.summary_statistics.statistics[1].bins[1]
+            @test_broken kept == custom
+        end
     end
 end
