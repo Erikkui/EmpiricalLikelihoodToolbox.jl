@@ -24,11 +24,6 @@ stat = StandardECDF(10, 3)   # 3-dimensional data, 10 bins each, summary_length 
 stat = StandardECDF(10, 1)   # falls back to a plain StandardECDF
 ```
 
-!!! warning "Supplied bin edges are currently discarded"
-    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
-    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
-    pipeline run. It does take effect when the summary is evaluated directly.
-
 See also [`StandardECDF`](@ref), [`StandardECDFDiffMultiDimensional`](@ref).
 """
 struct StandardECDFMultiDimensional{B} <: StandardECDFSummary

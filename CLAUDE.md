@@ -54,9 +54,11 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
    `DataContainer`, one MCMC-time signature taking observed + simulated `DataContainer`s), plus
    `allocate_buffer`, `get_summary_length`, `required_diff_order`, `generate_stat_name`, and
    `finalize_summary`. ECDF-based summaries additionally need `get_bin_quantity` and go through
-   `initialize_bins`/`bin_select` (`src/utils/bin_calculation.jl`) which auto-selects bin edges from
+   `create_bins`/`_bin_select` (`src/utils/bin_calculation.jl`) which auto-selects bin edges from
    resampled training data using IQR-based robust bounds (`axis_uniform` option controls whether bins
-   are uniform in `:xax`, uniform in CDF-space via `:yax`, or `:log`-spaced).
+   are uniform in `:xax`, uniform in CDF-space via `:yax`, or `:log`-spaced) — `create_bins` skips
+   this and returns the summary unchanged when it already carries bins (`_has_existing_bins`), so
+   bins passed to a summary's constructor survive a full `TargetData` pipeline run.
 3. **Resamplers** (`src/utils/resamplers.jl`) — callable structs (`RademacherSplit` 50/50 split,
    `ContiguosBlockSplit` contiguous block for time series, `StandardBootstrap`, `NoResampling` a
    deterministic identity split that returns all data unchanged as both sets) subtyping either

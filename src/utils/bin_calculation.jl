@@ -1,4 +1,4 @@
-function calculate_bin_bounds( data::AbstractVector{<:Real} )
+function _calculate_bin_bounds( data::AbstractVector{<:Real} )
 
     # Calculate bin bounds for empirical cdf calculation
     quantiles = quantile( data, [0.005, 0.25, 0.75, 0.995])
@@ -15,9 +15,9 @@ function calculate_bin_bounds( data::AbstractVector{<:Real} )
 end
 
 #----------Main bin calculation function
-function bin_select( data, nbin, axis_uniform )
+function _bin_select( data, nbin, axis_uniform )
     # Generate bins for empirical cdf calculation
-    a, b = calculate_bin_bounds( data )
+    a, b = _calculate_bin_bounds( data )
     # println( "a = $a, b = $b" )
     if axis_uniform == :xax
         bins = collect( range(a, b, length=nbin) )
@@ -46,14 +46,24 @@ function bin_select( data, nbin, axis_uniform )
     return bins
 end
 
-
+function _has_existing_bins( statistic::AbstractSummaryStatistic )
+    if isnothing( statistic.bins )
+        return false
+    else
+        return true
+    end
+end
 
 # For basic and multidimensional cdf summaries
-function initialize_bins(
+function create_bins(
     data::DataContainer,
     statistic::StandardECDFSummary,
     options::MethodsOptions,
     index_cache::Vector{Int} )
+
+    if _has_existing_bins( statistic )
+        return statistic
+    end
 
     nbin = statistic.nbin
     R0 = data.observations
@@ -66,7 +76,7 @@ function initialize_bins(
     bins = Vector{ Vector{Float64} }( undef, ndim )
     for ii in 1:ndim
         data_ii = @view R0[ii, :]
-        bins[ii] = bin_select( data_ii, nbin, axis_uniform )
+        bins[ii] = _bin_select( data_ii, nbin, axis_uniform )
     end
 
     new_statistic = @set statistic.bins = bins
@@ -76,11 +86,15 @@ end
 
 
 # Abstract ECDF summaries: when the ECDFs are calculated from other than raw data
-function initialize_bins(
+function create_bins(
     data::DataContainer,
     statistic::AbstractECDFSummary,
     options::MethodsOptions,
     index_cache::Vector{Int} )
+
+    if _has_existing_bins( statistic )
+        return statistic
+    end
 
     resampler = options.resampling_type
     bins_resamplings = options.bins_resamplings
@@ -100,7 +114,7 @@ function initialize_bins(
     bins = Vector{ Vector{Float64} }( undef, ndim )
     for ii in 1:ndim
         data_ii = filter( isfinite, resampled_summaries_all[:, ii] )
-        bins[ii] = bin_select( data_ii, nbin, axis_uniform )
+        bins[ii] = _bin_select( data_ii, nbin, axis_uniform )
     end
 
     new_statistic = @set statistic.bins = bins
@@ -109,7 +123,7 @@ end
 
 
 # For other summaries, we do not need to initialize bins
-function initialize_bins(
+function create_bins(
     data::DataContainer,
     statistic::AbstractSummaryStatistic,
     options::MethodsOptions,

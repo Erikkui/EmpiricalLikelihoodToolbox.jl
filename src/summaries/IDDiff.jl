@@ -28,11 +28,6 @@ stat = IDDiff(10, 1, 1, 1.0)        # 10 bins, 1st/2nd neighbour ratio, first de
 stat = IDDiff(10, [1, 3], 1, 1.0)   # two ratios, summary_length == 20
 ```
 
-!!! warning "Supplied bin edges are currently discarded"
-    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
-    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
-    pipeline run. It does take effect when the summary is evaluated directly.
-
 See also [`ID`](@ref), [`CILDiff`](@ref).
 """
 struct IDDiff{B, T, BUF} <: IDSummary

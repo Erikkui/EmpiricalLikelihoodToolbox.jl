@@ -150,7 +150,6 @@ finalize_target_covariance( ::GSL, cov_mat, summary_length ) = regularized_chole
 finalize_target_covariance( ::BSL, cov_mat, summary_length ) = cholesky( Matrix( 1.0I, summary_length, summary_length ) )
 
 
-
 function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
@@ -176,7 +175,7 @@ function TargetData(
 
     # Initialize bins for all summary statistics, overwriting original summary statistics
     statistics = map(
-        stat -> initialize_bins( data_container, stat, options, buffer_container.index_cache ),
+        stat -> create_bins( data_container, stat, options, buffer_container.index_cache ),
         statistics
         )
 

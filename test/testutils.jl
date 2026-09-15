@@ -13,7 +13,7 @@ using EmpiricalLikelihoodToolbox:
     update_model_parameters, initial_state,
     empcdf_raw, empcdf_raw!, empcdf_kernelsmoothed, empcdf_kernelsmoothed!, resolve_ecdf,
     chamfer_distance, chamfer_distance!,
-    bin_select, calculate_bin_bounds, initialize_bins,
+    _bin_select, _calculate_bin_bounds, create_bins,
     resample_sizes, get_index_size,
     allocate_buffer, get_summary_length, required_diff_order, generate_stat_name,
     finalize_summary, get_bin_quantity, calculate_summary_statistic!,
@@ -100,7 +100,7 @@ function prepare_summary(data::AbstractMatrix{Float64}, stat; kwargs...)
     buffers, dc, len = allocate_buffers(stats, dc, opts, diff_orders)
 
     if hasproperty(stat, :bins) && isnothing(getproperty(stat, :bins))
-        stat = initialize_bins(dc, stat, opts, buffers.index_cache)
+        stat = create_bins(dc, stat, opts, buffers.index_cache)
     end
 
     return finalize_summary(stat, dc, buffers), dc, buffers, len

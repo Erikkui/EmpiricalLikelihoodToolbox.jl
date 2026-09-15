@@ -63,9 +63,9 @@
 
     @testset "invalid option symbols fail late and opaquely" begin
         @testset "axis_uniform" begin
-            # bin_select has no else branch, so `bins` is never assigned.
+            # _bin_select has no else branch, so `bins` is never assigned.
             @test_broken (try
-                bin_select(collect(1.0:50.0), 5, :bogus)
+                _bin_select(collect(1.0:50.0), 5, :bogus)
                 false
             catch e; e isa ArgumentError; end)
         end
@@ -79,10 +79,10 @@
         end
     end
 
-    @testset "bin_select(:log) throws on data whose robust lower bound is not positive" begin
-        # calculate_bin_bounds pads by 0.25*iqr, which pushes the lower bound of ordinary data
+    @testset "_bin_select(:log) throws on data whose robust lower bound is not positive" begin
+        # _calculate_bin_bounds pads by 0.25*iqr, which pushes the lower bound of ordinary data
         # below zero; (b/a/1.01)^(1/nbin) then raises a negative number to a fractional power.
-        @test_broken (try; bin_select(collect(1.0:100.0), 5, :log); true; catch; false; end)
+        @test_broken (try; _bin_select(collect(1.0:100.0), 5, :log); true; catch; false; end)
     end
 
     @testset "embedding mishandles multi-row matrices" begin
@@ -159,10 +159,10 @@
         catch; false; end)
     end
 
-    @testset "supplied bin edges are discarded by TargetData" begin
-        # The README documents reusing cached bin edges, but initialize_bins recomputes them from
-        # the data for every eCDF summary and overwrites whatever the constructor was given. The
-        # bins constructors do work when a summary is evaluated directly.
+    @testset "supplied bin edges survive TargetData" begin
+        # create_bins now skips recomputation when the summary already carries bins (see
+        # _has_existing_bins), so a caller-supplied bins vector is honoured through the full
+        # pipeline, not just on a direct summarize() call.
         custom = [-5.0, -2.0, 0.0, 2.0, 5.0]
 
         direct = summarize(data, StandardECDF(custom); resampling_type = NoResampling())
@@ -171,7 +171,7 @@
         for stat in (StandardECDF(custom), CIL(custom), ID(custom, 1))
             target, _ = make_target(data, stat; training_resamplings = 20)
             kept = target.summary_statistics.statistics[1].bins[1]
-            @test_broken kept == custom
+            @test kept == custom
         end
     end
 end

@@ -25,11 +25,6 @@ Because central differences fabricate their boundary columns by padding, `Target
 stats = JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))
 ```
 
-!!! warning "Supplied bin edges are currently discarded"
-    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
-    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
-    pipeline run. It does take effect when the summary is evaluated directly.
-
 See also [`CIL`](@ref), [`StandardECDFDiff`](@ref).
 """
 struct CILDiff{B, BUF} <: CILSummary

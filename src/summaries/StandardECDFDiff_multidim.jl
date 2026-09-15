@@ -24,11 +24,6 @@ Constructed through [`StandardECDFDiff`](@ref) with four arguments, which return
 stat = StandardECDFDiff(10, 3, 1, 1.0)   # 3 dimensions, first derivative, summary_length == 30
 ```
 
-!!! warning "Supplied bin edges are currently discarded"
-    `TargetData` recomputes bin edges from the data for every eCDF-based summary and overwrites
-    whatever was passed to the constructor, so the `bins` constructor has no effect on a full
-    pipeline run. It does take effect when the summary is evaluated directly.
-
 See also [`StandardECDFDiff`](@ref), [`StandardECDFMultiDimensional`](@ref).
 """
 struct StandardECDFDiffMultiDimensional{B} <: StandardECDFSummary
