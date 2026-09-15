@@ -213,10 +213,21 @@ function donsker_covariance( ecdf, ndata::Int )
     return cov_matrix
 end
 
-function embedding( data_in, embedding_dims )
+function embedding( data_in, embedding_dims, embedding_type::Symbol = :delay )
     if embedding_dims == 0 || isempty(embedding_dims)
         return data_in
     end
+
+    if embedding_type == :delay
+        return _delay_embedding( data_in, embedding_dims )
+    elseif embedding_type == :diff
+        return _diff_embedding( data_in, embedding_dims )
+    else
+        throw( ArgumentError( "Unknown embedding_type $(embedding_type). Must be :delay or :diff." ) )
+    end
+end
+
+function _delay_embedding( data_in, embedding_dims )
     Nobs = length( data_in )
     max_embed = maximum( embedding_dims )
     output_dim = 1 + length( embedding_dims )
@@ -233,6 +244,22 @@ function embedding( data_in, embedding_dims )
         embedding_temp = @view data_in[ start_ind:end_ind ]
         output_data[ ii+1, :] = embedding_temp
     end
+
+    return output_data
+end
+
+# Diff embedding: (y_t, y_t - y_{t-tau}), i.e. the series paired with its own lag-tau difference.
+function _diff_embedding( data_in, embedding_dims )
+    tau = embedding_dims isa Integer ? embedding_dims : only( embedding_dims )
+    tau > 0 || throw( ArgumentError( "Diff embedding requires a positive lag, got $(tau)." ) )
+
+    Nobs = length( data_in )
+    y1 = @view data_in[ tau+1:end ]
+    y0 = @view data_in[ 1:Nobs-tau ]
+
+    output_data = zeros( 2, Nobs - tau )
+    output_data[1, :] = y1
+    output_data[2, :] = y1 .- y0
 
     return output_data
 end

@@ -2,11 +2,12 @@ function create_simulated_data( model, target, buffers, options, rng )
     diff_orders = target.data.difference_orders
     ndata = options.N_obs
     embedding_dim = options.embedding_dim
+    embedding_type = options.embedding_type
     dt_obs = model.dt_obs
 
     # TODO impement solve_model!()
     Rsim = solve_model( model, ndata*dt_obs; rng = rng )::Matrix{Float64}
-    Rsim = embedding( Rsim, embedding_dim )
+    Rsim = embedding( Rsim, embedding_dim, embedding_type )
 
     if any(isnan, Rsim)
         # println("Simulation returned NaN values. Returning -Inf for likelihood.")

@@ -49,6 +49,7 @@ Base.@kwdef struct MethodsOptions{R, F, E, IM}
     ecdf_calculation_type::Symbol = :default    # :default, :kernel_smoothed
     ecdf_function::F = resolve_ecdf( ecdf_calculation_type )
     embedding_dim::E = 0
+    embedding_type::Symbol = :delay    # :delay, :diff
     inference_method::IM = GSL()
 end
 

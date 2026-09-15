@@ -194,6 +194,21 @@
             @test E[2, 2:end] == E[1, 1:end-1]
             @test E[3, 2:end] == E[2, 1:end-1]
         end
+
+        @testset "diff embedding pairs the series with its lagged difference" begin
+            x = collect(1.0:10.0)
+            tau = 2
+            E = embedding(x, tau, :diff)
+
+            @test size(E) == (2, length(x) - tau)
+            @test E[1, :] == x[tau+1:end]
+            @test E[2, :] == x[tau+1:end] .- x[1:end-tau]
+        end
+
+        @testset "unknown embedding_type raises an explicit error" begin
+            x = collect(1.0:10.0)
+            @test_throws ArgumentError embedding(x, 2, :bogus)
+        end
     end
 
     @testset "contract / contract!" begin

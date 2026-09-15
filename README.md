@@ -179,7 +179,8 @@ The following keyword settings are input to the `MethodsOptions` struct:
 * `n_loss_evals::Int`: Number of loss evaluations to calculate for a proposal parameter under GSL. Each loss evaluation involves calculating `n_summaries` summaries from a fresh simulation, after which loss is calculated; the mean of the evaluated losses is then used in MCMC acceptance. Not used under BSL, which always aggregates over `n_sim` simulations instead. Default: `1`.
 * `standardize::Bool`: Whether to perform z-score standardization for the summaries. Not supported with `NoResampling()` (no training-draw variability to standardize against), under either GSL or BSL. Default: `false`.
 * `ecdf_calculation_type::Symbol`: `:default` for the raw empirical CDF, or `:kernel_smoothed` for a Gaussian-kernel-smoothed variant. Default: `:default`.
-* `embedding_dim`: Time-delay embedding dimension(s) applied to simulated data before summarization (via `embedding()`); `0` disables embedding. Default: `0`.
+* `embedding_dim`: Embedding lag(s) applied to simulated data before summarization (via `embedding()`); `0` disables embedding. For `embedding_type = :delay`, a single lag or a collection of lags, each contributing one extra dimension. For `embedding_type = :diff`, a single lag `tau`. Default: `0`.
+* `embedding_type::Symbol`: `:delay` for time-delay embedding (the series plus one or more lagged copies), or `:diff` for the series paired with its lag-`tau` difference (`y_t`, `y_t - y_{t-tau}`). Default: `:delay`.
 * `inference_method`: `GSL()` or `BSL(n_sim=...)`, see [Bayesian Synthetic Likelihood (BSL)](#bayesian-synthetic-likelihood-bsl). Default: `GSL()`.
 * `verbose::Bool`: Print progress bars/diagnostics during target training and MCMC. Default: `false`.
 
