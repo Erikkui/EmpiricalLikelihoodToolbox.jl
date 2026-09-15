@@ -95,12 +95,12 @@ Everything else (summary statistics, resamplers, priors, MCMC algorithms, loss f
 
 ### Summary Statistics
 
-Currently, nine summary statistics are available:
+Currently, ten summary statistics are available:
 1. Standard ECDF
    - Initialization: `StandardECDF(nbin)`
    - Calculates an empirical cumulative distribution function from data
    - Defined by number of bins at which the eCDF is evaluated. Number of bins (`nbin`) are required as an argument.
-   - CURRENTLY DOES NOT SUPPORT MULTI-DIMENSIONAL DATA!
+   - Supports multidi-dimensional data via call `StandardECDF(nbin, ndim)`
 2. Standard ECDF using numerical derivatives
    - Initialization: `StandardECDFDiff(nbin, diff_order, dt_obs)`
    - Same as above, but calculates the eCDF from the numerical derivative of the data
@@ -122,6 +122,11 @@ Currently, nine summary statistics are available:
 9. ECDF from Chamfer Distances 
     - Initialization: `ChamferECDF(nbin, neighbors)`
     - Support multiple neighbors simlar to basic Chamfer Distance
+10. Cumulative Sum
+    - Initialization: `CumulativeSum(contracting_window)`
+    - Calculates the normalized cumulative sum of data, condensed into non-overlapping windows
+    - Takes the running cumulative sum of the a set, sums it within consecutive windows, and divides the result by the final value
+    - CURRENTLY DOES NOT SUPPORT MULTI-DIMENSIONAL DATA!
 
 Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`, as seen in the code example above.
 
