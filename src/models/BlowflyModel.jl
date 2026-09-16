@@ -23,7 +23,7 @@ Base.@kwdef struct BlowflyModel{E} <: AbstractSimulationModel
     sigma2_p::Float64 = 0.1
     tau::Float64 = 14.0
     sigma2_d::Float64 = 0.1
-    x0::Int = 180
+    x0::E = 180
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = 1.0
     dim::Int = length(x0)
