@@ -66,23 +66,15 @@ function make_target(data::AbstractMatrix{Float64}, stats...;
     return TargetData(data, JointSummaryStatistics(stats...), opts; priors = priors, loss = loss)
 end
 
-# BlowflyModel{E} declares a type parameter no field uses, so `BlowflyModel()` cannot infer it and
-# throws. The explicit `{Int}` is the only way to build one; pinned in test_known_issues.jl.
-blowfly() = BlowflyModel{Int}()
-
 "Every concrete simulation model, with parameters left at their defaults."
 all_models() = (
     Lorenz63Model(), OUModel(), NormalModel(),
-    blowfly(), NegExpModel(), RickerModel(),
+    BlowflyModel(), NegExpModel(), RickerModel(),
 )
 
-"""
-Models whose parameters can actually be updated. `Accessors.setproperties` rebuilds a struct
-positionally, which re-triggers BlowflyModel's uninferable type parameter, so BlowflyModel is
-excluded -- it cannot be driven by MCMC at all. Pinned in test_known_issues.jl.
-"""
+"Models whose parameters can be updated, i.e. those usable as an MCMC target."
 updatable_models() = (
-    Lorenz63Model(), OUModel(), NormalModel(), NegExpModel(), RickerModel(),
+    Lorenz63Model(), OUModel(), NormalModel(), BlowflyModel(), NegExpModel(), RickerModel(),
 )
 
 """

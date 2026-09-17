@@ -20,12 +20,11 @@
         @test_broken LogLikelihood()(target, sim) != unstandardized   # ...but is never applied
     end
 
-    @testset "BlowflyModel cannot be constructed or updated" begin
-        # BlowflyModel{E} declares a type parameter that no field uses, so E cannot be inferred.
-        # Only BlowflyModel{Int}() works, and Accessors rebuilds positionally, so parameter
-        # updates fail too -- meaning the model cannot be driven by MCMC at all.
-        @test_broken (try; BlowflyModel(); true; catch; false; end)
-        @test_broken (try
+    @testset "BlowflyModel can be constructed and updated" begin
+        # x0::E now ties BlowflyModel{E} to a field, so E is inferred from the default and
+        # Accessors' positional rebuild works -- the model is usable from MCMC.
+        @test (try; BlowflyModel(); true; catch; false; end)
+        @test (try
             update_model_parameters(BlowflyModel{Int}(), [0.2, 6.0, 400.0, 0.1, 14.0, 0.1])
             true
         catch; false; end)

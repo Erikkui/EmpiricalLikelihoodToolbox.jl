@@ -81,7 +81,7 @@
     end
 
     @testset "BlowflyModel" begin
-        m = blowfly()
+        m = BlowflyModel()
 
         @testset "reproducible under a fixed rng" begin
             @test solve_model(m, 100.0; rng = StableRNG(11)) == solve_model(m, 100.0; rng = StableRNG(11))
