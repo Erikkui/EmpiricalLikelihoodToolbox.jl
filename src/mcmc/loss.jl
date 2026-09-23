@@ -62,7 +62,7 @@ function calculate_simulated_statistics( target, Rsim_container, summaries, buff
 end
 
 function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 = rand(UInt64) )
-    logprior = evaluate_log_prior( params, target.priors )
+    logprior = evaluate_log_prior( params, target.priors, model.active_parameters )
 
     # Parameters with zero prior density should have zero likelihood so we can return -Inf
     # to avoid unnecessary simulations

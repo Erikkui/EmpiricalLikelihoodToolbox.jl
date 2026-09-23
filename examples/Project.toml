@@ -1,0 +1,9 @@
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+EmpiricalLikelihoodToolbox = "6eb4d0a0-ec5e-458d-8a63-7d0d227b9802"
+
+[compat]
+CairoMakie = "0.12"
+Distributions = "0.25"
+julia = "1.10"

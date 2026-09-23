@@ -111,14 +111,29 @@
         end
 
         @testset ":log is positive and geometrically spaced" begin
-            # :log needs a strictly positive lower bin bound. `data` (1:100) has a robust lower
-            # bound below zero and would throw -- see test_known_issues.jl -- so use data that
-            # sits well away from the origin.
+            # `data` (1:100) has a robust lower bound below zero, which :log clamps to a small
+            # positive value rather than rejecting (see the testset below) -- but the clamped
+            # bins are numerically degenerate, so this uses data well away from the origin for a
+            # clean example.
             bins = _bin_select(collect(1000.0:1100.0), 6, :log)
             @test length(bins) == 6
             @test all(>(0), bins)
             @test issorted(bins)
             @test all(≈(bins[2] / bins[1]), bins[2:end] ./ bins[1:end-1])
+        end
+
+        @testset ":log tolerates a padded lower bound that crosses zero" begin
+            # _calculate_bin_bounds pads the lower bound by 0.25*iqr, which pushes it below zero
+            # for `data` (1:100); :log clamps it to a small positive value instead of raising a
+            # non-positive number to a fractional power.
+            bins = _bin_select(data, 5, :log)
+            @test length(bins) == 5
+            @test all(>(0), bins)
+            @test issorted(bins)
+        end
+
+        @testset "an unknown axis_uniform raises ArgumentError" begin
+            @test_throws ArgumentError _bin_select(data, 5, :bogus)
         end
     end
 

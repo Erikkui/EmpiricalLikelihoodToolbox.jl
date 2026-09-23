@@ -227,6 +227,12 @@ function embedding( data_in, embedding_dims, embedding_type::Symbol = :delay )
     end
 end
 
+function _delay_embedding( data_in::AbstractMatrix, embedding_dims )
+    size( data_in, 1 ) == 1 || throw( ArgumentError(
+        "embedding is only supported for one-dimensional data (got $(size(data_in, 1)) rows); multidimensional trajectories should not be embedded." ) )
+    return _delay_embedding( vec(data_in), embedding_dims )
+end
+
 function _delay_embedding( data_in, embedding_dims )
     Nobs = length( data_in )
     max_embed = maximum( embedding_dims )
@@ -249,6 +255,12 @@ function _delay_embedding( data_in, embedding_dims )
 end
 
 # Diff embedding: (y_t, y_t - y_{t-tau}), i.e. the series paired with its own lag-tau difference.
+function _diff_embedding( data_in::AbstractMatrix, embedding_dims )
+    size( data_in, 1 ) == 1 || throw( ArgumentError(
+        "embedding is only supported for one-dimensional data (got $(size(data_in, 1)) rows); multidimensional trajectories should not be embedded." ) )
+    return _diff_embedding( vec(data_in), embedding_dims )
+end
+
 function _diff_embedding( data_in, embedding_dims )
     tau = embedding_dims isa Integer ? embedding_dims : only( embedding_dims )
     tau > 0 || throw( ArgumentError( "Diff embedding requires a positive lag, got $(tau)." ) )

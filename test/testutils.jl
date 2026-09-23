@@ -127,6 +127,13 @@ with_priors(t::TargetData, priors) = TargetData(
     t.standardization_mean, t.standardization_sd,
 )
 
+# A model with real active_parameters but no solve_model/step! method, for proving a prior of
+# -Inf short-circuits calculate_loss before any simulation is attempted (accessing
+# active_parameters, to resolve the log-prior, is not itself "touching" the model).
+struct NeverSimulatedModel <: AbstractSimulationModel
+    active_parameters::Tuple{Vararg{Symbol}}
+end
+
 # A model whose loss throws part-way through a chain, for exercising mcmcrun's recovery path.
 struct ExplodingModel <: AbstractSimulationModel
     p1::Float64

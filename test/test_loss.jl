@@ -43,18 +43,18 @@
         @test RobustChamfer()(target, sim) ≈ -0.5
         @test RobustChamfer(2.0)(target, sim) ≈ -0.25
 
-        @testset "three-argument form weights by the inverse standard deviations" begin
+        @testset "three-argument form just sums the chamfer distances in x" begin
+            # The robust chamfer distance has no covariance term (unlike LogLikelihood's Mahalanobis
+            # form); x_star/cov_factorization are accepted only for signature symmetry and ignored.
             C = regularized_cholesky(cov(randn(StableRNG(52), 3, 20)'))
             x = [1.0, 2.0, 3.0]
-            @test RobustChamfer()(x, zeros(3), C) ≈ -sum(x .* sqrt.(diag(inv(C))))
+            @test RobustChamfer()(x, zeros(3), C) ≈ -sum(x)
+            @test RobustChamfer()(x, zeros(3), C) == RobustChamfer()(x, ones(3), C)
         end
     end
 
     @testset "calculate_loss" begin
         model = NormalModel(mu = 0.0, sigma = 1.0)
-        # likelihood_noise_scale defaults to NaN as a sentinel that mcmcrun rewrites to 0.0. Calling
-        # calculate_loss directly skips that normalization, so it must be set here or every loss
-        # comes back NaN (see test_known_issues.jl).
         opts = MCMCOptions(mcmc_algorithm = AM(), nsteps = 10, loss_function = LogLikelihood(),
                            likelihood_noise_scale = 0.0)
 
@@ -64,13 +64,23 @@
             @test isfinite(loss)
         end
 
+        @testset "likelihood_noise_scale defaults to 0.0" begin
+            # MCMCOptions no longer defaults it to a NaN sentinel that only mcmcrun rewrote to
+            # 0.0, so calling calculate_loss directly (bypassing mcmcrun) no longer poisons the loss.
+            target, _ = make_target(data, StandardECDF(5);
+                                    resampling_type = NoResampling(), training_resamplings = 20)
+            defaults = MCMCOptions(mcmc_algorithm = AM(), nsteps = 10)
+            @test defaults.likelihood_noise_scale == 0.0
+            @test isfinite(calculate_loss([0.0, 1.0], target, model, defaults))
+        end
+
         @testset "an out-of-support proposal short-circuits to -Inf without simulating" begin
             # The prior is evaluated before the model is ever touched, so passing a model that
             # cannot possibly simulate still returns cleanly. That is the proof no simulation ran.
             target, _ = make_target(data, StandardECDF(5);
                                     priors = (mu = Uniform(0.0, 1.0), sigma = Uniform(0.0, 2.0)),
                                     training_resamplings = 50)
-            @test calculate_loss([5.0, 1.0], target, nothing, opts) == -Inf
+            @test calculate_loss([5.0, 1.0], target, NeverSimulatedModel((:mu, :sigma)), opts) == -Inf
         end
 
         @testset "the log-prior is added exactly once" begin
@@ -89,7 +99,7 @@
             seed = UInt64(123)
             diff = calculate_loss(params, informative, model, opts; rng_seed = seed) -
                    calculate_loss(params, flat, model, opts; rng_seed = seed)
-            @test diff ≈ evaluate_log_prior(params, priors)
+            @test diff ≈ evaluate_log_prior(params, priors, model.active_parameters)
         end
 
         @testset "GSL with NoResampling is deterministic given a seed" begin

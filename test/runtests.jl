@@ -18,7 +18,6 @@ include("testutils.jl")
     include("test_mcmc.jl")
     include("test_integration.jl")
 
-    # Phase 4 -- package quality and known issues
+    # Phase 4 -- package quality
     include("test_aqua.jl")
-    include("test_known_issues.jl")
 end

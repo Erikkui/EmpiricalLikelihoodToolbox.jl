@@ -1,7 +1,7 @@
 Base.@kwdef struct NormalModel{T} <: AbstractSimulationModel
     mu::Float64 = 0.0
     sigma::Float64 = 1.0
-    x0::T = 0.0 # Initial condition (unused: each observation is an iid draw)
+    x0::T = mu + sigma*randn() # Each observation is an iid draw, including the first
     dim::Int = 1
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = dt_obs

@@ -34,7 +34,7 @@ stat = ChamferECDF(10, [1, 3])   # summary_length == 20
 
 See also [`ChamferDistance`](@ref), [`ID`](@ref).
 """
-struct ChamferECDF{B, T, BUF} <: AbstractECDFSummary
+struct ChamferECDF{B, T, BUF} <: ChamferECDFSummary
     bins::B
     nbin::Int
     neighbors::T

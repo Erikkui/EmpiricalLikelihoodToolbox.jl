@@ -20,7 +20,7 @@ module EmpiricalLikelihoodToolbox
     export StandardECDF, StandardECDFDiff, CIL, CILDiff, ChamferDistance, ChamferDistanceDiff, ChamferECDF, JointSummaryStatistics, ID, IDDiff, CumulativeSum
 
     # Models and solvers
-    export Lorenz63Model, OUModel, NormalModel, BlowflyModel, NegExpModel, PredatorModel, RickerModel, solve_model
+    export Lorenz63Model, OUModel, NormalModel, BlowflyModel, NegExpModel, RickerModel, solve_model
 
     # Resamplers and container
     export StandardBootstrap, RademacherSplit, ContiguousBlockSplit, NoResampling, MovingBlockBootstrap, MethodsOptions, TargetData

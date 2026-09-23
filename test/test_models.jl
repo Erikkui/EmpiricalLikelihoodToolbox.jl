@@ -32,10 +32,16 @@
         traj = solve_model(m, 20000.0; rng = StableRNG(42))
 
         @test size(traj) == (1, 20000)
-        # Column 1 is the initial state, not a draw (see test_known_issues.jl), so it is excluded.
-        samples = traj[1, 2:end]
+        # x0's default (mu + sigma*randn()) makes column 1 a real draw too, not the initial state.
+        samples = traj[1, :]
         @test mean(samples) ≈ mu atol = 0.05
         @test std(samples) ≈ sigma atol = 0.05
+
+        @testset "each fresh construction draws a fresh x0" begin
+            firsts = [solve_model(NormalModel(mu = 5.0, sigma = 2.0), 10.0; rng = StableRNG(s))[1, 1]
+                      for s in 1:5]
+            @test length(unique(firsts)) > 1
+        end
     end
 
     @testset "OUModel relaxes to its stationary distribution" begin
@@ -78,6 +84,12 @@
             @test out isa Tuple && length(out) == 2
             @test size(out[1]) == size(out[2])
         end
+
+        @testset "has no embedding_dim field (that belongs on MethodsOptions)" begin
+            # examples/main.jl used to pass embedding_dim to RickerModel(...) directly, which has
+            # no such field; it now goes to MethodsOptions instead.
+            @test !hasfield(RickerModel, :embedding_dim)
+        end
     end
 
     @testset "BlowflyModel" begin
@@ -93,6 +105,16 @@
             @test size(traj, 1) == 1
             @test all(≥(0), traj)               # a population count
             @test all(isfinite, traj)
+        end
+
+        @testset "can be constructed and updated" begin
+            # x0::E ties BlowflyModel{E} to a field, so E is inferred from the default and
+            # Accessors' positional rebuild works -- the model is usable from MCMC.
+            @test (try; BlowflyModel(); true; catch; false; end)
+            @test (try
+                update_model_parameters(BlowflyModel{Int}(), [0.2, 6.0, 400.0, 0.1, 14.0, 0.1])
+                true
+            catch; false; end)
         end
     end
 

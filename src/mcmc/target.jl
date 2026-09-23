@@ -114,6 +114,8 @@ function train_target( ::GSL, statistics, data_container, buffer_container, opti
     elseif cov_type == :donsker
         ndata = size( data_container.observations, 2 )
         C = donsker_covariance( mean_summary, ndata )
+    else
+        throw( ArgumentError( "Unknown covariance_type $(cov_type). Must be :cov or :donsker." ) )
     end
 
     return mean_summary, C, training_summaries
@@ -158,10 +160,6 @@ function TargetData(
     loss = nothing
     )
 
-    if isnothing( priors )
-       priors = ( nothing, )
-    end
-
     statistics = summary_stats.statistics
     training_resamplings = options.training_resamplings
 
@@ -172,6 +170,10 @@ function TargetData(
 
     # Create buffers for use in resampling
     buffer_container, data_container, total_summary_length = allocate_buffers( statistics, data_container, options, diff_orders )
+
+    # allocate_buffers writes the post-trim effective_N_obs into data_container.options; keep this
+    # binding in sync so target.options and target.data.options don't diverge.
+    options = data_container.options
 
     # Initialize bins for all summary statistics, overwriting original summary statistics
     statistics = map(

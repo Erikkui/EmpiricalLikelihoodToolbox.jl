@@ -12,45 +12,48 @@
     @testset "evaluate_log_prior sums the contributions" begin
         priors = (a = Normal(0.0, 1.0), b = Uniform(0.0, 10.0))
         params = [0.5, 3.0]
-        @test evaluate_log_prior(params, priors) ≈
+        @test evaluate_log_prior(params, priors, (:a, :b)) ≈
               logpdf(Normal(0.0, 1.0), 0.5) + logpdf(Uniform(0.0, 10.0), 3.0)
     end
 
     @testset "only the non-nothing priors contribute" begin
         params = [0.5, 3.0, -1.0]
         mixed = (a = Normal(0.0, 1.0), b = nothing, c = nothing)
-        @test evaluate_log_prior(params, mixed) ≈ logpdf(Normal(0.0, 1.0), 0.5)
+        @test evaluate_log_prior(params, mixed, (:a, :b, :c)) ≈ logpdf(Normal(0.0, 1.0), 0.5)
 
         all_flat = (a = nothing, b = nothing, c = nothing)
-        @test evaluate_log_prior(params, all_flat) == 0.0
+        @test evaluate_log_prior(params, all_flat, (:a, :b, :c)) == 0.0
     end
 
     @testset "no priors at all is a flat prior" begin
-        @test evaluate_log_prior([1.0, 2.0], nothing) == 0.0
+        @test evaluate_log_prior([1.0, 2.0], nothing, (:a, :b)) == 0.0
     end
 
     @testset "out-of-support parameters are rejected" begin
         priors = (a = Uniform(0.0, 1.0), b = Uniform(0.0, 1.0))
-        @test evaluate_log_prior([0.5, 0.5], priors) > -Inf
-        @test evaluate_log_prior([1.5, 0.5], priors) == -Inf      # first out of support
-        @test evaluate_log_prior([0.5, -0.5], priors) == -Inf     # second out of support
+        @test evaluate_log_prior([0.5, 0.5], priors, (:a, :b)) > -Inf
+        @test evaluate_log_prior([1.5, 0.5], priors, (:a, :b)) == -Inf      # first out of support
+        @test evaluate_log_prior([0.5, -0.5], priors, (:a, :b)) == -Inf     # second out of support
     end
 
-    @testset "a plain tuple of priors works too" begin
-        # keys() of a Tuple is 1:N, so positional tuples are accepted alongside NamedTuples.
-        @test evaluate_log_prior([0.5, 3.0], (Normal(0.0, 1.0), Uniform(0.0, 10.0))) ≈
-              logpdf(Normal(0.0, 1.0), 0.5) + logpdf(Uniform(0.0, 10.0), 3.0)
+    @testset "a parameter missing from priors falls back to a flat prior" begin
+        params = [0.5, 3.0]
+        partial = (a = Normal(0.0, 1.0),)   # no entry for :b
+        @test evaluate_log_prior(params, partial, (:a, :b)) ≈ logpdf(Normal(0.0, 1.0), 0.5)
     end
 
-    @testset "priors pair with parameters positionally, not by name" begin
-        # Documented current behaviour: evaluate_log_prior zips keys(priors) against params[ii]
-        # by position. Reordering the NamedTuple therefore changes the result even though the
-        # names still map each prior to a parameter. See test_known_issues.jl.
+    @testset "a plain tuple of priors is no longer supported" begin
+        # Only `nothing` and NamedTuple priors are accepted -- a positional tuple can't be safely
+        # matched to parameters, so it's a MethodError rather than a silent positional pairing.
+        @test_throws MethodError evaluate_log_prior([0.5, 3.0], (Normal(0.0, 1.0), Uniform(0.0, 10.0)), (:a, :b))
+    end
+
+    @testset "priors are matched to parameters by name, not NamedTuple key order" begin
         params = [0.5, 5.0]
         in_order = (a = Uniform(0.0, 1.0), b = Uniform(0.0, 10.0))
         swapped  = (b = Uniform(0.0, 10.0), a = Uniform(0.0, 1.0))
 
-        @test evaluate_log_prior(params, in_order) > -Inf
-        @test evaluate_log_prior(params, swapped) == -Inf   # 5.0 scored against Uniform(0,1)
+        @test evaluate_log_prior(params, in_order, (:a, :b)) == evaluate_log_prior(params, swapped, (:a, :b))
+        @test evaluate_log_prior(params, in_order, (:a, :b)) > -Inf
     end
 end

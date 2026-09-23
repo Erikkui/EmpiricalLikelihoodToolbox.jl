@@ -1,10 +1,13 @@
 # In VSCode terminal:
 #   0. Start Julia REPL: ctrl+shift+p, "Julia: Start REPL"
-#   1. ] activate .
+#   1. ] activate examples   (has its own Project.toml, incl. CairoMakie)
+#   1b. (one-time setup) ] dev ..   -- adds this repo itself as a dev dependency
 #   2. Press backspace
 #   3. using Revise
 #   4. include("examples/main.jl")
 #   5. run run_test_mcmc() in REPL: res = run_test_mcmc()
+#
+# From the shell instead: julia --project=examples examples/main.jl
 
 using EmpiricalLikelihoodToolbox
 using Distributions
@@ -35,7 +38,7 @@ function run_test_mcmc()
 
     likelihood_noise_scale = 0.0
 
-    model = RickerModel( embedding_dim = 0,  )
+    model = RickerModel()
     data = solve_model( model, t_end )
     # data = embedding( data, 2 )
 
@@ -88,6 +91,7 @@ function run_test_mcmc()
         n_loss_evals = n_loss_evals,
         n_summaries = n_summaries,
         standardize = standardize,
+        embedding_dim = 0,
         verbose = true
         )
 

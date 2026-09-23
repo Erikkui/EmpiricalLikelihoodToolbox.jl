@@ -38,9 +38,14 @@ function _bin_select( data, nbin, axis_uniform )
         bins = invcdf( bins_temp, cdf, nbin, 1)
 
     elseif axis_uniform == :log
+        # The IQR padding in _calculate_bin_bounds can push `a` to/below zero; log bins are only
+        # meaningful for a positive range, so clamp it to a small positive value.
+        a_pos = a > 0 ? a : eps( one(a) ) * b
         R0 = b
-        bb = (R0 / a / 1.01)^(1 / nbin)
+        bb = (R0 / a_pos / 1.01)^(1 / nbin)
         bins = R0 .* bb .^ (-nbin:-1)
+    else
+        throw( ArgumentError( "Unknown axis_uniform $(axis_uniform). Must be :xax, :yax, or :log." ) )
     end
 
     return bins

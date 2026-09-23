@@ -17,8 +17,8 @@ const GAUSS_MU = [1.0, -2.0]
 const GAUSS_SIGMA = [1.0 0.5; 0.5 2.0]
 
 function EmpiricalLikelihoodToolbox.calculate_loss(
-        params, target, ::GaussianTestModel, mcmc_options; rng_seed::UInt64 = rand(UInt64))
-    logprior = evaluate_log_prior(params, target.priors)
+        params, target, model::GaussianTestModel, mcmc_options; rng_seed::UInt64 = rand(UInt64))
+    logprior = evaluate_log_prior(params, target.priors, model.active_parameters)
     isinf(logprior) && return -Inf
     d = params .- GAUSS_MU
     return -0.5 * dot(d, GAUSS_SIGMA \ d) + logprior
@@ -167,13 +167,13 @@ end
             end
         end
 
-        @testset "a wrong-length prior tuple is silently replaced" begin
-            # Documented current behaviour; the review argues this should throw (see
-            # test_known_issues.jl). The run must at least still complete.
+        @testset "a wrong-length prior tuple warns and falls back to flat priors" begin
+            # A parameter missing from the priors NamedTuple gets a flat prior and a warning
+            # naming it, rather than mcmcrun silently discarding the whole priors tuple.
             bad = gaussian_target(priors = (p1 = Normal(0.0, 1.0),))
             opts = MCMCOptions(nsteps = 100, mcmc_algorithm = AM(), initial_params = [1.0, -2.0])
             Random.seed!(4)
-            results, _ = mcmcrun(bad, model, opts)
+            results, _ = @test_logs (:warn, r"p2") mcmcrun(bad, model, opts)
             @test results.current_iter[] == 100
         end
 
@@ -197,8 +197,6 @@ end
 
     @testset "a mid-chain failure returns the partial chain" begin
         # runner.jl catches the exception, truncates at the last completed iteration and returns.
-        # Regression test: ResultsBuffer ties current_iter and stuck_kicks to one type parameter,
-        # so the count must be wrapped in a Ref here or the handler itself throws a MethodError.
         target, _ = make_target(wiggly(20), StandardECDF(3);
                                 resampling_type = NoResampling(), training_resamplings = 10)
         opts = MCMCOptions(nsteps = 200, mcmc_algorithm = AM(), initial_params = [0.0, 0.0],
@@ -212,5 +210,15 @@ end
         @test size(results.chain) == (2, iters)
         @test length(results.sschain) == iters
         @test all(isfinite, results.chain)
+    end
+
+    @testset "ResultsBuffer can hold an Int alongside a Ref" begin
+        # current_iter and stuck_kicks have independent type parameters, so one can be a plain
+        # Int while the other is a Ref.
+        @test (try
+            EmpiricalLikelihoodToolbox.ResultsBuffer(zeros(2, 3), zeros(3), zeros(2, 2),
+                                                     3, zeros(1), Ref(0))
+            true
+        catch; false; end)
     end
 end

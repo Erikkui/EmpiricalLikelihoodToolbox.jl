@@ -68,6 +68,11 @@
             @test ID(5, 1).summary_length == 5
             @test ID(5, [1, 3]).summary_length == 10
         end
+
+        @testset "ChamferECDF wires into the ChamferECDFSummary/TwoSetSummary hierarchy" begin
+            @test ChamferECDF <: AbstractECDFSummary
+            @test ChamferECDF <: TwoSetSummary
+        end
     end
 
     @testset "odd-length data" begin

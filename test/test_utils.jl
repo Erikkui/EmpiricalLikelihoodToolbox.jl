@@ -209,6 +209,14 @@
             x = collect(1.0:10.0)
             @test_throws ArgumentError embedding(x, 2, :bogus)
         end
+
+        @testset "multi-row (multidimensional) data is rejected" begin
+            # embedding is only meaningful for one-dimensional data; multidimensional trajectories
+            # (eg. Lorenz63's 3 rows) must never be silently (mis)embedded.
+            M = vcat(row(1.0:10.0), row(11.0:20.0))
+            @test_throws ArgumentError embedding(M, [1])
+            @test_throws ArgumentError embedding(M, 2, :diff)
+        end
     end
 
     @testset "contract / contract!" begin
@@ -257,7 +265,7 @@
     end
 
     @testset "standardize!" begin
-        # Despite the bang, this is a pure function returning a value (see test_known_issues.jl).
+        # Despite the bang, this is a pure function returning a value -- callers must capture it.
         @test standardize!(10.0, 4.0, 2.0) == 3.0
         @test standardize!([3.0, 5.0], [1.0, 1.0], 2.0) == [1.0, 2.0]
     end

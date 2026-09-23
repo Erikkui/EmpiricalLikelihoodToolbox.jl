@@ -56,6 +56,10 @@
         @test Matrix(target.cov_factorization) ≈ reg(expected)
     end
 
+    @testset "an unknown covariance_type raises ArgumentError" begin
+        @test_throws ArgumentError make_target(data, StandardECDF(5); covariance_type = :bogus)
+    end
+
     @testset "index cache trimming" begin
         # RademacherSplit shuffles the cache in place during training, so after construction only
         # the cache's *contents* are stable, not its order. NoResampling leaves the order intact.
@@ -80,6 +84,14 @@
                                            resampling_type = NoResampling())
                 @test target_nr.buffers.index_cache == collect(d+1:40-d)
             end
+        end
+
+        @testset "target.options matches target.data.options" begin
+            # allocate_buffers writes the post-trim effective_N_obs into the DataContainer's
+            # options; the outer options binding is reassigned from it before TargetData is
+            # constructed, so the two no longer diverge.
+            target, _ = make_target(wiggly(40), StandardECDFDiff(5, 1, 1.0))
+            @test target.options.effective_N_obs == target.data.options.effective_N_obs
         end
     end
 
@@ -151,9 +163,9 @@
         end
     end
 
-    @testset "priors default to a one-element nothing tuple" begin
+    @testset "priors default to nothing" begin
         target, _ = make_target(data, StandardECDF(5))
-        @test target.priors == (nothing,)
+        @test isnothing(target.priors)
 
         priors = (a = Normal(0.0, 1.0),)
         target2, _ = make_target(data, StandardECDF(5); priors = priors)
@@ -171,5 +183,21 @@
         @test finalized.summary_length == 10            # 40 observations / window 4
         @test isfinite(finalized.normalization_factor)
         @test !isnothing(finalized.buffer)
+    end
+
+    @testset "supplied bin edges survive TargetData" begin
+        # create_bins skips recomputation when the summary already carries bins (see
+        # _has_existing_bins), so a caller-supplied bins vector is honoured through the full
+        # pipeline, not just on a direct summarize() call.
+        custom = [-5.0, -2.0, 0.0, 2.0, 5.0]
+
+        direct = summarize(data, StandardECDF(custom); resampling_type = NoResampling())
+        @test direct == empcdf_raw(data, length(custom), custom)   # honoured on a direct call
+
+        for stat in (StandardECDF(custom), CIL(custom), ID(custom, 1))
+            target, _ = make_target(data, stat; training_resamplings = 20)
+            kept = target.summary_statistics.statistics[1].bins[1]
+            @test kept == custom
+        end
     end
 end

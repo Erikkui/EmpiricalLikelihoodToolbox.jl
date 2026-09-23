@@ -21,7 +21,7 @@ function (loss::LogLikelihood)( target::TargetData, sim_mean::AbstractVector )
     ss = -0.5*dot( delta, C \ delta )
 
     if standardize_loss
-        standardize!( ss, target.standardization_mean, target.standardization_sd )
+        ss = standardize!( ss, target.standardization_mean, target.standardization_sd )
     end
 
     ss *= loss.inverse_scaling
@@ -56,7 +56,7 @@ function (loss::RobustChamfer)( target::TargetData, sim_mean::AbstractVector )
     ss = -sum( sim_mean )
 
     if standardize_loss
-        standardize!( ss, target.standardization_mean, target.standardization_sd )
+        ss = standardize!( ss, target.standardization_mean, target.standardization_sd )
     end
 
     ss *= loss.inverse_scaling
@@ -65,7 +65,6 @@ function (loss::RobustChamfer)( target::TargetData, sim_mean::AbstractVector )
 end
 
 function (loss::RobustChamfer)( x::AbstractVector, x_star::AbstractVector, cov_factorization )
-    inverse_std = sqrt.( diag( inv(cov_factorization) ) )
-    ss = -sum( ( x .* inverse_std )  )
+    ss = -sum( x )
     return ss
 end

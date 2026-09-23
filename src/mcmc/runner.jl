@@ -5,13 +5,13 @@ struct MCMCState{T, M<:AbstractMatrix{<:Real}}
     proposal_cov::M
 end
 
-struct ResultsBuffer{M<:AbstractMatrix{<:Real}, I, T}
+struct ResultsBuffer{M<:AbstractMatrix{<:Real}, I1, I2, T}
     chain::M
     sschain::Vector{Float64}
     prop_cov::M
-    current_iter::I
+    current_iter::I1
     acceptance::T
-    stuck_kicks::I
+    stuck_kicks::I2
 end
 
 function allocate_results_buffer( npar, chain_length, n_stages )
@@ -35,20 +35,18 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
     MCMCRun = mcmc_options.mcmc_algorithm
     proposal_width = MCMCRun.proposal_width
 
-    if isnan( mcmc_options.likelihood_noise_scale )
-        mcmc_options = @set mcmc_options.likelihood_noise_scale = 0.0
-    end
-
     chain_length = mcmc_options.nsteps
 
     active_param_names, active_param_values = get_active_model_params( model )
     npar_active = length( active_param_values )
 
-    # Set uninformative priors if not provided
-    if length( target.priors ) != npar_active
-        uninformative_priors = ntuple( _ -> nothing, Val(npar_active) )
-        uninformative_priors = NamedTuple{ active_param_names }( uninformative_priors )
-        target = @set target.priors = uninformative_priors
+    # A parameter with no prior falls back to a flat (uninformative) prior in evaluate_log_prior;
+    # just warn so the user notices a partially-specified priors NamedTuple.
+    if !( isnothing( target.priors ) || isempty( target.priors ) )
+        missing_names = Tuple( setdiff( active_param_names, keys( target.priors ) ) )
+        if !isempty( missing_names )
+            @warn "No prior specified for parameter(s) $missing_names; using a flat (uninformative) prior for them."
+        end
     end
 
     if isnothing( mcmc_options.initial_params )
