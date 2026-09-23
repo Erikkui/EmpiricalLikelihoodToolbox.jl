@@ -28,7 +28,7 @@ function step!(rng::AbstractRNG, m::RickerModel, n )
 end
 
 
-function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng(), transient_time = 100.0, transform_log1p=true, return_hidden_states=false )
+function solve_model( model::RickerModel, t_end::Float64; rng=Random.default_rng(), transient_time = 100.0, transform_log1p=false, return_hidden_states=false )
     dt_obs = model.dt_obs
     dt_sol = model.dt_sol
 
