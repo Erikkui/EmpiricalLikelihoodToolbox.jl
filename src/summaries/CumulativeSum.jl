@@ -104,7 +104,7 @@ function allocate_buffer( statistic::CumulativeSum, data::DataContainer )
 end
 
 get_summary_length(stat::CumulativeSum, data::DataContainer) =
-    div( cumsum_data_length( stat, data ), stat.contracting_window )
+    div( cumsum_data_length( stat, data ), stat.contracting_window ) - 1
 
 
 required_diff_order(stat::CumulativeSum) = 0
@@ -119,7 +119,7 @@ function finalize_summary( stat::CumulativeSum, data::DataContainer, buffers::Bu
     sum_cumul = cumsum( @view( data.observations[ :, inds ] ), dims = 2 )
     sum_cumul_contracted = contract( sum_cumul, stat.contracting_window )
 
-    stat = @set stat.summary_length = div( nx, stat.contracting_window )
+    stat = @set stat.summary_length = div( nx, stat.contracting_window ) - 1
     stat = @set stat.normalization_factor = sum_cumul_contracted[end]
     return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
 end
