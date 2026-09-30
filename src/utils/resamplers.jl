@@ -251,7 +251,7 @@ end
 # length exactly `ndata`, the same size used everywhere else (training and MCMC), so summaries
 # computed from it remain comparable across training and simulation.
 """
-    MovingBlockBootstrap(; block_size = 100)
+    MovingBlockBootstrap(; block_size = 10)
 
 Moving block bootstrap: build each set by concatenating random contiguous blocks.
 
@@ -277,7 +277,7 @@ resampler = MovingBlockBootstrap(block_size = 24)
 ```
 """
 Base.@kwdef struct MovingBlockBootstrap <: LengthPreservingSampler
-    block_size::Int = 100
+    block_size::Int = 10
 end
 
 function (RS::MovingBlockBootstrap)( data::DataContainer, options::MethodsOptions, index_cache )

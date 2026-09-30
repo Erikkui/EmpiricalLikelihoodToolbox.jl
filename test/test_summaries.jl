@@ -15,8 +15,65 @@
 
         @testset "CumulativeSum" begin
             # cumsum([1 2 3 4]) = [1 3 6 10]; contracted in windows of 2 -> [1+3, 6+10] = [4, 16];
-            # normalized by the final contracted value (16) -> [0.25, 1.0].
-            @test summarize(row(1:4), CumulativeSum(2); resampling_type = NR) == [0.25, 1.0]
+            # normalized by the final contracted value (16) -> [0.25, 1.0]; the final entry is
+            # dropped (it is always 1.0 for the observed data) -> [0.25].
+            @test summarize(row(1:4), CumulativeSum(2); resampling_type = NR) == [0.25]
+        end
+
+        @testset "CumulativeSum, multidimensional" begin
+            # Rows [1 2 3 4 5 6] and [-1 -1 -1 -1 -1 -1], window 2, transform = abs.
+            #   row 1: cumsum [1 3 6 10 15 21] -> windows [4, 16, 36]
+            #   row 2: cumsum of |.| [1 2 3 4 5 6] -> windows [3, 7, 11]
+            data = vcat(row(1:6), -ones(1, 6))
+
+            # Per-row normalization by each row's final window; last window dropped; output is
+            # row 1's windows followed by row 2's.
+            out = summarize(data, CumulativeSum(2; transform = abs); resampling_type = NR)
+            @test out ≈ [4 / 36, 16 / 36, 3 / 11, 7 / 11]
+        end
+
+        @testset "CumulativeSum, fixed scale and transform" begin
+            data = vcat(row(1:6), -ones(1, 6))
+
+            # Raw (identity) cumsums: row 1 windows [4, 16, 36]; row 2 cumsum [-1 -2 -3 -4 -5 -6]
+            # -> windows [-3, -7, -11]. Fixed scales replace the observed-data normalization.
+            out = summarize(data, CumulativeSum(2; scale = [2.0, -1.0]); resampling_type = NR)
+            @test out == [4 / 2, 16 / 2, 3.0, 7.0]
+
+            # Scale length must match the number of data rows, checked when buffers are allocated.
+            @test_throws ArgumentError summarize(data, CumulativeSum(2; scale = [1.0, 2.0, 3.0]); resampling_type = NR)
+            @test_throws ArgumentError CumulativeSum(2; scale = [1.0, 0.0])
+        end
+
+        @testset "CumulativeSum under MovingBlockBootstrap matches block-spliced cumsums" begin
+            # Reference: the block-splicing construction (resample blocks of Y = cumsum(|r|),
+            # shifting each block to continue from the last value), driven by the same start
+            # indices. Cumsum of the concatenated |r| blocks must agree with it.
+            rng = StableRNG(7)
+            r0 = randn(rng, 3, 40)
+            Y = cumsum(abs.(r0); dims = 2)
+            block, nblocks, window = 5, 8, 4
+
+            starts = [3, 30, 1, 36, 12, 12, 20, 8]   # block starts over 1:(40 - block + 1)
+            inds = reduce(vcat, [collect(s:s + block - 1) for s in starts])
+
+            spliced = zeros(3, 40)
+            offset = zeros(3)
+            for (b, s) in enumerate(starts), j in 1:block
+                prev = s == 1 ? zeros(3) : Y[:, s - 1]
+                spliced[:, (b - 1) * block + j] = offset .+ Y[:, s + j - 1] .- prev
+                j == block && (offset = spliced[:, b * block])
+            end
+
+            stat, dc, buffers, len = prepare_summary(r0, CumulativeSum(window; transform = abs);
+                                                     resampling_type = MovingBlockBootstrap(block_size = block))
+            out = fill(NaN, len)
+            calculate_summary_statistic!(out, stat, inds, inds, dc, buffers)
+
+            nwin = div(40, window)
+            expected = [sum(spliced[r, (w - 1) * window + 1:w * window]) / stat.normalization_factor[r]
+                        for r in 1:3, w in 1:nwin]     # written out independently of contract!
+            @test out ≈ vec(permutedims(expected[:, 1:end-1])) atol = 1e-12   # row 1's windows, then row 2's, ...
         end
 
         @testset "CIL" begin

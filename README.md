@@ -123,10 +123,13 @@ Currently, ten summary statistics are available:
     - Initialization: `ChamferECDF(nbin, neighbors)`
     - Support multiple neighbors simlar to basic Chamfer Distance
 10. Cumulative Sum
-    - Initialization: `CumulativeSum(contracting_window)`
+    - Initialization: `CumulativeSum(contracting_window; transform = identity, scale = nothing)`
     - Calculates the normalized cumulative sum of data, condensed into non-overlapping windows
-    - Takes the running cumulative sum of the a set, sums it within consecutive windows, and divides the result by the final value
-    - CURRENTLY DOES NOT SUPPORT MULTI-DIMENSIONAL DATA!
+    - Takes the running cumulative sum of the x set, sums it within consecutive windows, and divides the result by a per-row normalization factor. The final window is dropped.
+    - Supports multi-dimensional data: each row is accumulated, contracted and normalized separately, and the outputs are concatenated row after row. All rows share the same resampled indices.
+    - `transform` is applied elementwise before accumulating, to observed and simulated data alike, eg. `transform = abs` accumulates absolute increments
+    - By default each row is divided by its final contracted value of the observed data. `scale = [s1, s2, ...]` (one entry per row) replaces this with fixed constants
+    - Pairs naturally with `MovingBlockBootstrap`: blocks of observations are resampled and then accumulated, which is equivalent to splicing blocks of the cumulative sum
 
 Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`, as seen in the code example above.
 

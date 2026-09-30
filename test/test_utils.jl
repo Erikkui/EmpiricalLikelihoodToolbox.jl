@@ -240,14 +240,28 @@
             end
         end
 
-        @testset "sums across rows as well as columns" begin
-            @test contract(vcat(row(1:4), row(10:10:40)), 2) == [3.0 + 30.0, 7.0 + 70.0]
+        @testset "contracts each row separately, row after row" begin
+            A = vcat(row(1:6), row(10:10:60))
+            @test contract(A, 2) == [3.0, 7.0, 11.0, 30.0, 70.0, 110.0]
+            # the 1-D case is the single-row special case of the same layout
+            @test contract(row(1:6), 2) == [3.0, 7.0, 11.0]
         end
 
         @testset "in-place agrees with allocating" begin
             out = zeros(5)
             contract!(out, M, 2)
             @test out == contract(M, 2)
+        end
+
+        @testset "contract! fills a preallocated output and validates sizes" begin
+            A = vcat(row(1:6), row(10:10:60))
+
+            out = zeros(4)                           # fewer windows than fit: the tail is unused
+            contract!(out, A, 2)
+            @test out == [3.0, 7.0, 30.0, 70.0]
+
+            @test_throws ArgumentError contract!(zeros(8), A, 2)        # 4 windows of 2 > 6 columns
+            @test_throws DimensionMismatch contract!(zeros(5), A, 2)    # not a multiple of the 2 rows
         end
     end
 

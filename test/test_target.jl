@@ -176,12 +176,12 @@
         # CumulativeSum arrives with summary_length 0 and a NaN normalization factor; TargetData
         # must fill both in, or JointSummaryStatistics would slice a zero-width view.
         raw = CumulativeSum(4)
-        @test raw.summary_length == 0 && isnan(raw.normalization_factor)
+        @test raw.summary_length == 0 && all(isnan, raw.normalization_factor)
 
         target, _ = make_target(data, CumulativeSum(4); resampling_type = NoResampling())
         finalized = target.summary_statistics.statistics[1]
-        @test finalized.summary_length == 10            # 40 observations / window 4
-        @test isfinite(finalized.normalization_factor)
+        @test finalized.summary_length == 9             # 40 observations / window 4, final window dropped
+        @test all(isfinite, finalized.normalization_factor)
         @test !isnothing(finalized.buffer)
     end
 

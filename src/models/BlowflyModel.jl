@@ -27,7 +27,7 @@ Base.@kwdef struct BlowflyModel{E} <: AbstractSimulationModel
     dt_obs::Float64 = 1.0
     dt_sol::Float64 = 1.0
     dim::Int = length(x0)
-    burn_in::Int = 200
+    burn_in::Int = 50
     mu::Float64 = 1.0
     all_parameters::Tuple{ Vararg{Symbol} } = (:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d)
     active_parameters::Tuple{ Vararg{Symbol} } = (:delta, :P, :N0, :sigma2_p, :tau, :sigma2_d)

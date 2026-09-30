@@ -277,34 +277,46 @@ function _diff_embedding( data_in, embedding_dims )
 end
 
 
-function contract!( output::AbstractVector{<:Real}, input::AbstractArray{<:Real}, window_size::Int )
+# Sum each row of `input` in non-overlapping windows of `window_size` columns. One method serves
+# 1-D data (a single row) and n-D data alike. The windows of row 1 are written first, then those of
+# row 2, and so on, so `output[(r-1)*n_windows + w]` is the sum of row `r` over columns
+# `(w-1)*window_size+1 : w*window_size`, with `n_windows = div(length(output), nrows)`. For a single
+# row this is simply `output[w]`. Nothing is allocated, and no reshaping of `output` is needed.
+function contract!( output::AbstractVector{<:Real}, input::AbstractMatrix{<:Real}, window_size::Int )
 
     nrows, ncols = size( input )
-    n_windows = length( output )
 
     @assert ncols > window_size  "Window size is too large for the input data."
+    length( output ) % nrows == 0 || throw( DimensionMismatch(
+        "output length $(length( output )) is not a multiple of the $nrows rows of input" ) )
 
-    start_ind = 1
-    end_ind = window_size
-    for ii in 1:n_windows
-        data_window = @view input[ :, start_ind:end_ind ]
-        contract_sum = sum( sum( data_window ) )
-        output[ii] = contract_sum
+    n_windows = div( length( output ), nrows )
+    n_windows * window_size <= ncols || throw( ArgumentError( "Window size is too large for the input data." ) )
 
-        start_ind += window_size
-        end_ind += window_size
+    # The checks above guarantee every index below is in bounds, so @inbounds is safe. The window
+    # sum is accumulated in a register and stored once, which is several times faster than
+    # read-modify-writing `output` for every element. Summation order within a window is unchanged.
+    @inbounds for rr in 1:nrows, ww in 1:n_windows
+        start_ind = (ww - 1) * window_size
+        acc = zero( eltype( output ) )
+        for cc in (start_ind + 1):(start_ind + window_size)
+            acc += input[ rr, cc ]
+        end
+        output[ (rr - 1) * n_windows + ww ] = acc
     end
 
     return nothing
 end
 
-function contract( input, window_size::Int )
-    ndata = size( input, 2 )
-    n_windows = div( ndata, window_size )
+# Allocating version: returns the `nrows * div(ncols, window_size)` contracted values, laid out as
+# described for `contract!`.
+function contract( input::AbstractMatrix{<:Real}, window_size::Int )
+    nrows, ncols = size( input )
+    n_windows = div( ncols, window_size )
 
-    @assert ndata > window_size  "Window size is too large for the input data."
+    @assert ncols > window_size  "Window size is too large for the input data."
 
-    output = zeros( n_windows )
+    output = zeros( nrows * n_windows )
     contract!( output, input, window_size )
 
     return output
