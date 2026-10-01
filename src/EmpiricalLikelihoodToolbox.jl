@@ -35,7 +35,7 @@ module EmpiricalLikelihoodToolbox
     export LogLikelihood, RobustChamfer
 
     # Miscellaneous utilities
-    export get_all_model_params, get_active_model_params, embedding
+    export get_all_model_params, get_active_model_params, embedding, chi2_test
 
     # Types user might need
     export AbstractSummaryStatistic, AbstractSimulationModel, AbstractECDFSummary, AbstractChamferSummary, AbstractInferenceMethod

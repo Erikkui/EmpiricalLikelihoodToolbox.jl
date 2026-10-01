@@ -321,3 +321,51 @@ function contract( input::AbstractMatrix{<:Real}, window_size::Int )
 
     return output
 end
+
+# Chis quared test
+function chi2_test( Y::AbstractMatrix; mu=nothing, iC=nothing)
+    # Squared Mahalanobis distances of the rows of Y compared with Chisq(k).
+    # Neither mu nor iC given: normality test, mean and covariance estimated from Y.
+    # Both given: test of N(mu, inv(iC)); mu is a vector or a 1 x k matrix, iC is the inverse covariance.
+    n, k = size(Y)
+    (mu === nothing) == (iC === nothing) || throw(ArgumentError("give both mu and iC, or neither"))
+
+    if mu === nothing
+        Y_mean = mean( Y, dims=1 )
+        Y_std = std( Y, dims=1)
+        Y0 = Y .- Y_mean
+        iC = cov(Y) |> inv
+    else
+        length(mu) == k || throw(DimensionMismatch("mu has length $(length(mu)), Y has $k columns"))
+        Y_mean = mean( Y, dims=1 )
+        Y_std = std( Y, dims=1 )
+        Y0 = Y .- reshape( mu, 1, : )
+    end
+
+    D_sq = sum( Y0' .* (iC * Y0'), dims=1 )
+
+    # Theoretical Chi-square PDF
+    chisq_dist = Chisq(k)
+
+    # Emprical Histogram (pdf) calculation
+    h = fit( Histogram, D_sq, nbins = 100 )
+    edges = h.edges[1]
+    x = (edges[1:end-1] .+ edges[2:end]) ./ 2  # Midpoints of histogram bins
+    khi_n = h.weights ./ ( sum(h.weights) .* diff(edges) )
+
+    # Chi-square theoretical pdf
+    chi_pf = pdf.( chisq_dist, x )
+
+    D_sorted = sort(D_sq)
+    theo_q = quantile.( chisq_dist, (1:n) ./ (n + 1) )
+
+    output = (
+        bins = x,
+        pdf_emp = khi_n,
+        pdf_theor = chi_pf,
+        dists_sorted = D_sorted,
+        quantiles_theor = theo_q,
+    )
+
+    return output
+end
