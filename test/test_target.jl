@@ -200,4 +200,18 @@
             @test kept == custom
         end
     end
+
+    @testset "automatic ECDF bins give a full-rank training covariance" begin
+        # Bins outside the binned series (Diff bins from the raw data, padded end points) pin ECDF
+        # coordinates at 0 or 1, which makes the training covariance singular.
+        series = wiggly(300) .* 10 .+ 500
+        for axis_uniform in (:xax, :yax)
+            _, training = make_target(series, StandardECDF(8), StandardECDFDiff(8, 1, 1.0),
+                                      StandardECDFDiff(8, 2, 1.0);
+                                      resampling_type = MovingBlockBootstrap(10),
+                                      training_resamplings = 400, axis_uniform = axis_uniform)
+            @test all(>(1e-8), vec(std(training, dims = 2)))
+            @test rank(cov(training')) == size(training, 1)
+        end
+    end
 end

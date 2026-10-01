@@ -133,6 +133,14 @@ Currently, ten summary statistics are available:
 
 Summary statistics must be wrapped into a `JointSummaryStatistics()` struct, eg. `JointSummaryStatistics(CIL(10), CILDiff(10, 1, 1.0))`, as seen in the code example above.
 
+#### How bin edges are chosen
+
+Bin edges are placed on the series each summary actually evaluates its eCDF on: the raw data for `StandardECDF`, the differences for `StandardECDFDiff`, and the resampled distances or ratios for the two-set summaries (`CIL`, `ID`, `ChamferECDF`, ...). `axis_uniform` selects the spacing:
+
+* `:yax` — the dense eCDF of the data is inverted at the equal-mass midpoint levels `(i - 0.5)/nbin` of its range, so the edges are densest where the eCDF is steepest and no edge sits on the ends of the data (an edge below the minimum or at the maximum would read 0 or 1 in every resample, making the training covariance singular). For discrete data (eg. counts), where several levels fall inside one jump of the eCDF, every edge is snapped onto a distinct data value below the maximum, so each edge reads a different eCDF value.
+* `:xax` — uniformly spaced edges between the `0.5/nbin` and `1 - 0.5/nbin` quantiles.
+* `:log` — log-spaced edges over the same quantile range, for positive data only.
+
 #### Reusing bin edges
 
 By default, a summary statistic's bin edges (`nbin` of them) are computed automatically from the data the first time `TargetData(...)` is called, and stored on the summary object (`stat.bins`). Every eCDF-based summary statistic above also accepts those bin edges directly instead of `nbin`, which is useful for reusing bins already computed from a previous run (eg. `some_stat.bins[1]`) instead of recomputing them:

@@ -10,7 +10,8 @@ order. Because the boundary columns of a central difference are fabricated by pa
 also trims `diff_order` points from each end of the index cache.
 
 # Fields
-- `bins::B`: The bin edges for the ECDF. If `nothing`, the bins are calculated from the data.
+- `bins::B`: The bin edges for the ECDF. If `nothing`, the bins are calculated from the differences of the data
+  (the same series the ECDF is evaluated on), not from the raw data.
 - `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
 - `dt_obs::Float64`: Time step between observations, the denominator of the difference.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.

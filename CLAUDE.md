@@ -55,8 +55,10 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
    `allocate_buffer`, `get_summary_length`, `required_diff_order`, `generate_stat_name`, and
    `finalize_summary`. ECDF-based summaries additionally need `get_bin_quantity` and go through
    `create_bins`/`_bin_select` (`src/utils/bin_calculation.jl`) which auto-selects bin edges from
-   resampled training data using IQR-based robust bounds (`axis_uniform` option controls whether bins
-   are uniform in `:xax`, uniform in CDF-space via `:yax`, or `:log`-spaced) — `create_bins` skips
+   the quantity each summary evaluates its ECDF on (raw rows, `differences[order]` for the Diff
+   summaries, resampled distances/ratios for two-set summaries), within the 0.5-99.5 % quantile range
+   (`axis_uniform` option controls whether bins are uniform in `:xax`, uniform in CDF-space via `:yax`
+   at equal-mass midpoint levels with ties snapped onto distinct data values, or `:log`-spaced) — `create_bins` skips
    this and returns the summary unchanged when it already carries bins (`_has_existing_bins`), so
    bins passed to a summary's constructor survive a full `TargetData` pipeline run.
 3. **Resamplers** (`src/utils/resamplers.jl`) — callable structs (`RademacherSplit` 50/50 split,

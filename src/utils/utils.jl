@@ -74,11 +74,19 @@ function calculate_diffs!( diff_buffer, R, diff_order::Tuple{Vararg{Int}}, dt_ob
 end
 
 
-# Inverse CDF function
+# Target levels of invcdf: equal-mass midpoints (i - 0.5)/nr spread over the range of the cdf, so the first and
+# last levels never sit on the ends of the cdf, where the inverted point would lie outside the data.
+function invcdf_levels( cdf, nr )
+    cmin, cmax = minimum(cdf), maximum(cdf)
+    return cmin .+ ( cmax - cmin ) .* ( (1:nr) .- 0.5 ) ./ nr
+end
+
+# Inverse CDF function: the points of x where cdf crosses the invcdf_levels. cont=1 interpolates linearly between
+# grid points, cont=2 returns the grid point verbatim.
 function invcdf( x, cdf, nr, cont=1 )::Vector{Float64}
     xi = vec(x)
     cdfi = vec(cdf)
-    rr = range(1.01 * minimum(cdf), stop=0.99 * maximum(cdf), length=nr)
+    rr = invcdf_levels( cdfi, nr )
     r = zeros( Float64, nr )
     n_xi = length(xi)
 
@@ -322,29 +330,42 @@ function contract( input::AbstractMatrix{<:Real}, window_size::Int )
     return output
 end
 
-# Chis quared test
-function chi2_test( Y::AbstractMatrix; mu=nothing, iC=nothing)
-    # Squared Mahalanobis distances of the rows of Y compared with Chisq(k).
-    # Neither mu nor iC given: normality test, mean and covariance estimated from Y.
-    # Both given: test of N(mu, inv(iC)); mu is a vector or a 1 x k matrix, iC is the inverse covariance.
-    n, k = size(Y)
-    (mu === nothing) == (iC === nothing) || throw(ArgumentError("give both mu and iC, or neither"))
+
+# Chi-squared test: the squared Mahalanobis distances of the rows of Y are compared with Chisq(k).
+# Tests Y against N(mu, C). mu is a vector or a 1 x k matrix. C is either a covariance matrix or the
+# upper triangular Cholesky factor U of one, C = U'U (eg. `cholesky(C).U`). mu and C are given
+# together; with neither given they are estimated from Y, so this is a normality test.
+# The returned mu and stdev are the 1 x k mean and standard deviations of the tested distribution.
+function chi2_test( Y::AbstractMatrix{<:Real}; mu = nothing, C = nothing )
+
+    (mu === nothing) == (C === nothing) || throw(ArgumentError("give both mu and C, or neither"))
+
+    n, k = size( Y )
 
     if mu === nothing
         Y_mean = mean( Y, dims=1 )
         Y_std = std( Y, dims=1)
         Y0 = Y .- Y_mean
-        iC = cov(Y) |> inv
+        C = cov(Y)
+        U = cholesky( Symmetric( C ) ).U
     else
-        length(mu) == k || throw(DimensionMismatch("mu has length $(length(mu)), Y has $k columns"))
-        Y_mean = mean( Y, dims=1 )
-        Y_std = std( Y, dims=1 )
-        Y0 = Y .- reshape( mu, 1, : )
+        if C isa UpperTriangular
+            U = C
+        elseif C isa Matrix
+            U = cholesky( Symmetric( C ) ).U
+        else
+            throw( ArgumentError( "C must be a covariance Matrix or an UpperTriangular Cholesky factor, got $(typeof(C))" ) )
+        end
+        Y_mean = reshape( mu, 1, : )
+        Y_std = sqrt.( sum( abs2, U, dims=1 ) )  # sqrt(diag(C)), as C = U'U
+        Y0 = Y .- Y_mean
     end
 
-    D_sq = sum( Y0' .* (iC * Y0'), dims=1 )
+    # With Z = (Y - mu) / U the squared Mahalanobis distance of each row is just its squared norm.
+    Z = Y0 / U
+    D_sq = vec( sum( abs2, Z, dims=2 ) )
 
-    # Theoretical Chi-square PDF
+    # Theoretical Chi-square distribution
     chisq_dist = Chisq(k)
 
     # Emprical Histogram (pdf) calculation
@@ -365,6 +386,8 @@ function chi2_test( Y::AbstractMatrix; mu=nothing, iC=nothing)
         pdf_theor = chi_pf,
         dists_sorted = D_sorted,
         quantiles_theor = theo_q,
+        mu = Y_mean,
+        stdev = Y_std,
     )
 
     return output

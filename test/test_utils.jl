@@ -276,6 +276,12 @@
 
         # cont=2 skips interpolation and returns grid values verbatim.
         @test all(in(x), invcdf(x, cdf, 7, 2))
+
+        # Levels are equal-mass midpoints, strictly inside the cdf range, so the first and last
+        # points never sit on the ends of the grid.
+        levels = EmpiricalLikelihoodToolbox.invcdf_levels(cdf, 7)
+        @test levels ≈ minimum(cdf) .+ (maximum(cdf) - minimum(cdf)) .* ((1:7) .- 0.5) ./ 7
+        @test minimum(x) < r[1] && r[end] < maximum(x)
     end
 
     @testset "standardize!" begin

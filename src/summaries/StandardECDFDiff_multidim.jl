@@ -12,7 +12,7 @@ Constructed through [`StandardECDFDiff`](@ref) with four arguments, which return
 `StandardECDFDiff` when `ndim < 2`.
 
 # Fields
-- `bins::B`: One vector of bin edges per dimension. If `nothing`, calculated from the data.
+- `bins::B`: One vector of bin edges per dimension. If `nothing`, calculated from each row of the differences.
 - `nbin::Int`: The number of bins per dimension.
 - `ndim::Int`: The number of data dimensions (rows) summarized.
 - `dt_obs::Float64`: Time step between observations, the denominator of the difference.
