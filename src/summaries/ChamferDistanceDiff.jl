@@ -12,13 +12,12 @@ padding.
 - `neighbors::T`: The neighbour index (or indices) to evaluate. An `Int` or a vector of `Int`.
 - `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
-- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
 - `summary_length::Int`: `1` for a scalar `neighbors`, otherwise `length(neighbors)`.
 
 # Examples
 ```julia
-stat = ChamferDistanceDiff(1, 1, 1.0)        # first derivative, nearest neighbour
-stat = ChamferDistanceDiff([1, 3], 1, 1.0)   # summary_length == 2
+stat = ChamferDistanceDiff(1, 1)        # first derivative, nearest neighbour
+stat = ChamferDistanceDiff([1, 3], 1)   # summary_length == 2
 ```
 
 See also [`ChamferDistance`](@ref).
@@ -27,16 +26,15 @@ struct ChamferDistanceDiff{T} <: AbstractChamferSummary
     neighbors::T
     highest_neighbor::Int
     diff_order::Int
-    dt_obs::Float64
     summary_length::Int
 end
 
-function ChamferDistanceDiff( neighbors::Int, diff_order::Int, dt_obs::Float64 )
-    return ChamferDistanceDiff( neighbors, maximum(neighbors), diff_order, dt_obs, 1 )
+function ChamferDistanceDiff( neighbors::Int, diff_order::Int )
+    return ChamferDistanceDiff( neighbors, maximum(neighbors), diff_order, 1 )
 end
 
-function ChamferDistanceDiff( neighbors::AbstractVector{<:Int}, diff_order::Int, dt_obs::Float64 )
-    return ChamferDistanceDiff( collect(vec(neighbors)), maximum(neighbors), diff_order, dt_obs, length(neighbors) )
+function ChamferDistanceDiff( neighbors::AbstractVector{<:Int}, diff_order::Int )
+    return ChamferDistanceDiff( collect(vec(neighbors)), maximum(neighbors), diff_order, length(neighbors) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization

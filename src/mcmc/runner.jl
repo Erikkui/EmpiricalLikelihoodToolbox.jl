@@ -30,18 +30,6 @@ function _allocate_results_buffer( model, chain_length, n_stages )
     return results_buffer
 end
 
-# A parameter with no prior falls back to a flat (uninformative) prior in evaluate_log_prior;
-# just warn so the user notices a partially-specified priors NamedTuple.
-function _check_priors( target::TargetData, model::AbstractSimulationModel )
-    active_param_names, _ = get_active_model_params( model )
-    if !( isnothing( target.priors ) || isempty( target.priors ) )
-        missing_names = Tuple( setdiff( active_param_names, keys( target.priors ) ) )
-        if !isempty( missing_names )
-            @warn "No prior specified for parameter(s) $missing_names; using a flat (uninformative) prior for them."
-        end
-    end
-end
-
 function _check_initial_params( model, options )
     _, active_param_values = get_active_model_params( model )
     npar_active = length( active_param_values )
@@ -83,7 +71,10 @@ function _print_mcmc_error( err, results, chain_length )
 end
 
 
-function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_options::MCMCOptions )
+# The model is the one the target was built with, so the simulations always match the observed data.
+function mcmcrun( target::TargetData, mcmc_options::MCMCOptions )
+
+    model = target.model
 
     # Setup
     MCMCRun = mcmc_options.mcmc_algorithm
@@ -91,7 +82,6 @@ function mcmcrun( target::TargetData, model::AbstractSimulationModel, mcmc_optio
 
     chain_length = mcmc_options.nsteps
 
-    _check_priors( target, model )  # Only warning if some priors are missing
     current_params = _check_initial_params( model, mcmc_options )
     proposal_cov = _check_proposal_cov( model, proposal_width )
 

@@ -8,20 +8,19 @@ Combines [`StandardECDFMultiDimensional`](@ref) and [`StandardECDFDiff`](@ref): 
 rows is differentiated `diff_order` times and summarized by its own ECDF, and the results are
 concatenated into a vector of length `ndim * nbin`.
 
-Constructed through [`StandardECDFDiff`](@ref) with four arguments, which returns a plain
+Constructed through [`StandardECDFDiff`](@ref) with three arguments, which returns a plain
 `StandardECDFDiff` when `ndim < 2`.
 
 # Fields
 - `bins::B`: One vector of bin edges per dimension. If `nothing`, calculated from each row of the differences.
 - `nbin::Int`: The number of bins per dimension.
 - `ndim::Int`: The number of data dimensions (rows) summarized.
-- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `ndim * nbin`.
 
 # Examples
 ```julia
-stat = StandardECDFDiff(10, 3, 1, 1.0)   # 3 dimensions, first derivative, summary_length == 30
+stat = StandardECDFDiff(10, 3, 1)   # 3 dimensions, first derivative, summary_length == 30
 ```
 
 See also [`StandardECDFDiff`](@ref), [`StandardECDFMultiDimensional`](@ref).
@@ -30,16 +29,15 @@ struct StandardECDFDiffMultiDimensional{B} <: StandardECDFSummary
     bins::B
     nbin::Int
     ndim::Int
-    dt_obs::Float64
     diff_order::Int
     summary_length::Int
 end
 
-function StandardECDFDiff( nbin::Int, ndim::Int, diff_order::Int, dt_obs::Float64 )
+function StandardECDFDiff( nbin::Int, ndim::Int, diff_order::Int )
     if ndim < 2
-        return StandardECDFDiff( nothing, nbin, dt_obs, diff_order, nbin )
+        return StandardECDFDiff( nothing, nbin, diff_order, nbin )
     else
-        return StandardECDFDiffMultiDimensional( nothing, nbin, ndim, dt_obs, diff_order, ndim*nbin )
+        return StandardECDFDiffMultiDimensional( nothing, nbin, ndim, diff_order, ndim*nbin )
     end
 end
 

@@ -5,22 +5,23 @@
 Empirical CDF of a numerical derivative of the data, rather than of the raw series.
 
 The derivatives are central differences, `(x[j+1] - x[j-1]) / (2*dt_obs)`, applied `diff_order`
-times. `TargetData` computes them once and shares them with every summary that asks for the same
-order. Because the boundary columns of a central difference are fabricated by padding, `TargetData`
-also trims `diff_order` points from each end of the index cache.
+times, where `dt_obs` is the observation time step of the model passed to `TargetData`. The
+summary itself carries no time step. `TargetData` computes the derivatives once and shares them with
+every summary that asks for the same order. Because the boundary columns of a central difference
+are fabricated by padding, `TargetData` also trims `diff_order` points from each end of the index
+cache.
 
 # Fields
 - `bins::B`: The bin edges for the ECDF. If `nothing`, the bins are calculated from the differences of the data
   (the same series the ECDF is evaluated on), not from the raw data.
 - `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
-- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
 
 # Examples
 ```julia
-stat = StandardECDFDiff(10, 1, 1.0)   # 10 bins, first derivative, unit time step
-stat = StandardECDFDiff(10, 2, 0.5)   # second derivative of data sampled every 0.5 time units
+stat = StandardECDFDiff(10, 1)   # 10 bins, first derivative
+stat = StandardECDFDiff(10, 2)   # 10 bins, second derivative
 ```
 
 See also [`StandardECDF`](@ref), [`CILDiff`](@ref).
@@ -28,18 +29,17 @@ See also [`StandardECDF`](@ref), [`CILDiff`](@ref).
 struct StandardECDFDiff{B} <: StandardECDFSummary
     bins::B
     nbin::Int
-    dt_obs::Float64
     diff_order::Int
     summary_length::Int
 end
 
-function StandardECDFDiff( nbin::Int, diff_order::Int, dt_obs::Float64 )
-    return StandardECDFDiff( nothing, nbin, dt_obs, diff_order, nbin )
+function StandardECDFDiff( nbin::Int, diff_order::Int )
+    return StandardECDFDiff( nothing, nbin, diff_order, nbin )
 end
 
-function StandardECDFDiff( bins::AbstractVector{<:Real}, diff_order::Int, dt_obs::Float64 )
+function StandardECDFDiff( bins::AbstractVector{<:Real}, diff_order::Int )
     bins_vec = collect( vec(bins) )
-    return StandardECDFDiff( [bins_vec], length(bins_vec), dt_obs, diff_order, length(bins_vec) )
+    return StandardECDFDiff( [bins_vec], length(bins_vec), diff_order, length(bins_vec) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization

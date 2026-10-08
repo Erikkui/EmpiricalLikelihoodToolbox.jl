@@ -1,8 +1,5 @@
-function initialize_datacontainer( data, statistics::Tuple, options, diff_orders )
+function initialize_datacontainer( data, options, diff_orders, dt_obs::Float64 )
     if maximum(diff_orders) > 0
-        diff_inds = diff_orders .> 0
-        ind = findfirst( diff_inds )
-        dt_obs = statistics[ ind ].dt_obs
         difference_data = calculate_diffs( data, diff_orders, dt_obs )
     else
         difference_data = Vector{Matrix{Float64}}(undef, 0)
@@ -151,12 +148,37 @@ finalize_target_covariance( ::GSL, cov_mat, summary_length ) = regularized_chole
 # size up front so the later @set in the MCMC loop does not change it.
 finalize_target_covariance( ::BSL, cov_mat, summary_length ) = cholesky( Matrix( 1.0I, summary_length, summary_length ) )
 
+# A parameter with no prior falls back to a flat (uninformative) prior in evaluate_log_prior;
+# just warn so the user notices a partially-specified priors NamedTuple.
+function _check_priors( priors, model::AbstractSimulationModel )
+    active_param_names, _ = get_active_model_params( model )
+    if !( isnothing( priors ) || isempty( priors ) )
+        missing_names = Tuple( setdiff( active_param_names, keys( priors ) ) )
+        if !isempty( missing_names )
+            @warn "No prior specified for parameter(s) $missing_names; using a flat (uninformative) prior for them."
+        end
+    end
+end
 
+# The observed series fixes the length of every simulation. Any N_obs passed in the options must agree.
+function _set_n_obs( options::MethodsOptions, data )
+    N_obs = size( data, 2 )
+    if options.N_obs != 0 && options.N_obs != N_obs
+        throw( ArgumentError( "MethodsOptions.N_obs = $(options.N_obs) does not match the $(N_obs) observations in the data. N_obs is taken from the data; leave it unset." ) )
+    end
+    return @set options.N_obs = N_obs
+end
+
+
+# `data` is the raw observed series. It is embedded here with options.embedding_dim/embedding_type,
+# exactly as create_simulated_data embeds each simulation, and its length sets options.N_obs, the
+# length of every simulation. `model` is stored in the target and is the one mcmcrun runs.
 function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
     options::MethodsOptions,
-    loss;
+    loss,
+    model::AbstractSimulationModel;
     priors = nothing,
     )
 
@@ -165,8 +187,13 @@ function TargetData(
 
     diff_orders = map( required_diff_order, statistics )
 
-    # Create DataContainer
-    data_container = initialize_datacontainer( data, statistics, options, diff_orders )
+    _check_priors( priors, model )  # Only warning if some priors are missing
+    options = _set_n_obs( options, data )
+    observations = embedding( data, options.embedding_dim, options.embedding_type )
+
+    # Create DataContainer. The observed data's differences use the model's dt_obs, the same step
+    # create_simulated_data uses for the simulated data's differences.
+    data_container = initialize_datacontainer( observations, options, diff_orders, model.dt_obs )
 
     # Create buffers for use in resampling
     buffer_container, data_container, total_summary_length = allocate_buffers( statistics, data_container, options, diff_orders )
@@ -227,7 +254,8 @@ function TargetData(
         cov_factorization,
         total_summary_length,
         mean_standardization,
-        sd_standardization )
+        sd_standardization,
+        model )
 
     return target, training_summaries
 end

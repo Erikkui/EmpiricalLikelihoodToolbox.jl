@@ -16,7 +16,6 @@ boundary columns by padding.
 # Fields
 - `bins::B`: One vector of bin edges per requested neighbour. If `nothing`, calculated from the data.
 - `nbin::Int`: The number of bins per neighbour.
-- `dt_obs::Float64`: Time step between observations, the denominator of the difference.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `neighbors::T`: The neighbour indices to use, always stored as a vector.
 - `summary_length::Int`: Equal to `length(neighbors) * nbin`.
@@ -24,8 +23,8 @@ boundary columns by padding.
 
 # Examples
 ```julia
-stat = IDDiff(10, 1, 1, 1.0)        # 10 bins, 1st/2nd neighbour ratio, first derivative
-stat = IDDiff(10, [1, 3], 1, 1.0)   # two ratios, summary_length == 20
+stat = IDDiff(10, 1, 1)        # 10 bins, 1st/2nd neighbour ratio, first derivative
+stat = IDDiff(10, [1, 3], 1)   # two ratios, summary_length == 20
 ```
 
 See also [`ID`](@ref), [`CILDiff`](@ref).
@@ -33,30 +32,29 @@ See also [`ID`](@ref), [`CILDiff`](@ref).
 struct IDDiff{B, T, BUF} <: IDSummary
     bins::B
     nbin::Int
-    dt_obs::Float64
     diff_order::Int
     neighbors::T
     summary_length::Int
     buffer::BUF
 end
 
-function IDDiff( nbin::Int, neighbors::Int, diff_order::Int, dt_obs::Float64 )
+function IDDiff( nbin::Int, neighbors::Int, diff_order::Int )
     summary_len = length( neighbors )*nbin
-    return IDDiff( nothing, nbin, dt_obs, diff_order, [neighbors], summary_len, nothing )
+    return IDDiff( nothing, nbin, diff_order, [neighbors], summary_len, nothing )
 end
 
-function IDDiff( nbin::Int, neighbors::AbstractVector{<:Int}, diff_order::Int, dt_obs::Float64 )
+function IDDiff( nbin::Int, neighbors::AbstractVector{<:Int}, diff_order::Int )
     summary_len = length( neighbors )*nbin
-    return IDDiff( nothing, nbin, dt_obs, diff_order, vec(neighbors), summary_len, nothing )
+    return IDDiff( nothing, nbin, diff_order, vec(neighbors), summary_len, nothing )
 end
 
-function IDDiff( bins::AbstractVector{<:Real}, neighbors::Int, diff_order::Int, dt_obs::Float64 )
+function IDDiff( bins::AbstractVector{<:Real}, neighbors::Int, diff_order::Int )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return IDDiff( [bins_vec], nbin, dt_obs, diff_order, [neighbors], nbin, nothing )
+    return IDDiff( [bins_vec], nbin, diff_order, [neighbors], nbin, nothing )
 end
 
-function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int}, diff_order::Int, dt_obs::Float64 )
+function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int}, diff_order::Int )
     length(bins) == length(neighbors) || throw( ArgumentError(
         "bins and neighbors must have the same length, got $(length(bins)) and $(length(neighbors))" ) )
 
@@ -65,7 +63,7 @@ function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Abst
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return IDDiff( bins_vecs, nbin, dt_obs, diff_order, vec(neighbors), length(neighbors)*nbin, nothing )
+    return IDDiff( bins_vecs, nbin, diff_order, vec(neighbors), length(neighbors)*nbin, nothing )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization

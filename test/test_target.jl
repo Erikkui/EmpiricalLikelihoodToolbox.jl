@@ -76,11 +76,11 @@
             # calculate_diffs fabricates boundary columns; each order propagates that one column
             # further inward, so trimming d from each end excludes every fabricated point.
             for d in (1, 2)
-                target, _ = make_target(wiggly(40), StandardECDFDiff(5, d, 1.0))
+                target, _ = make_target(wiggly(40), StandardECDFDiff(5, d))
                 @test sort(target.buffers.index_cache) == collect(d+1:40-d)
                 @test target.data.options.effective_N_obs == 40 - 2d
 
-                target_nr, _ = make_target(wiggly(40), StandardECDFDiff(5, d, 1.0);
+                target_nr, _ = make_target(wiggly(40), StandardECDFDiff(5, d);
                                            resampling_type = NoResampling())
                 @test target_nr.buffers.index_cache == collect(d+1:40-d)
             end
@@ -90,8 +90,20 @@
             # allocate_buffers writes the post-trim effective_N_obs into the DataContainer's
             # options; the outer options binding is reassigned from it before TargetData is
             # constructed, so the two no longer diverge.
-            target, _ = make_target(wiggly(40), StandardECDFDiff(5, 1, 1.0))
+            target, _ = make_target(wiggly(40), StandardECDFDiff(5, 1))
             @test target.options.effective_N_obs == target.data.options.effective_N_obs
+        end
+
+        @testset "the derivative step is the model's dt_obs" begin
+            # The summaries carry no time step; TargetData takes it from the model, the same step
+            # create_simulated_data uses for the simulated data.
+            series = wiggly(40)
+            target, _ = make_target(series, StandardECDFDiff(5, 1), StandardECDFDiff(5, 2);
+                                    model = NormalModel(dt_obs = 0.5))
+            expected = calculate_diffs(series, (1, 2), 0.5)
+            @test target.model.dt_obs == 0.5
+            @test target.data.differences[1] ≈ expected[1]
+            @test target.data.differences[2] ≈ expected[2]
         end
     end
 
@@ -119,7 +131,7 @@
         end
 
         @testset "simulation_diffs has max_diff_order + 2 entries" begin
-            target, _ = make_target(wiggly(40), StandardECDFDiff(5, 2, 1.0))
+            target, _ = make_target(wiggly(40), StandardECDFDiff(5, 2))
             d = target.buffers.simulation_diffs
             @test length(d) == 4                            # 2 orders + 2 scratch
             @test size(d[1]) == (0, 0)                      # order 1 was not requested
@@ -206,8 +218,8 @@
         # coordinates at 0 or 1, which makes the training covariance singular.
         series = wiggly(300) .* 10 .+ 500
         for axis_uniform in (:xax, :yax)
-            _, training = make_target(series, StandardECDF(8), StandardECDFDiff(8, 1, 1.0),
-                                      StandardECDFDiff(8, 2, 1.0);
+            _, training = make_target(series, StandardECDF(8), StandardECDFDiff(8, 1),
+                                      StandardECDFDiff(8, 2);
                                       resampling_type = MovingBlockBootstrap(10),
                                       training_resamplings = 400, axis_uniform = axis_uniform)
             @test all(>(1e-8), vec(std(training, dims = 2)))

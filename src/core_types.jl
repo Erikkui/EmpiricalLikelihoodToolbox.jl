@@ -39,8 +39,8 @@ Base.@kwdef struct MethodsOptions{R, F, E, IM}
     bins_resamplings::Int = 40
     resampling_type::R = RademacherSplit()
     training_resamplings::Int = 1000
-    N_obs::Int
-    effective_N_obs::Int = N_obs
+    N_obs::Int = 0                  # Raw series length, filled in by TargetData from the data
+    effective_N_obs::Int = N_obs    # Post-embedding, post-trim length, filled in by TargetData
     mcmc_resamplings::Int = training_resamplings
     n_summaries::Int = 1
     n_loss_evals::Int = 1
@@ -85,7 +85,7 @@ Base.@kwdef struct MCMCOptions{A, G, F}
 end
 
 #------------MCMC target
-struct TargetData{C, S, P, O, B, T, OM, IC, SL}
+struct TargetData{C, S, P, O, B, T, OM, IC, SL, M}
     data::C
     summary_statistics::S
     priors::P
@@ -96,4 +96,5 @@ struct TargetData{C, S, P, O, B, T, OM, IC, SL}
     summary_length::SL
     standardization_mean::T
     standardization_sd::T
+    model::M    # The simulator: mcmcrun starts from it, and its dt_obs is the step of the observed data's differences
 end

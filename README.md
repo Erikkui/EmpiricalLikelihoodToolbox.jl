@@ -41,12 +41,11 @@ function main()
 
     summary_statistics = JointSummaryStatistics(                      # Wrapping summaries into single joint summary
         CIL( 10 ),
-        CILDiff( 10, 1, dt_obs ),
-        IDDiff( 10, 1, 1, dt_obs ),
+        CILDiff( 10, 1 ),                     # Derivatives use the model's dt_obs
+        IDDiff( 10, 1, 1 ),
         )
 
     methods_options = MethodsOptions(                        # Collecting defined options into single struct
-        N_obs = Ndata,
         resampling_type=resampler,
         axis_uniform=axis_unif,
         training_resamplings=nrep_training,
@@ -62,10 +61,13 @@ function main()
         )
 
     # Create target data struct "target". Also ouputs training summaries for intermediary plotting, checks etc.
-    target, training_summaries = TargetData( data, summary_statistics, methods_options )    
+    # data is the raw series: TargetData embeds it (embedding_dim/embedding_type) like every simulation,
+    # and takes N_obs from its length. The model supplies dt_obs, the time step of the Diff summaries'
+    # derivatives, and is stored in the target as the simulator mcmcrun runs.
+    target, training_summaries = TargetData( data, summary_statistics, methods_options, objective_fun, model )
 
     # MCMC
-    results, state = mcmcrun( target, model, mcmc_options )      
+    results, state = mcmcrun( target, mcmc_options )
 
 end
 ```
@@ -78,7 +80,6 @@ Passing `inference_method = BSL(n_sim = k)` instead switches to Bayesian Synthet
 
 ```julia
 methods_options = MethodsOptions(
-    N_obs = Ndata,
     resampling_type = RademacherSplit(),      # any resampler works, see below
     inference_method = BSL( n_sim = 10 ),     # 10 fresh simulations per MCMC step
     )
@@ -102,23 +103,23 @@ Currently, ten summary statistics are available:
    - Defined by number of bins at which the eCDF is evaluated. Number of bins (`nbin`) are required as an argument.
    - Supports multidi-dimensional data via call `StandardECDF(nbin, ndim)`
 2. Standard ECDF using numerical derivatives
-   - Initialization: `StandardECDFDiff(nbin, diff_order, dt_obs)`
+   - Initialization: `StandardECDFDiff(nbin, diff_order)`
    - Same as above, but calculates the eCDF from the numerical derivative of the data
-   - In addition to `nbin`, requires the order of differences (`diff_order`) and time step (`dt_obs`) between observations as arguments
+   - In addition to `nbin`, requires the order of differences (`diff_order`) as an argument. The time step of the derivative is the `dt_obs` of the model passed to `TargetData`, so it is set only once, on the model
 3. Correlation Integral Likelihood (CIL)
    - Initialization: `CIL(nbin)`
 4. Correlation Integral Likelihood using numerical derivatives 
-   - Initialization: `CILDiff(nbin, diff_order, dt_obs)`
+   - Initialization: `CILDiff(nbin, diff_order)`
 5. ECDF from Intrinsic Dimension nearest-neighbor ratios (ID)
    - Initialization: `ID(nbin, neighbors)`
    - `neighbors` as and integer, or vector of integers for multiple ID ratio
 6. ECDF from Intrinsic Dimension nearest-neighbor ratios using numerical derivatives
-   - Initialization: `IDDiff(nbin, neighbors, diff_order, dt_obs)`
+   - Initialization: `IDDiff(nbin, neighbors, diff_order)`
 7. Chamfer Distance
    - Initialization: `ChamferDistance(neighbors)`
    - `neighbors` as and integer, or vector of integers for multiple Chamfer distances
 8. Chamfer Distance using numerical derivatives
-    - Initialization: `ChamferDistanceDiff(neighbors, diff_order, dt_obs)`
+    - Initialization: `ChamferDistanceDiff(neighbors, diff_order)`
 9. ECDF from Chamfer Distances 
     - Initialization: `ChamferECDF(nbin, neighbors)`
     - Support multiple neighbors simlar to basic Chamfer Distance
@@ -145,12 +146,12 @@ Bin edges are placed on the series each summary actually evaluates its eCDF on: 
 
 By default, a summary statistic's bin edges (`nbin` of them) are computed automatically from the data the first time `TargetData(...)` is called, and stored on the summary object (`stat.bins`). Every eCDF-based summary statistic above also accepts those bin edges directly instead of `nbin`, which is useful for reusing bins already computed from a previous run (eg. `some_stat.bins[1]`) instead of recomputing them:
 
-* `StandardECDF(bins)`, `StandardECDFDiff(bins, diff_order, dt_obs)`, `CIL(bins)`, `CILDiff(bins, diff_order, dt_obs)` — `bins` is a plain vector of bin edges (`AbstractVector{<:Real}`).
-* `ID(bins, neighbors)`, `IDDiff(bins, neighbors, diff_order, dt_obs)`, `ChamferECDF(bins, neighbors)` — since these support multiple `neighbors`, `bins` is either a plain vector (reused for the single given `neighbors::Int`), or a vector of one bins vector per neighbor (`bins[ii]` for `neighbors[ii]`) when `neighbors` is itself a vector; in the latter case `length(bins)` must equal `length(neighbors)`, and every per-neighbor bins vector must have the same length.
+* `StandardECDF(bins)`, `StandardECDFDiff(bins, diff_order)`, `CIL(bins)`, `CILDiff(bins, diff_order)` — `bins` is a plain vector of bin edges (`AbstractVector{<:Real}`).
+* `ID(bins, neighbors)`, `IDDiff(bins, neighbors, diff_order)`, `ChamferECDF(bins, neighbors)` — since these support multiple `neighbors`, `bins` is either a plain vector (reused for the single given `neighbors::Int`), or a vector of one bins vector per neighbor (`bins[ii]` for `neighbors[ii]`) when `neighbors` is itself a vector; in the latter case `length(bins)` must equal `length(neighbors)`, and every per-neighbor bins vector must have the same length.
 
 ```julia
 # Compute bins once, reuse them for a second (eg. faster) TargetData construction
-target, _ = TargetData( data, JointSummaryStatistics( CIL(10) ), methods_options )
+target, _ = TargetData( data, JointSummaryStatistics( CIL(10) ), methods_options, LogLikelihood(), model )
 cached_bins = target.summary_statistics.statistics[1].bins[1]
 
 summary_statistics_2 = JointSummaryStatistics( CIL( cached_bins ) )
@@ -180,7 +181,7 @@ User can choose to infer only a subset of parameters, in which case the the rema
 #### `MethodsOptions` settings
 
 The following keyword settings are input to the `MethodsOptions` struct:
-* `N_obs::Int`: Number of observations in the (simulated) dataset. Required, no default.
+* `N_obs::Int`: Number of observations in the raw (pre-embedding) series, which is also the length of every simulated dataset. Leave it unset: `TargetData` takes it from the data, and throws if a value passed here disagrees. Default: `0` (unset).
 * `resampling_type`: Which resampler to use, see [Resamplers](#resamplers). Default: `RademacherSplit()`.
 * `axis_uniform::Symbol`: How ECDF-style summaries pick their bin edges — `:xax` (bins uniform in the data's own units), `:yax` (bins chosen so the eCDF is approximately uniform, via inverse-CDF), or `:log` (log-spaced bins). Default: `:xax`.
 * `bins_resamplings::Int`: Number of resamplings used to determine bin edges for two-set ECDF-style summaries (`CILDiff`, `ID`, `ChamferECDF`, ...). Default: `40`.
@@ -190,7 +191,7 @@ The following keyword settings are input to the `MethodsOptions` struct:
 * `n_loss_evals::Int`: Number of loss evaluations to calculate for a proposal parameter under GSL. Each loss evaluation involves calculating `n_summaries` summaries from a fresh simulation, after which loss is calculated; the mean of the evaluated losses is then used in MCMC acceptance. Not used under BSL, which always aggregates over `n_sim` simulations instead. Default: `1`.
 * `standardize::Bool`: Whether to perform z-score standardization for the summaries. Not supported with `NoResampling()` (no training-draw variability to standardize against), under either GSL or BSL. Default: `false`.
 * `ecdf_calculation_type::Symbol`: `:default` for the raw empirical CDF, or `:kernel_smoothed` for a Gaussian-kernel-smoothed variant. Default: `:default`.
-* `embedding_dim`: Embedding lag(s) applied to simulated data before summarization (via `embedding()`); `0` disables embedding. For `embedding_type = :delay`, a single lag or a collection of lags, each contributing one extra dimension. For `embedding_type = :diff`, a single lag `tau`. Default: `0`.
+* `embedding_dim`: Embedding lag(s) applied before summarization (via `embedding()`), to the observed data by `TargetData` and to every simulated dataset by the same call, so pass `TargetData` the raw series; `0` disables embedding. For `embedding_type = :delay`, a single lag or a collection of lags, each contributing one extra dimension. For `embedding_type = :diff`, a single lag `tau`. Default: `0`.
 * `embedding_type::Symbol`: `:delay` for time-delay embedding (the series plus one or more lagged copies), or `:diff` for the series paired with its lag-`tau` difference (`y_t`, `y_t - y_{t-tau}`). Default: `:delay`.
 * `inference_method`: `GSL()` or `BSL(n_sim=...)`, see [Bayesian Synthetic Likelihood (BSL)](#bayesian-synthetic-likelihood-bsl). Default: `GSL()`.
 * `verbose::Bool`: Print progress bars/diagnostics during target training and MCMC. Default: `false`.

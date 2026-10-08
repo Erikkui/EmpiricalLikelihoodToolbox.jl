@@ -207,7 +207,7 @@
         # Regression for 59b9a3e: StandardECDFDiff bins were taken from the raw observations.
         data = wiggly(200) .* 10 .+ 500                  # raw values far from the derivative scale
         for order in (1, 2)
-            stat, dc, buffers, _ = prepare_summary(data, StandardECDFDiff(6, order, 1.0))
+            stat, dc, buffers, _ = prepare_summary(data, StandardECDFDiff(6, order))
             d = vec(dc.differences[order][:, buffers.index_cache])
             bins = stat.bins[1]
             @test minimum(d) <= bins[1] && bins[end] <= maximum(d)
@@ -218,7 +218,7 @@
 
         @testset "multidimensional Diff bins each row of the differences" begin
             data2 = vcat(wiggly(200; seed = 3) .* 10 .+ 500, wiggly(200; seed = 4) .- 300)
-            stat, dc, buffers, _ = prepare_summary(data2, StandardECDFDiff(6, 2, 1, 1.0))
+            stat, dc, buffers, _ = prepare_summary(data2, StandardECDFDiff(6, 2, 1))
             @test stat isa StandardECDFDiffMultiDimensional
             for ii in 1:2
                 d = dc.differences[1][ii, buffers.index_cache]
@@ -248,7 +248,7 @@
         end
 
         @testset "non-ECDF summaries pass through untouched" begin
-            for stat in (ChamferDistance(1), ChamferDistanceDiff(1, 1, 1.0), CumulativeSum(4))
+            for stat in (ChamferDistance(1), ChamferDistanceDiff(1, 1), CumulativeSum(4))
                 @test create_bins(dc, stat, opts, cache) === stat
             end
         end

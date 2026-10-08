@@ -54,16 +54,17 @@ function make_container(data::AbstractMatrix{Float64}; kwargs...)
 end
 
 """
-    make_target(data, stats...; priors=nothing, loss=LogLikelihood(), kwargs...)
+    make_target(data, stats...; priors=nothing, loss=LogLikelihood(), model=NormalModel(), kwargs...)
 
-Build a `TargetData` the same way the real pipeline does. Always construct the summary statistics
+Build a `TargetData` the same way the real pipeline does. The model supplies `dt_obs` (1.0 by
+default), the time step of the derivative summaries, and is the one `mcmcrun(target, opts)` runs. Always construct the summary statistics
 fresh at the call site: `finalize_summary` binds a summary instance to one `BufferContainer`, so a
 shared instance would alias buffers across tests.
 """
 function make_target(data::AbstractMatrix{Float64}, stats...;
-                     priors = nothing, loss = LogLikelihood(), kwargs...)
+                     priors = nothing, loss = LogLikelihood(), model = NormalModel(), kwargs...)
     opts = make_options(; N_obs = size(data, 2), kwargs...)
-    return TargetData(data, JointSummaryStatistics(stats...), opts; priors = priors, loss = loss)
+    return TargetData(data, JointSummaryStatistics(stats...), opts, loss, model; priors = priors)
 end
 
 "Every concrete simulation model, with parameters left at their defaults."
@@ -78,17 +79,18 @@ updatable_models() = (
 )
 
 """
-    prepare_summary(data, stat; kwargs...) -> (stat, data_container, buffers, summary_length)
+    prepare_summary(data, stat; dt_obs=1.0, kwargs...) -> (stat, data_container, buffers, summary_length)
 
-Run the parts of `TargetData` that allocate and finalize a single summary. Bins are auto-selected
+Run the parts of `TargetData` that allocate and finalize a single summary, with derivatives taken at
+step `dt_obs`. Bins are auto-selected
 only when the summary carries an uninitialized `bins` field, so explicitly-constructed bins survive
 intact -- which is what makes hand-calculated expectations possible.
 """
-function prepare_summary(data::AbstractMatrix{Float64}, stat; kwargs...)
+function prepare_summary(data::AbstractMatrix{Float64}, stat; dt_obs::Float64 = 1.0, kwargs...)
     opts = make_options(; N_obs = size(data, 2), kwargs...)
     stats = (stat,)
     diff_orders = map(required_diff_order, stats)
-    dc = initialize_datacontainer(data, stats, opts, diff_orders)
+    dc = initialize_datacontainer(data, opts, diff_orders, dt_obs)
     buffers, dc, len = allocate_buffers(stats, dc, opts, diff_orders)
 
     if hasproperty(stat, :bins) && isnothing(getproperty(stat, :bins))
@@ -124,7 +126,7 @@ likelihood term. Rebuilding via `make_target` would re-run the randomized traini
 with_priors(t::TargetData, priors) = TargetData(
     t.data, t.summary_statistics, priors, t.options, t.buffers,
     t.obs_mean, t.cov_factorization, t.summary_length,
-    t.standardization_mean, t.standardization_sd,
+    t.standardization_mean, t.standardization_sd, t.model,
 )
 
 # A model with real active_parameters but no solve_model/step! method, for proving a prior of
@@ -140,8 +142,9 @@ struct ExplodingModel <: AbstractSimulationModel
     p2::Float64
     all_parameters::Tuple{Vararg{Symbol}}
     active_parameters::Tuple{Vararg{Symbol}}
+    dt_obs::Float64     # TargetData reads the derivative step from the model
 end
-ExplodingModel() = ExplodingModel(0.0, 0.0, (:p1, :p2), (:p1, :p2))
+ExplodingModel() = ExplodingModel(0.0, 0.0, (:p1, :p2), (:p1, :p2), 1.0)
 
 const EXPLODE_AFTER = Ref(20)
 const EXPLODE_CALLS = Ref(0)

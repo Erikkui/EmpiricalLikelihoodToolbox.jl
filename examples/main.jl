@@ -83,7 +83,6 @@ function run_test_mcmc()
 
     methods_options = MethodsOptions(
         inference_method=inference_method,
-        N_obs = Ndata,
         resampling_type=resampler,
         covariance_type=covariance_type,
         axis_uniform=axis_unif,
@@ -106,9 +105,9 @@ function run_test_mcmc()
         likelihood_noise_scale = likelihood_noise_scale
         )
 
-    target, training_summaries = TargetData( data, summary_statistics, methods_options; priors = priors, loss = lossfun )
+    target, training_summaries = TargetData( data, summary_statistics, methods_options, lossfun, model; priors = priors )
 
-    results, state = mcmcrun( target, model, mcmc_options )
+    results, state = mcmcrun( target, mcmc_options )
 
     chain = results.chain
     if ndims( chain ) == 3

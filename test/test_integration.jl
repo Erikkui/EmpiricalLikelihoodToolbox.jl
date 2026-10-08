@@ -30,9 +30,9 @@
                               bins_resamplings = 10, resampling_type = resampler,
                               inference_method = method)
 
-        target, tsum = TargetData(truth, JointSummaryStatistics(make_stats()...), opts;
-                                  priors = (mu = Normal(0.0, 5.0), sigma = Uniform(0.01, 10.0)),
-                                  loss = LogLikelihood())
+        target, tsum = TargetData(truth, JointSummaryStatistics(make_stats()...), opts,
+                                  LogLikelihood(), model;
+                                  priors = (mu = Normal(0.0, 5.0), sigma = Uniform(0.01, 10.0)))
 
         @test target.summary_length > 0
         @test all(isfinite, target.obs_mean)
@@ -43,7 +43,7 @@
                                 initial_params = [0.5, 1.5], loss_function = LogLikelihood(),
                                 likelihood_noise_scale = 0.0)
 
-        results, state = mcmcrun(target, model, mcmc_opts)
+        results, state = mcmcrun(target, mcmc_opts)
 
         # mcmcrun catches every exception and returns a truncated chain, so without this the
         # whole matrix would pass green on a crash.
@@ -59,13 +59,13 @@
             Random.seed!(888)
             opts = MethodsOptions(N_obs = N, verbose = false, training_resamplings = 40,
                                   resampling_type = NoResampling(), inference_method = method)
-            target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5)), opts;
-                                   loss = LogLikelihood())
+            target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5)), opts,
+                                   LogLikelihood(), model)
             mcmc_opts = MCMCOptions(nsteps = 20,
                                     mcmc_algorithm = DRAM(proposal_width = 0.05, n_stages = 2,
                                                           proposal_scale = [1.0, 0.5]),
                                     initial_params = [0.5, 1.5], likelihood_noise_scale = 0.0)
-            results, _ = mcmcrun(target, model, mcmc_opts)
+            results, _ = mcmcrun(target, mcmc_opts)
             @test results.current_iter[] == 20
             @test all(isfinite, results.chain)
         end
@@ -76,15 +76,15 @@
         opts = MethodsOptions(N_obs = N, verbose = false, training_resamplings = 40,
                               bins_resamplings = 10, resampling_type = RademacherSplit())
         target, _ = TargetData(truth,
-                               JointSummaryStatistics(StandardECDF(5), StandardECDFDiff(5, 1, 1.0)),
-                               opts; loss = LogLikelihood())
+                               JointSummaryStatistics(StandardECDF(5), StandardECDFDiff(5, 1)),
+                               opts, LogLikelihood(), model)
 
         @test target.summary_length == 10
         @test sort(target.buffers.index_cache) == collect(2:N-1)     # trimmed by the diff order
 
         mcmc_opts = MCMCOptions(nsteps = 20, mcmc_algorithm = AM(proposal_width = 0.05),
                                 initial_params = [0.5, 1.5], likelihood_noise_scale = 0.0)
-        results, _ = mcmcrun(target, model, mcmc_opts)
+        results, _ = mcmcrun(target, mcmc_opts)
         @test results.current_iter[] == 20
         @test all(isfinite, results.chain)
     end
@@ -93,14 +93,14 @@
         Random.seed!(555)
         opts = MethodsOptions(N_obs = N, verbose = false, training_resamplings = 40,
                               resampling_type = RademacherSplit(), n_summaries = 4)
-        target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5)), opts;
-                               loss = LogLikelihood())
+        target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5)), opts,
+                               LogLikelihood(), model)
 
         @test size(target.buffers.mcmc_buffer, 2) == 4
 
         mcmc_opts = MCMCOptions(nsteps = 20, mcmc_algorithm = AM(proposal_width = 0.05),
                                 initial_params = [0.5, 1.5], likelihood_noise_scale = 0.0)
-        results, _ = mcmcrun(target, model, mcmc_opts)
+        results, _ = mcmcrun(target, mcmc_opts)
         @test results.current_iter[] == 20
     end
 
@@ -108,12 +108,47 @@
         Random.seed!(556)
         opts = MethodsOptions(N_obs = N, verbose = false, training_resamplings = 40,
                               resampling_type = NoResampling(), n_loss_evals = 3)
-        target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5)), opts;
-                               loss = LogLikelihood())
+        target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5)), opts,
+                               LogLikelihood(), model)
         mcmc_opts = MCMCOptions(nsteps = 20, mcmc_algorithm = AM(proposal_width = 0.05),
                                 initial_params = [0.5, 1.5], likelihood_noise_scale = 0.0)
-        results, _ = mcmcrun(target, model, mcmc_opts)
+        results, _ = mcmcrun(target, mcmc_opts)
         @test results.current_iter[] == 20
+    end
+
+    @testset "TargetData embeds the raw series like every simulation" begin
+        # The observed series gets the same embedding create_simulated_data applies to each
+        # simulation, and N_obs is its raw length, the length every simulation is run for.
+        for (etype, edim, nrows) in ((:delay, [1, 2], 3), (:diff, 1, 2))
+            Random.seed!(91)
+            opts = MethodsOptions(verbose = false, training_resamplings = 40, bins_resamplings = 10,
+                                  resampling_type = RademacherSplit(),
+                                  embedding_dim = edim, embedding_type = etype)
+            target, _ = TargetData(truth, JointSummaryStatistics(StandardECDF(5, nrows)), opts,
+                                   LogLikelihood(), model)
+
+            @test target.data.observations == embedding(truth, edim, etype)
+            @test target.options.N_obs == N
+            @test target.options.effective_N_obs == N - maximum(edim)
+
+            mcmc_opts = MCMCOptions(nsteps = 20, mcmc_algorithm = AM(proposal_width = 0.05),
+                                    initial_params = [0.5, 1.5], likelihood_noise_scale = 0.0)
+            results, _ = mcmcrun(target, mcmc_opts)
+            @test results.current_iter[] == 20
+            @test all(isfinite, results.chain)
+        end
+    end
+
+    @testset "N_obs comes from the data" begin
+        stats() = JointSummaryStatistics(StandardECDF(5))
+        unset = MethodsOptions(verbose = false, training_resamplings = 40)
+        @test unset.N_obs == 0
+        target, _ = TargetData(truth, stats(), unset, LogLikelihood(), model)
+        @test target.options.N_obs == N
+
+        # An explicit N_obs is only accepted when it agrees with the data.
+        wrong = MethodsOptions(N_obs = N + 1, verbose = false, training_resamplings = 40)
+        @test_throws ArgumentError TargetData(truth, stats(), wrong, LogLikelihood(), model)
     end
 
     @testset "the chain moves toward the truth on a well-specified model" begin
@@ -123,16 +158,16 @@
         opts = MethodsOptions(N_obs = 100, verbose = false, training_resamplings = 200,
                               resampling_type = RademacherSplit())
         data = solve_model(NormalModel(mu = 2.0, sigma = 1.0), 100.0; rng = StableRNG(1))
-        target, _ = TargetData(data, JointSummaryStatistics(StandardECDF(8)), opts;
-                               priors = (mu = Uniform(-5.0, 10.0), sigma = Uniform(0.05, 5.0)),
-                               loss = LogLikelihood())
+        target, _ = TargetData(data, JointSummaryStatistics(StandardECDF(8)), opts,
+                               LogLikelihood(), model;
+                               priors = (mu = Uniform(-5.0, 10.0), sigma = Uniform(0.05, 5.0)))
 
         start = [5.0, 3.0]
         mcmc_opts = MCMCOptions(nsteps = 3_000, mcmc_algorithm = AM(proposal_width = 0.1,
                                                                     adaptation_interval = 50),
                                 initial_params = start, likelihood_noise_scale = 0.0,
                                 update_interval = 10_000_000)
-        results, _ = mcmcrun(target, model, mcmc_opts)
+        results, _ = mcmcrun(target, mcmc_opts)
 
         @test results.current_iter[] == 3_000
         posterior_mean = vec(mean(results.chain[:, 1_500:end], dims = 2))

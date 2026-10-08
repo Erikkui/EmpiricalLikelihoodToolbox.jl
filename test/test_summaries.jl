@@ -96,7 +96,7 @@
         @testset "StandardECDFDiff reduces to a constant on a ramp" begin
             # A ramp of slope 2 differentiates to exactly 2 everywhere, so the ECDF is a step.
             ramp = row(2.0 .* (0:9))
-            out = summarize(ramp, StandardECDFDiff([1.0, 3.0], 1, 1.0); resampling_type = NR)
+            out = summarize(ramp, StandardECDFDiff([1.0, 3.0], 1); resampling_type = NR)
             @test out == [0.0, 1.0]
         end
     end
@@ -156,7 +156,7 @@
 
         @testset "ndim < 2 falls back to the one-dimensional summary" begin
             @test StandardECDF(5, 1) isa StandardECDF
-            @test StandardECDFDiff(5, 1, 1, 1.0) isa StandardECDFDiff
+            @test StandardECDFDiff(5, 1, 1) isa StandardECDFDiff
         end
 
         @testset "two-set summaries handle multidimensional input" begin
@@ -171,7 +171,7 @@
         ramp = row(3.0 .* (0:19))
 
         @testset "index cache is trimmed by the diff order" begin
-            _, dc, buffers, _ = prepare_summary(ramp, StandardECDFDiff(4, 1, 1.0); resampling_type = NR)
+            _, dc, buffers, _ = prepare_summary(ramp, StandardECDFDiff(4, 1); resampling_type = NR)
             # calculate_diffs fabricates the boundary columns, so max_diff_order columns are
             # dropped from each end.
             @test buffers.index_cache == collect(2:19)
@@ -179,15 +179,15 @@
         end
 
         @testset "derivative of a ramp is its slope" begin
-            _, dc, _, _ = prepare_summary(ramp, StandardECDFDiff(4, 1, 1.0); resampling_type = NR)
+            _, dc, _, _ = prepare_summary(ramp, StandardECDFDiff(4, 1); resampling_type = NR)
             @test all(≈(3.0), dc.differences[1])
         end
 
         @testset "every Diff variant reports its diff order" begin
-            @test required_diff_order(StandardECDFDiff(4, 2, 1.0)) == 2
-            @test required_diff_order(CILDiff(4, 1, 1.0)) == 1
-            @test required_diff_order(IDDiff(4, 1, 1, 1.0)) == 1
-            @test required_diff_order(ChamferDistanceDiff(1, 1, 1.0)) == 1
+            @test required_diff_order(StandardECDFDiff(4, 2)) == 2
+            @test required_diff_order(CILDiff(4, 1)) == 1
+            @test required_diff_order(IDDiff(4, 1, 1)) == 1
+            @test required_diff_order(ChamferDistanceDiff(1, 1)) == 1
             # Non-Diff variants require none.
             @test required_diff_order(StandardECDF(4)) == 0
             @test required_diff_order(CIL(4)) == 0
@@ -201,17 +201,17 @@
         cases = (
             (() -> StandardECDF(4), 1),
             (() -> StandardECDF([1.0, 2.0, 3.0]), 1),
-            (() -> StandardECDFDiff(4, 1, 1.0), 1),
+            (() -> StandardECDFDiff(4, 1), 1),
             (() -> StandardECDF(4, 2), 2),
-            (() -> StandardECDFDiff(4, 2, 1, 1.0), 2),
+            (() -> StandardECDFDiff(4, 2, 1), 2),
             (() -> CIL(4), 1),
-            (() -> CILDiff(4, 1, 1.0), 1),
+            (() -> CILDiff(4, 1), 1),
             (() -> ID(4, 1), 1),
             (() -> ID(4, [1, 3]), 1),
-            (() -> IDDiff(4, 1, 1, 1.0), 1),
+            (() -> IDDiff(4, 1, 1), 1),
             (() -> ChamferDistance(1), 1),
             (() -> ChamferDistance([1, 3]), 1),
-            (() -> ChamferDistanceDiff(1, 1, 1.0), 1),
+            (() -> ChamferDistanceDiff(1, 1), 1),
             (() -> ChamferECDF(4, 1), 1),
             (() -> CumulativeSum(3), 1),
         )
@@ -248,7 +248,7 @@
     @testset "ID allocates two genuinely distinct distance buffers" begin
         # Regression for the review's critical aliasing bug: dist_buffer and dist_buffer_aux were
         # the same matrix, so sorting rows then columns destroyed the reverse-direction distances.
-        for stat in (ID(4, 1), IDDiff(4, 1, 1, 1.0))
+        for stat in (ID(4, 1), IDDiff(4, 1, 1))
             _, _, buffers, _ = prepare_summary(wiggly(20), stat)
             buf = buffers.summary_buffers[Symbol(generate_stat_name(stat))]
             @test buf.dist_buffer !== buf.dist_buffer_aux

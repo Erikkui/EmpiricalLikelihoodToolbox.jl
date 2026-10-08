@@ -9,9 +9,10 @@ struct GaussianTestModel <: AbstractSimulationModel
     p2::Float64
     all_parameters::Tuple{Vararg{Symbol}}
     active_parameters::Tuple{Vararg{Symbol}}
+    dt_obs::Float64     # TargetData reads the derivative step from the model
 end
-GaussianTestModel(; p1 = 0.0, p2 = 0.0) =
-    GaussianTestModel(p1, p2, (:p1, :p2), (:p1, :p2))
+GaussianTestModel(; p1 = 0.0, p2 = 0.0, dt_obs = 1.0) =
+    GaussianTestModel(p1, p2, (:p1, :p2), (:p1, :p2), dt_obs)
 
 const GAUSS_MU = [1.0, -2.0]
 const GAUSS_SIGMA = [1.0 0.5; 0.5 2.0]
@@ -24,10 +25,10 @@ function EmpiricalLikelihoodToolbox.calculate_loss(
     return -0.5 * dot(d, GAUSS_SIGMA \ d) + logprior
 end
 
-# A minimal TargetData: the samplers only read `priors` and `options.verbose` off it.
-function gaussian_target(; priors = (p1 = nothing, p2 = nothing))
+# A minimal TargetData: the samplers only read `priors`, `options.verbose` and `model` off it.
+function gaussian_target(; priors = (p1 = nothing, p2 = nothing), model = GaussianTestModel())
     target, _ = make_target(wiggly(20), StandardECDF(3);
-                            priors = priors, training_resamplings = 10)
+                            priors = priors, model = model, training_resamplings = 10)
     return target
 end
 
@@ -66,13 +67,12 @@ end
 
     @testset "AM recovers a known Gaussian" begin
         target = gaussian_target()
-        model = GaussianTestModel()
         opts = MCMCOptions(nsteps = 40_000, mcmc_algorithm = AM(proposal_width = 0.5,
                                                                 adaptation_interval = 50),
                            initial_params = [1.0, -2.0], update_interval = 10_000_000)
 
         Random.seed!(20240914)
-        results, state = mcmcrun(target, model, opts)
+        results, state = mcmcrun(target, opts)
 
         # mcmcrun swallows exceptions and returns a truncated chain, so completion must be
         # asserted explicitly or a crash would pass silently.
@@ -91,14 +91,13 @@ end
 
     @testset "DRAM recovers a known Gaussian" begin
         target = gaussian_target()
-        model = GaussianTestModel()
         opts = MCMCOptions(nsteps = 30_000,
                            mcmc_algorithm = DRAM(proposal_width = 0.5, adaptation_interval = 50,
                                                  n_stages = 2, proposal_scale = [1.0, 0.25]),
                            initial_params = [1.0, -2.0], update_interval = 10_000_000)
 
         Random.seed!(5150)
-        results, state = mcmcrun(target, model, opts)
+        results, state = mcmcrun(target, opts)
 
         @test results.current_iter[] == opts.nsteps
 
@@ -123,7 +122,7 @@ end
                            initial_params = [0.0, -2.0], update_interval = 10_000_000)
 
         Random.seed!(31337)
-        results, _ = mcmcrun(target, GaussianTestModel(), opts)
+        results, _ = mcmcrun(target, opts)
 
         @test results.current_iter[] == opts.nsteps
         chain = results.chain[:, 5_000:end]
@@ -133,12 +132,11 @@ end
 
     @testset "runner bookkeeping" begin
         target = gaussian_target()
-        model = GaussianTestModel()
 
         @testset "allocates a chain of the requested size" begin
             opts = MCMCOptions(nsteps = 200, mcmc_algorithm = AM(), initial_params = [1.0, -2.0])
             Random.seed!(1)
-            results, _ = mcmcrun(target, model, opts)
+            results, _ = mcmcrun(target, opts)
             @test size(results.chain) == (2, 200)
             @test length(results.sschain) == 200
             @test results.current_iter[] == 200
@@ -150,7 +148,7 @@ end
             opts = MCMCOptions(nsteps = 500, mcmc_algorithm = AM(proposal_width = 0.5),
                                initial_params = [1.0, -2.0], update_interval = 10_000_000)
             Random.seed!(2)
-            results, _ = mcmcrun(target, model, opts)
+            results, _ = mcmcrun(target, opts)
             @test 0.0 <= results.acceptance[1] <= 1.0
         end
 
@@ -161,7 +159,7 @@ end
                                                          proposal_scale = fill(0.5, n_stages)),
                                    initial_params = [1.0, -2.0], update_interval = 10_000_000)
                 Random.seed!(3)
-                results, _ = mcmcrun(target, model, opts)
+                results, _ = mcmcrun(target, opts)
                 @test results.current_iter[] == 300
                 @test length(results.acceptance) == n_stages
             end
@@ -169,12 +167,16 @@ end
 
         @testset "a wrong-length prior tuple warns and falls back to flat priors" begin
             # A parameter missing from the priors NamedTuple gets a flat prior and a warning
-            # naming it, rather than mcmcrun silently discarding the whole priors tuple.
-            bad = gaussian_target(priors = (p1 = Normal(0.0, 1.0),))
+            # naming it when the target is built, rather than the whole priors tuple being discarded.
+            bad = @test_logs (:warn, r"p2") gaussian_target(priors = (p1 = Normal(0.0, 1.0),))
             opts = MCMCOptions(nsteps = 100, mcmc_algorithm = AM(), initial_params = [1.0, -2.0])
             Random.seed!(4)
-            results, _ = @test_logs (:warn, r"p2") mcmcrun(bad, model, opts)
+            results, _ = mcmcrun(bad, opts)
             @test results.current_iter[] == 100
+        end
+
+        @testset "mcmcrun runs the model stored in the target" begin
+            @test target.model isa GaussianTestModel
         end
 
         @testset "stuck chains get kicked" begin
@@ -182,7 +184,7 @@ end
             opts = MCMCOptions(nsteps = 2_000, mcmc_algorithm = AM(proposal_width = 1e-12),
                                initial_params = [1.0, -2.0], update_interval = 5)
             Random.seed!(6)
-            results, _ = mcmcrun(target, model, opts)
+            results, _ = mcmcrun(target, opts)
             @test results.current_iter[] == 2_000
             @test results.stuck_kicks[] ≥ 0
         end
@@ -190,20 +192,23 @@ end
         @testset "initial_params defaults to a perturbation of the model's own values" begin
             opts = MCMCOptions(nsteps = 50, mcmc_algorithm = AM(), initial_params = nothing)
             Random.seed!(7)
-            results, _ = mcmcrun(target, GaussianTestModel(p1 = 1.0, p2 = -2.0), opts)
+            start_target = gaussian_target(model = GaussianTestModel(p1 = 1.0, p2 = -2.0))
+            results, _ = mcmcrun(start_target, opts)
             @test results.current_iter[] == 50
+            # The perturbation is 1 % of the model's own values, so the chain starts next to them.
+            @test results.chain[:, 1] ≈ [1.0, -2.0] atol = 0.5
         end
     end
 
     @testset "a mid-chain failure returns the partial chain" begin
         # runner.jl catches the exception, truncates at the last completed iteration and returns.
-        target, _ = make_target(wiggly(20), StandardECDF(3);
+        target, _ = make_target(wiggly(20), StandardECDF(3); model = ExplodingModel(),
                                 resampling_type = NoResampling(), training_resamplings = 10)
         opts = MCMCOptions(nsteps = 200, mcmc_algorithm = AM(), initial_params = [0.0, 0.0],
                            likelihood_noise_scale = 0.0)
 
         EXPLODE_CALLS[] = 0
-        results, _ = mcmcrun(target, ExplodingModel(), opts)
+        results, _ = mcmcrun(target, opts)
 
         iters = results.current_iter[]
         @test 0 < iters < opts.nsteps                  # truncated, not a complete run

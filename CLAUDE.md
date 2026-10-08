@@ -45,8 +45,10 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
    `ChamferECDFSummary`, plus `AbstractChamferSummary`/`AbstractCumulativeSumSummary`). Several
    summaries come in `X` and `XDiff` variants (e.g. `StandardECDF`/`StandardECDFDiff`,
    `CIL`/`CILDiff`, `ID`/`IDDiff`, `ChamferDistance`/`ChamferDistanceDiff`) — the `Diff` variant
-   computes the same statistic on numerical derivatives of the data (order `diff_order`, step
-   `dt_obs`) instead of the raw series. Multiple summaries are combined via
+   computes the same statistic on numerical derivatives of the data (order `diff_order`) instead of
+   the raw series. The summaries carry no time step: the derivatives' step is `model.dt_obs`, for
+   the observed data in `TargetData` and for the simulated data in `create_simulated_data`, both
+   from the model stored in the target. Multiple summaries are combined via
    `JointSummaryStatistics(stat1, stat2, ...)`, which concatenates their outputs into one vector
    using each summary's `summary_length`.
    Each summary struct implements a small informal interface (grep any `summaries/*.jl` file for the
@@ -70,11 +72,15 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
 4. **`MethodsOptions`** (`core_types.jl`) bundles cross-cutting config: which resampler/ECDF
    calculation to use, bin count, number of training resamplings, `n_summaries`/`n_loss_evals`
    (noise-reduction knobs — average multiple resampled summaries / multiple loss evaluations per
-   MCMC step), `standardize` (z-score the loss), and `embedding_dim` (time-delay embedding via
-   `embedding()` in `utils/utils.jl`, applied to simulated data before summarization).
-5. **`TargetData(data, summary_statistics, methods_options)`** (`src/mcmc/target.jl`) is the main
-   entry point that ties everything together: builds a `DataContainer`, precomputes numerical
-   derivatives if any summary needs them, allocates all buffers up front (`BufferContainer` — the
+   MCMC step), `standardize` (z-score the loss), and `embedding_dim`/`embedding_type` (embedding via
+   `embedding()` in `utils/utils.jl`, applied to the observed data in `TargetData` and to each
+   simulation in `create_simulated_data`). `N_obs` (raw series length, the length of every
+   simulation) and `effective_N_obs` (post-embedding, post-trim length) are filled in by `TargetData`.
+5. **`TargetData(data, summary_statistics, methods_options, loss, model; priors)`** (`src/mcmc/target.jl`)
+   is the main entry point that ties everything together: takes the *raw* observed series, sets
+   `N_obs` from its length, warns about active parameters without a prior, embeds the series, builds a
+   `DataContainer`, precomputes numerical
+   derivatives (step `model.dt_obs`) if any summary needs them, allocates all buffers up front (`BufferContainer` — the
    package is written to avoid allocations in the MCMC hot loop, including a `bsl_buffer` sized
    `(summary_length, n_sim)` used only under BSL), finalizes bin edges per summary, then computes the
    fixed reference summary via `train_target`, dispatched on `options.inference_method`: `GSL()`
@@ -84,8 +90,8 @@ no submodule structure, so load order there matters (e.g. `core_types.jl` and `u
    `resampling_type isa NoResampling`, otherwise GSL's same resampling loop with the covariance
    discarded. `finalize_target_covariance` (also dispatched on `inference_method`) regularizes+inverts
    GSL's covariance once, or allocates a correctly-shaped zero-matrix placeholder for BSL (overwritten
-   every MCMC step). Returns `(target::TargetData, training_summaries)`.
-6. **MCMC** (`src/mcmc/`) — `mcmcrun(target, model, mcmc_options)` (`runner.jl`) drives the chain via
+   every MCMC step). Stores the model in `target.model`. Returns `(target::TargetData, training_summaries)`.
+6. **MCMC** (`src/mcmc/`) — `mcmcrun(target, mcmc_options)` (`runner.jl`) runs `target.model` and drives the chain via
    a pluggable `mcmc_algorithm` (`AM.jl` = adaptive Metropolis, `DRAM.jl` = delayed rejection AM),
    each implemented as a callable struct `(target, model, state, mcmc_options, results_buffer) ->
    (results, state)`. Per step, `calculate_loss` (`loss.jl`) is dispatched on `target.options.
