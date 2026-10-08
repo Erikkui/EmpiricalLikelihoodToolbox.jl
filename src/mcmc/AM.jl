@@ -4,12 +4,12 @@
 A struct for the adaptive MCMC algorithm.
 
 # Fields
-- `proposal_width::Float64`: The width of the proposal distribution (default: 0.01).
+- `proposal_width`: The variance of the initial proposal distribution (default: 0.01), the same for every parameter; or a vector of per-parameter variances (a diagonal initial proposal, for parameters on different scales).
 - `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
 
 """
-Base.@kwdef struct AM
-    proposal_width::Float64 = 0.01
+Base.@kwdef struct AM{T}
+    proposal_width::T = 0.01
     adaptation_interval::Int = 50
 end
 

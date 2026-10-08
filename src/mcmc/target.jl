@@ -155,9 +155,9 @@ finalize_target_covariance( ::BSL, cov_mat, summary_length ) = cholesky( Matrix(
 function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
-    options::MethodsOptions;
+    options::MethodsOptions,
+    loss;
     priors = nothing,
-    loss = nothing
     )
 
     statistics = summary_stats.statistics

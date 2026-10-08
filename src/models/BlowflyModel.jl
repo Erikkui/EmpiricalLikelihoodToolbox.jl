@@ -11,7 +11,7 @@ A struct for the Nicholson blowfly model, which is a delay differential equation
 - `tau::Float64`: (default: 14).
 - `sigma2_d::Float64`: (default: 0.1).
 - `x0::T`: The initial population. Default: 180.
-- `dt_obs::Float64`: The observation time step (default: 1.0).
+- `dt_obs::Float64`: The observation time step (default: 1.0); `solve_model` returns every `dt_obs/dt_sol`-th day.
 
 # Examples
 model = BlowflyModel(dt_obs = 1.0, x0 = [1.0, 0.0, 0.0])
@@ -68,8 +68,9 @@ function solve_model( model::BlowflyModel, t_end::Float64; rng=Random.default_rn
         N[ii] = R_t + S_t[]
     end
 
-    # Remove initial lag and burn-in period from N
-    N = N[:, lag+1+burn_in:end]
+    # Remove initial lag and burn-in period from N, and keep every obs_every-th day (all days when dt_obs = dt_sol)
+    obs_every = round( Int, model.dt_obs / model.dt_sol )
+    N = N[:, lag+1+burn_in:obs_every:end]
 
     return N
 end
