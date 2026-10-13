@@ -138,7 +138,7 @@ function calculate_loss( bsl::BSL, target, model, mcmc_options, rng )
 
     target = @set target.cov_factorization = sim_cov_factorization
     loss = loss_function( target, sim_mean )
-    loss =- 0.5 * logdet(sim_cov_factorization)
+    loss -= 0.5 * logdet(sim_cov_factorization)
 
     return loss
 end
