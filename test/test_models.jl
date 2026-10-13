@@ -64,6 +64,42 @@
         @test maximum(abs, traj) < 200.0        # the attractor is bounded
     end
 
+    @testset "Lorenz63Model state-space version" begin
+        ELT = EmpiricalLikelihoodToolbox
+        p = ELT.SVector(10.0, 28.0, 8 / 3)
+        u0 = ELT.SVector(12.0, 19.0, 23.0)
+
+        @testset "RK4 flow agrees with Tsit5" begin
+            prob = ELT.ODEProblem(ELT.lorenz_static, u0, (0.0, 0.5), p)
+            ref = ELT.solve(prob, ELT.Vern9(); abstol = 1e-12, reltol = 1e-12).u[end]
+            err(h) = maximum(abs, lorenz63_flow(u0, p, 0.5, h) - ref)
+            @test err(0.01) < 1e-4                  # truncation error, far below the noise scales used (q ~ 0.3)
+            @test err(0.01) / err(0.005) > 12       # fourth order: halving h divides the error by about 16
+            @test err(0.005) / err(0.0025) > 12
+        end
+
+        @testset "noise levels" begin
+            q, σ_o, Δ = 0.3, 1.0, 0.1
+            m = Lorenz63Model(dt_obs = Δ, process_noise = q, obs_noise = σ_o)
+            y, x = solve_model(m, 5000.0; rng = StableRNG(11), return_hidden_states = true)
+            @test size(y) == (3, 50_000) && size(x) == size(y)
+            @test all(isfinite, y)
+            @test std(y .- x) ≈ σ_o rtol = 0.02
+            # one-step residuals of the hidden state are the process noise
+            resid = [lorenz63_flow(ELT.SVector{3}(x[:, t]), p, Δ, m.dt_sol) for t in 1:size(x, 2) - 1]
+            resid = x[:, 2:end] .- stack(resid)
+            @test std(resid) ≈ q rtol = 0.02
+        end
+
+        @testset "reproducible, and default model keeps the deterministic path" begin
+            m = Lorenz63Model(dt_obs = 0.1, process_noise = 0.3, obs_noise = 1.0)
+            @test solve_model(m, 20.0; rng = StableRNG(5)) == solve_model(m, 20.0; rng = StableRNG(5))
+            m0 = Lorenz63Model()
+            @test solve_model(m0, 20.0; rng = StableRNG(5)) == solve_model(m0, 20.0; rng = StableRNG(5))
+            @test size(solve_model(m0, 20.0; rng = StableRNG(5))) == (3, 20)
+        end
+    end
+
     @testset "RickerModel" begin
         m = RickerModel()
 

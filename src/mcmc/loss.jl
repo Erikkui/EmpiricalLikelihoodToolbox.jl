@@ -9,7 +9,7 @@ function create_simulated_data( model, target, buffers, options, rng )
     Rsim = solve_model( model, ndata*dt_obs; rng = rng )::Matrix{Float64}
     Rsim = embedding( Rsim, embedding_dim, embedding_type )
 
-    if any(isnan, Rsim)
+    if !all(isfinite, Rsim)
         # println("Simulation returned NaN values. Returning -Inf for likelihood.")
         Rsim .= -Inf
         Rsim_container = DataContainer(
@@ -75,7 +75,7 @@ function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 =
     rng = Xoshiro( rng_seed )                           # Set the same random seed for each data generation
 
     loss = calculate_loss( target.options.inference_method, target, model, mcmc_options, rng )
-    isinf( loss ) && return loss
+    isfinite(loss) || return -Inf
 
     noise_scale = mcmc_options.likelihood_noise_scale
     loss += logprior
@@ -137,6 +137,8 @@ function calculate_loss( bsl::BSL, target, model, mcmc_options, rng )
     sim_cov_factorization = regularized_cholesky( cov( sim_summaries' ) )
 
     target = @set target.cov_factorization = sim_cov_factorization
+    loss = loss_function( target, sim_mean )
+    loss =- 0.5 * logdet(sim_cov_factorization)
 
-    return loss_function( target, sim_mean )
+    return loss
 end
