@@ -35,13 +35,14 @@ module EmpiricalLikelihoodToolbox
     export LogLikelihood, RobustChamfer
 
     # Miscellaneous utilities
-    export get_all_model_params, get_active_model_params, embedding, chi2_test, generate_stat_name
+    export get_all_model_params, get_active_model_params, embedding, chi2_test, generate_stat_name, chi2_test
 
     # Types user might need
     export AbstractSummaryStatistic, AbstractSimulationModel, AbstractECDFSummary, AbstractChamferSummary, AbstractInferenceMethod
 
     include("core_types.jl")
     include("utils/utils.jl")
+    include("utils/chi2_test.jl")
 
     include("summaries/StandardECDF.jl")
     include("summaries/StandardECDFDiff.jl")
