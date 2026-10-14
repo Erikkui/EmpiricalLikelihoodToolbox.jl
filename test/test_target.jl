@@ -148,8 +148,8 @@
     @testset "summary buffers are keyed by generate_stat_name" begin
         target, _ = make_target(data, StandardECDF(5), CumulativeSum(4))
         keys_found = keys(target.buffers.summary_buffers)
-        @test Symbol("StandardECDF_k=5") in keys_found
-        @test Symbol("CumulativeSum_l=4") in keys_found
+        @test Symbol("ECDF_nbin=5") in keys_found
+        @test Symbol("CumSum_len4") in keys_found
     end
 
     @testset "standardization" begin

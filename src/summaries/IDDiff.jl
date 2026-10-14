@@ -20,6 +20,7 @@ boundary columns by padding.
 - `neighbors::T`: The neighbour indices to use, always stored as a vector.
 - `summary_length::Int`: Equal to `length(neighbors) * nbin`.
 - `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -36,22 +37,23 @@ struct IDDiff{B, T, BUF} <: IDSummary
     neighbors::T
     summary_length::Int
     buffer::BUF
+    name::String
 end
 
 function IDDiff( nbin::Int, neighbors::Int, diff_order::Int )
     summary_len = length( neighbors )*nbin
-    return IDDiff( nothing, nbin, diff_order, [neighbors], summary_len, nothing )
+    return with_name( IDDiff( nothing, nbin, diff_order, [neighbors], summary_len, nothing, "" ) )
 end
 
 function IDDiff( nbin::Int, neighbors::AbstractVector{<:Int}, diff_order::Int )
     summary_len = length( neighbors )*nbin
-    return IDDiff( nothing, nbin, diff_order, vec(neighbors), summary_len, nothing )
+    return with_name( IDDiff( nothing, nbin, diff_order, vec(neighbors), summary_len, nothing, "" ) )
 end
 
 function IDDiff( bins::AbstractVector{<:Real}, neighbors::Int, diff_order::Int )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return IDDiff( [bins_vec], nbin, diff_order, [neighbors], nbin, nothing )
+    return with_name( IDDiff( [bins_vec], nbin, diff_order, [neighbors], nbin, nothing, "" ) )
 end
 
 function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int}, diff_order::Int )
@@ -63,7 +65,7 @@ function IDDiff( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Abst
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return IDDiff( bins_vecs, nbin, diff_order, vec(neighbors), length(neighbors)*nbin, nothing )
+    return with_name( IDDiff( bins_vecs, nbin, diff_order, vec(neighbors), length(neighbors)*nbin, nothing, "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -233,11 +235,11 @@ end
 required_diff_order(stat::IDDiff) = stat.diff_order
 
 function generate_stat_name( stat::IDDiff )
-    return "IDDiff_k=$(stat.neighbors)_diff_order=$(stat.diff_order)"
+    return "IDDiff=$(stat.diff_order)_k=$(stat.neighbors)_nbin=$(stat.nbin)"
 end
 
 function finalize_summary( stat::IDDiff, data::DataContainer, buffers::BufferContainer )
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end
 
 get_summary_length(stat::IDDiff, data::DataContainer) = stat.summary_length

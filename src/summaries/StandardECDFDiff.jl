@@ -17,6 +17,7 @@ cache.
 - `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -31,15 +32,16 @@ struct StandardECDFDiff{B} <: StandardECDFSummary
     nbin::Int
     diff_order::Int
     summary_length::Int
+    name::String
 end
 
 function StandardECDFDiff( nbin::Int, diff_order::Int )
-    return StandardECDFDiff( nothing, nbin, diff_order, nbin )
+    return with_name( StandardECDFDiff( nothing, nbin, diff_order, nbin, "" ) )
 end
 
 function StandardECDFDiff( bins::AbstractVector{<:Real}, diff_order::Int )
     bins_vec = collect( vec(bins) )
-    return StandardECDFDiff( [bins_vec], length(bins_vec), diff_order, length(bins_vec) )
+    return with_name( StandardECDFDiff( [bins_vec], length(bins_vec), diff_order, length(bins_vec), "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -101,7 +103,7 @@ end
 required_diff_order(stat::StandardECDFDiff) = stat.diff_order
 
 function generate_stat_name( stat::StandardECDFDiff )
-    return "StandardECDFDiff_k=$(stat.nbin)_diff_order=$(stat.diff_order)"
+    return "ECDFDiff=$(stat.diff_order)_nbin=$(stat.nbin)"
 end
 
 get_summary_length(stat::StandardECDFDiff, data::DataContainer) = stat.summary_length

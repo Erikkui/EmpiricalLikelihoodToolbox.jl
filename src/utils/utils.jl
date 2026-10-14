@@ -181,8 +181,8 @@ function Base.show( io::IO, summary::AbstractSummaryStatistic )
     summary_type = typeof(summary)
     type_name = nameof( summary_type )
 
-    # Get all field values as a tuple
-    field_values = ( something( getfield( summary, field ), "-") for field in fieldnames( summary_type ) )
+    # Get all field values as a tuple (the derived `name` is left out)
+    field_values = ( something( getfield( summary, field ), "-") for field in fieldnames( summary_type ) if field !== :name )
 
     # Print it in the format: Name(val1, val2, ...)
     print( io, "$type_name(", join(field_values, ", "), ")")

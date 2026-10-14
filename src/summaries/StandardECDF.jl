@@ -7,6 +7,7 @@ Standard empirical cumulative distribution function summary statistic, with a fi
 - `bins::B`: The bin edges for the ECDF. If `nothing`, the bins will be automatically calculated from the data.
 - `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -20,15 +21,16 @@ struct StandardECDF{B} <: StandardECDFSummary
     bins::B
     nbin::Int
     summary_length::Int
+    name::String
 end
 
 function StandardECDF( nbin::Int)
-    return StandardECDF( nothing, nbin, nbin )
+    return with_name( StandardECDF( nothing, nbin, nbin, "" ) )
 end
 
 function StandardECDF( bins::AbstractVector{<:Real} )
     bins_vec = collect( vec(bins) )
-    return StandardECDF( [bins_vec], length(bins_vec), length(bins_vec) )
+    return with_name( StandardECDF( [bins_vec], length(bins_vec), length(bins_vec), "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -86,7 +88,7 @@ end
 required_diff_order(stat::StandardECDF) = 0
 
 function generate_stat_name( stat::StandardECDF )
-    return "StandardECDF_k=$(stat.nbin)"
+    return "ECDF_nbin=$(stat.nbin)"
 end
 
 function finalize_summary( stat::StandardECDF, data::DataContainer, buffers::BufferContainer )

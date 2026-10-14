@@ -13,6 +13,7 @@ padding.
 - `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: `1` for a scalar `neighbors`, otherwise `length(neighbors)`.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -27,14 +28,15 @@ struct ChamferDistanceDiff{T} <: AbstractChamferSummary
     highest_neighbor::Int
     diff_order::Int
     summary_length::Int
+    name::String
 end
 
 function ChamferDistanceDiff( neighbors::Int, diff_order::Int )
-    return ChamferDistanceDiff( neighbors, maximum(neighbors), diff_order, 1 )
+    return with_name( ChamferDistanceDiff( neighbors, maximum(neighbors), diff_order, 1, "" ) )
 end
 
 function ChamferDistanceDiff( neighbors::AbstractVector{<:Int}, diff_order::Int )
-    return ChamferDistanceDiff( collect(vec(neighbors)), maximum(neighbors), diff_order, length(neighbors) )
+    return with_name( ChamferDistanceDiff( collect(vec(neighbors)), maximum(neighbors), diff_order, length(neighbors), "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -87,7 +89,7 @@ end
 required_diff_order(stat::ChamferDistanceDiff) = stat.diff_order
 
 function generate_stat_name( stat::ChamferDistanceDiff )
-    return "ChamferDistanceDiff_k=$(stat.neighbors)_diff=$(stat.diff_order)"
+    return "ChamferDiff=$(stat.diff_order)_k=$(stat.neighbors)"
 end
 
 get_summary_length(stat::ChamferDistanceDiff, data::DataContainer) = stat.summary_length

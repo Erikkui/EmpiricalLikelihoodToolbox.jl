@@ -20,6 +20,7 @@ resampler (`MethodsOptions.resampling_type`), not the raw series.
 - `neighbors::T`: The neighbour index (or indices) to evaluate. An `Int` or a vector of `Int`.
 - `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
 - `summary_length::Int`: `1` for a scalar `neighbors`, otherwise `length(neighbors)`.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -33,14 +34,15 @@ struct ChamferDistance{T} <: AbstractChamferSummary
     neighbors::T
     highest_neighbor::Int
     summary_length::Int
+    name::String
 end
 
 function ChamferDistance( neighbors::Int )
-    return ChamferDistance( neighbors, maximum(neighbors), 1 )
+    return with_name( ChamferDistance( neighbors, maximum(neighbors), 1, "" ) )
 end
 
 function ChamferDistance( neighbors::AbstractVector{<:Int} )
-    return ChamferDistance( collect(vec(neighbors)), maximum(neighbors), length(neighbors) )
+    return with_name( ChamferDistance( collect(vec(neighbors)), maximum(neighbors), length(neighbors), "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -92,7 +94,7 @@ end
 required_diff_order(stat::ChamferDistance) = 0
 
 function generate_stat_name( stat::ChamferDistance )
-    return "ChamferDistance_k=$(stat.neighbors)"
+    return "Chamfer_k=$(stat.neighbors)"
 end
 
 get_summary_length(stat::ChamferDistance, data::DataContainer) = stat.summary_length

@@ -17,6 +17,7 @@ Constructed through [`StandardECDFDiff`](@ref) with three arguments, which retur
 - `ndim::Int`: The number of data dimensions (rows) summarized.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `ndim * nbin`.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -31,13 +32,14 @@ struct StandardECDFDiffMultiDimensional{B} <: StandardECDFSummary
     ndim::Int
     diff_order::Int
     summary_length::Int
+    name::String
 end
 
 function StandardECDFDiff( nbin::Int, ndim::Int, diff_order::Int )
     if ndim < 2
-        return StandardECDFDiff( nothing, nbin, diff_order, nbin )
+        return with_name( StandardECDFDiff( nothing, nbin, diff_order, nbin, "" ) )
     else
-        return StandardECDFDiffMultiDimensional( nothing, nbin, ndim, diff_order, ndim*nbin )
+        return with_name( StandardECDFDiffMultiDimensional( nothing, nbin, ndim, diff_order, ndim*nbin, "" ) )
     end
 end
 
@@ -119,7 +121,7 @@ end
 required_diff_order(stat::StandardECDFDiffMultiDimensional) = stat.diff_order
 
 function generate_stat_name( stat::StandardECDFDiffMultiDimensional )
-    return "StandardECDFDiff_k=$(stat.nbin)_ndim=$(stat.ndim)_diff_order=$(stat.diff_order)"
+    return "ECDFDiff=$(stat.diff_order)_nbin=$(stat.nbin)_dim=$(stat.ndim)"
 end
 
 get_summary_length(stat::StandardECDFDiffMultiDimensional, data::DataContainer) = stat.summary_length

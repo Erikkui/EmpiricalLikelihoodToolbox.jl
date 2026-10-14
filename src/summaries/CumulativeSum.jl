@@ -36,6 +36,7 @@ a zero-width slice inside a [`JointSummaryStatistics`](@ref).
 - `transform::F`: Elementwise function applied to the data before accumulating. Default `identity`.
 - `fixed_scale::SC`: The user-supplied `scale` vector, or `nothing` to normalize by the observed data.
 - `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -57,18 +58,19 @@ struct CumulativeSum{F, S<:AbstractVector{Float64}, SC, BUF} <: AbstractCumulati
     transform::F
     fixed_scale::SC
     buffer::BUF
+    name::String
 end
 
 function CumulativeSum( contracting_window::Int; transform = identity, scale = nothing )
     if isnothing( scale )
-        return CumulativeSum( contracting_window, 0, [NaN], transform, nothing, nothing )
+        return with_name( CumulativeSum( contracting_window, 0, [NaN], transform, nothing, nothing, "" ) )
     end
 
     if !all( s -> isfinite( s ) && s != 0, scale )
         throw( ArgumentError( "scale must contain finite, non-zero entries; got $scale" ) )
     end
     scale_vec = Float64.( collect( scale ) )
-    return CumulativeSum( contracting_window, 0, copy( scale_vec ), transform, scale_vec, nothing )
+    return with_name( CumulativeSum( contracting_window, 0, copy( scale_vec ), transform, scale_vec, nothing, "" ) )
 end
 
 # The cumsum is taken over the resampled x set, so its length - and hence the contracted output
@@ -158,7 +160,7 @@ get_summary_length(stat::CumulativeSum, data::DataContainer) =
 required_diff_order(stat::CumulativeSum) = 0
 
 function generate_stat_name( stat::CumulativeSum )
-    return "CumulativeSum_l=$(stat.contracting_window)"
+    return "CumSum_len$(stat.contracting_window)"
 end
 
 function finalize_summary( stat::CumulativeSum, data::DataContainer, buffers::BufferContainer )
@@ -175,5 +177,5 @@ function finalize_summary( stat::CumulativeSum, data::DataContainer, buffers::Bu
         stat = @set stat.normalization_factor = sum_cumul_contracted[ n_windows:n_windows:end ]
     end
 
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

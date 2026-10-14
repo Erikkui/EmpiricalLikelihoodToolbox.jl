@@ -27,6 +27,7 @@ therefore changes what this statistic measures.
 - `neighbors::T`: The neighbour indices to use, always stored as a vector.
 - `summary_length::Int`: Equal to `length(neighbors) * nbin`.
 - `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -42,21 +43,22 @@ struct ID{B, T, BUF} <: IDSummary
     neighbors::T
     summary_length::Int
     buffer::BUF
+    name::String
 end
 
 function ID( nbin::Int, neighbors::Int )
     summary_len = length( neighbors )*nbin
-    return ID( nothing, nbin, [neighbors], summary_len, nothing )
+    return with_name( ID( nothing, nbin, [neighbors], summary_len, nothing, "" ) )
 end
 
 function ID( nbin::Int, neighbors::AbstractVector{<:Int} )
-    return ID( nothing, nbin, vec(neighbors), length(neighbors)*nbin, nothing )
+    return with_name( ID( nothing, nbin, vec(neighbors), length(neighbors)*nbin, nothing, "" ) )
 end
 
 function ID( bins::AbstractVector{<:Real}, neighbors::Int )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return ID( [bins_vec], nbin, [neighbors], nbin, nothing )
+    return with_name( ID( [bins_vec], nbin, [neighbors], nbin, nothing, "" ) )
 end
 
 function ID( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::AbstractVector{<:Int} )
@@ -68,7 +70,7 @@ function ID( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Abstract
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return ID( bins_vecs, nbin, vec(neighbors), length(neighbors)*nbin, nothing )
+    return with_name( ID( bins_vecs, nbin, vec(neighbors), length(neighbors)*nbin, nothing, "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -231,11 +233,11 @@ end
 required_diff_order(stat::ID) = 0
 
 function generate_stat_name( stat::ID )
-    return "ID_neighbors=$(stat.neighbors)"
+    return "ID_k=$(stat.neighbors)"
 end
 
 get_summary_length(stat::ID, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ID, data::DataContainer, buffers::BufferContainer )
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

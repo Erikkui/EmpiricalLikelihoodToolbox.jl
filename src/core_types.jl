@@ -16,6 +16,9 @@ abstract type ChamferECDFSummary <: TwoSetSummary end
 
 abstract type AbstractSimulationModel end
 
+# Fill the `name` field of a summary statistic, once its other fields are set
+with_name( stat ) = @set stat.name = generate_stat_name( stat )
+
 
 # Inference methods
 #------------Gaussian Subset Likelihood (Haario et al., 2015): the target mean/covariance are

@@ -19,6 +19,7 @@ Cost is O(N^2) in both time and memory, since the full pairwise distance matrix 
 - `nbin::Int`: The number of bins for the ECDF. Mandatory if `bins` is `nothing`.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
 - `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -32,15 +33,16 @@ struct CIL{B, BUF} <: CILSummary
     nbin::Int
     summary_length::Int
     buffer::BUF
+    name::String
 end
 
 function CIL( nbin::Int)
-    return CIL( nothing, nbin, nbin, nothing )
+    return with_name( CIL( nothing, nbin, nbin, nothing, "" ) )
 end
 
 function CIL( bins::AbstractVector{<:Real} )
     bins_vec = collect( vec(bins) )
-    return CIL( [bins_vec], length(bins_vec), length(bins_vec), nothing )
+    return with_name( CIL( [bins_vec], length(bins_vec), length(bins_vec), nothing, "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -121,5 +123,5 @@ end
 get_summary_length(stat::CIL, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::CIL, data::DataContainer, buffers::BufferContainer )
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

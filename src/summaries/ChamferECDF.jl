@@ -25,6 +25,7 @@ summary draws its own splits from `MethodsOptions.resampling_type`.
 - `summary_length::Int`: Equal to `length(neighbors) * nbin`.
 - `dists_for_ecdf::Int`: How many Chamfer distances to draw for the ECDF. Fixed at `1000`.
 - `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -42,20 +43,21 @@ struct ChamferECDF{B, T, BUF} <: ChamferECDFSummary
     summary_length::Int
     dists_for_ecdf::Int
     buffer::BUF
+    name::String
 end
 
 function ChamferECDF( nbin::Int, neighbors::Int )
-    return ChamferECDF( nothing, nbin, [neighbors], neighbors, nbin, 1000, nothing )
+    return with_name( ChamferECDF( nothing, nbin, [neighbors], neighbors, nbin, 1000, nothing, "" ) )
 end
 
 function ChamferECDF( nbin::Int, neighbors::Vector{Int} )
-    return ChamferECDF( nothing, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000, nothing )
+    return with_name( ChamferECDF( nothing, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000, nothing, "" ) )
 end
 
 function ChamferECDF( bins::AbstractVector{<:Real}, neighbors::Int )
     bins_vec = collect( vec(bins) )
     nbin = length( bins_vec )
-    return ChamferECDF( [bins_vec], nbin, [neighbors], neighbors, nbin, 1000, nothing )
+    return with_name( ChamferECDF( [bins_vec], nbin, [neighbors], neighbors, nbin, 1000, nothing, "" ) )
 end
 
 function ChamferECDF( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors::Vector{Int} )
@@ -67,7 +69,7 @@ function ChamferECDF( bins::AbstractVector{<:AbstractVector{<:Real}}, neighbors:
     all( length(b) == nbin for b in bins_vecs ) || throw( ArgumentError(
         "all bins vectors must have the same length" ) )
 
-    return ChamferECDF( bins_vecs, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000, nothing )
+    return with_name( ChamferECDF( bins_vecs, nbin, neighbors, maximum(neighbors), length(neighbors)*nbin, 1000, nothing, "" ) )
 end
 
 function calculate_summary_statistic!(      # To be used in target and bin initialization
@@ -182,5 +184,5 @@ end
 get_summary_length(stat::ChamferECDF, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ChamferECDF, data::DataContainer, buffers::BufferContainer )
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

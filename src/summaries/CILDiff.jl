@@ -18,6 +18,7 @@ Because central differences fabricate their boundary columns by padding, `Target
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `nbin`.
 - `buffer::BUF`: Scratch space, filled in by `TargetData`. `nothing` until then.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -32,15 +33,16 @@ struct CILDiff{B, BUF} <: CILSummary
     diff_order::Int
     summary_length::Int
     buffer::BUF
+    name::String
 end
 
 function CILDiff( nbin::Int, diff_order::Int )
-    return CILDiff( nothing, nbin, diff_order, nbin, nothing )
+    return with_name( CILDiff( nothing, nbin, diff_order, nbin, nothing, "" ) )
 end
 
 function CILDiff( bins::AbstractVector{<:Real}, diff_order::Int )
     bins_vec = collect( vec(bins) )
-    return CILDiff( [bins_vec], length(bins_vec), diff_order, length(bins_vec), nothing )
+    return with_name( CILDiff( [bins_vec], length(bins_vec), diff_order, length(bins_vec), nothing, "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -118,11 +120,11 @@ end
 required_diff_order(stat::CILDiff) = stat.diff_order
 
 function generate_stat_name( stat::CILDiff )
-    return "CILDiff_diff_order=$(stat.diff_order)_nbin=$(stat.nbin)"
+    return "CILDiff=$(stat.diff_order)_nbin=$(stat.nbin)"
 end
 
 get_summary_length(stat::CILDiff, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::CILDiff, data::DataContainer, buffers::BufferContainer )
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( generate_stat_name( stat ) ) ]
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

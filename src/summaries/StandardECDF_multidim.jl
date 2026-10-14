@@ -17,6 +17,7 @@ code path.
 - `nbin::Int`: The number of bins per dimension.
 - `ndim::Int`: The number of data dimensions (rows) summarized.
 - `summary_length::Int`: The length of the summary statistic vector, equal to `ndim * nbin`.
+- `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
 ```julia
@@ -31,13 +32,14 @@ struct StandardECDFMultiDimensional{B} <: StandardECDFSummary
     nbin::Int
     ndim::Int
     summary_length::Int
+    name::String
 end
 
 function StandardECDF( nbin::Int, ndim::Int )
     if ndim < 2
-        return StandardECDF( nothing, nbin, nbin )
+        return with_name( StandardECDF( nothing, nbin, nbin, "" ) )
     else
-        return StandardECDFMultiDimensional( nothing, nbin, ndim, ndim*nbin )
+        return with_name( StandardECDFMultiDimensional( nothing, nbin, ndim, ndim*nbin, "" ) )
     end
 end
 
@@ -116,7 +118,7 @@ end
 required_diff_order(stat::StandardECDFMultiDimensional) = 0
 
 function generate_stat_name( stat::StandardECDFMultiDimensional )
-    return "StandardECDF_k=$(stat.nbin)_ndim=$(stat.ndim)"
+    return "ECDF_nbin=$(stat.nbin)_dim=$(stat.ndim)"
 end
 
 function finalize_summary( stat::StandardECDFMultiDimensional, data::DataContainer, buffers::BufferContainer )

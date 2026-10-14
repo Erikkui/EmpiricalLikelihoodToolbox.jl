@@ -54,7 +54,7 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
     data_container = @set data_container.options.effective_N_obs = effective_nobs
 
     stat_buffers_vals  = map( stat -> allocate_buffer( stat, data_container ), statistics )
-    stat_buffers_names = map( stat -> Symbol( generate_stat_name( stat ) ), statistics )
+    stat_buffers_names = map( stat -> Symbol( stat.name ), statistics )
     stat_buffers = NamedTuple{stat_buffers_names}(stat_buffers_vals)
 
     training_summary_length = map( stat -> get_summary_length( stat, data_container ), statistics ) |> sum

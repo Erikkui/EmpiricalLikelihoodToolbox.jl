@@ -14,7 +14,7 @@ Slicing uses the `summary_length` *field*, which for [`CumulativeSum`](@ref) is 
 without going through `TargetData` can therefore produce zero-width slices.
 
 !!! warning "Summaries must have distinct names"
-    Buffers are keyed by `generate_stat_name`, so two summaries that generate the same name
+    Buffers are keyed by the summary's `name`, so two summaries that generate the same name
     collide. `JointSummaryStatistics(StandardECDF(5), StandardECDF(5))` throws when passed to
     `TargetData`. Vary the parameters, or use a single summary.
 
