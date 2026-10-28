@@ -26,7 +26,7 @@ function Base.show( io::IO, method::BSL )
 end
 
 # Under BSL the observed summary is a fixed reference value; its covariance is irrelevant, since
-# the likelihood's covariance is re-estimated from simulations at every MCMC step (see calculate_loss).
+# the likelihood's covariance is re-estimated from simulations at every MCMC step (see log_likelihood!).
 # The covariance from _train_reference_summary is therefore discarded.
 function train_target( ::BSL, statistics, data_container, buffer_container, options )
     mean_summary, _, training_summaries = _train_reference_summary( statistics, data_container, buffer_container, options )
@@ -75,7 +75,7 @@ end
 # as GSL does at MCMC time (calculate_simulated_statistics, so any resampler works), and estimate
 # the mean and covariance of the likelihood from the spread across those n_sim simulations. The
 # fixed observed summary (target.obs_mean) was computed once in TargetData.
-function calculate_loss( bsl::BSL, target, model, mcmc_options, rng )
+function log_likelihood!( method_data, bsl::BSL, inference_state, target, model, mcmc_options, rng )
     loss_function = bsl.loss
     options = target.options
     summaries = target.summary_statistics

@@ -1,12 +1,3 @@
-# Inference method interface (implemented once per method, see also BSL.jl):
-#   train_target( method, statistics, data_container, buffer_container, options ) -> (mean, cov or nothing, training_summaries)
-#   finalize_target_covariance( method, cov_mat, summary_length ) -> factorization stored in the target
-#   allocate_method_buffer( method, summary_length ) -> method-specific scratch buffer
-#   check_method_options( method, options ) -> throws ArgumentError on an invalid combination
-#   calculate_loss( method, target, model, mcmc_options, rng ) -> log-likelihood (no prior)
-# Optional (default in ABC.jl returns the target unchanged):
-#   finalize_inference_method( method, target, training_summaries, rng ) -> target, run at the end of TargetData
-
 #------------Gaussian Subset Likelihood (Haario et al., 2015): the target mean/covariance are
 # estimated once from the observed data (via resampling), and compared against a single simulated
 # summary at each MCMC step. The `loss` is applied to the (simulated, target) summary pair.
@@ -79,8 +70,9 @@ function check_method_options( ::GSL, options )
 end
 
 # Simulate once (or n_loss_evals times, averaging), and compare against the fixed target
-# mean/covariance estimated once from the observed data (see train_target/TargetData).
-function calculate_loss( gsl::GSL, target, model, mcmc_options, rng )
+# mean/covariance estimated once from the observed data (see train_target/TargetData). GSL keeps
+# no per-state data (method_data is nothing).
+function log_likelihood!( method_data, gsl::GSL, inference_state, target, model, mcmc_options, rng )
     loss_function = gsl.loss
     options = target.options
     summaries = target.summary_statistics

@@ -120,7 +120,7 @@ end
 # Target: prior × 1{ρ ≤ ε}. The proposal is symmetric, so a move is accepted when the prior ratio
 # test passes and the simulated distance is within ε. Both tests must pass, so the prior test runs
 # first, and a failing one (or a zero prior) skips the simulation (early rejection). Each
-# simulation gets its own Xoshiro seeded from `rng`, as in the param-level calculate_loss.
+# simulation gets its own Xoshiro seeded from `rng`, as in evaluate_log_target! (src/mcmc/evaluated_state.jl).
 # Returns (n_accepted, n_simulated).
 function _abc_mh_moves!( particles, distances, log_priors, particle_index::Int, n_moves::Int,
                          proposal_factor, epsilon::Float64, target, proposal_buffer, noise_buffer, rng )

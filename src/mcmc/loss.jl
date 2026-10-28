@@ -60,26 +60,3 @@ function calculate_simulated_statistics( target, Rsim_container, summaries, buff
 
     return sim_statistic
 end
-
-function calculate_loss( params, target, model, mcmc_options; rng_seed::UInt64 = rand(UInt64) )
-    logprior = evaluate_log_prior( params, target.priors, model.active_parameters )
-
-    # Parameters with zero prior density should have zero likelihood so we can return -Inf
-    # to avoid unnecessary simulations
-    if isinf( logprior )
-        # println( "Parameters with zero prior density encountered. Returning -Inf for likelihood." )
-        return -Inf
-    end
-
-    model = update_model_parameters( model, params )    # Update model with new parameters for simulation
-    rng = Xoshiro( rng_seed )                           # Set the same random seed for each data generation
-
-    loss = calculate_loss( target.options.inference_method, target, model, mcmc_options, rng )
-    isfinite(loss) || return -Inf
-
-    noise_scale = mcmc_options.likelihood_noise_scale
-    loss += logprior
-    loss += noise_scale*randn() # Add noise to likelihood to simulate noisy likelihood
-
-    return loss
-end

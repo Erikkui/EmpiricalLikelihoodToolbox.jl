@@ -18,7 +18,7 @@ using EmpiricalLikelihoodToolbox:
     allocate_buffer, get_summary_length, required_diff_order, generate_stat_name,
     finalize_summary, get_bin_quantity, calculate_summary_statistic!,
     StandardECDFMultiDimensional, StandardECDFDiffMultiDimensional,
-    evaluate_log_prior, evaluate_single_prior, calculate_loss,
+    evaluate_log_prior, evaluate_single_prior, evaluate_log_target,
     allocate_buffers, initialize_datacontainer, train_target, compute_log_path, scale_loss,
     AbstractResampler, LengthPreservingSampler, LengthChangingSampler, ResultsBuffer,
     TwoSetSummary, ChamferECDFSummary, step!
@@ -130,7 +130,7 @@ with_priors(t::TargetData, priors) = TargetData(
 )
 
 # A model with real active_parameters but no solve_model/step! method, for proving a prior of
-# -Inf short-circuits calculate_loss before any simulation is attempted (accessing
+# -Inf short-circuits evaluate_log_target before any simulation is attempted (accessing
 # active_parameters, to resolve the log-prior, is not itself "touching" the model).
 struct NeverSimulatedModel <: AbstractSimulationModel
     active_parameters::Tuple{Vararg{Symbol}}
@@ -149,9 +149,9 @@ ExplodingModel() = ExplodingModel(0.0, 0.0, (:p1, :p2), (:p1, :p2), 1.0)
 const EXPLODE_AFTER = Ref(20)
 const EXPLODE_CALLS = Ref(0)
 
-function EmpiricalLikelihoodToolbox.calculate_loss(
-        params, target, ::ExplodingModel, mcmc_options; rng_seed::UInt64 = rand(UInt64))
+function EmpiricalLikelihoodToolbox.log_likelihood!(
+        method_data, ::GSL, inference_state, target, model::ExplodingModel, mcmc_options, rng)
     EXPLODE_CALLS[] += 1
     EXPLODE_CALLS[] > EXPLODE_AFTER[] && error("simulated mid-chain failure")
-    return -0.5 * sum(abs2, params)
+    return -0.5 * (model.p1^2 + model.p2^2)
 end

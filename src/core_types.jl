@@ -62,9 +62,10 @@ Base.@kwdef struct DataContainer{M <: AbstractMatrix{Float64}, D <: AbstractVect
 end
 
 #------------MCMC options struct
-# - `update_interval`: the AM "noisy likelihood" heuristic kicks the chain (re-evaluates the current
+# The noisy-likelihood options below are honoured by AM and DRAM (see src/mcmc/noisy_likelihood_policy.jl):
+# - `update_interval`: the "noisy likelihood" heuristic kicks the chain (re-evaluates the current
 #   loss) after this many consecutive rejections. `update_interval <= 0` disables the heuristic.
-# - `discard_noisy_updates`: on a kick, also rewind to the last known good state (AM only).
+# - `discard_noisy_updates`: on a kick, instead rewind to the last known good state and repeat the step.
 # - `reevaluate_current_loss`: re-evaluate the current state's loss at every step.
 #   BSL and ABC are exact pseudo-marginal methods only with the heuristic off (`update_interval <= 0`)
 #   and `reevaluate_current_loss = false`. ABC also needs a fixed ε: with ε adaptation
@@ -75,6 +76,17 @@ end
 # - `loss_function`: `nothing` (default) uses the loss stored in `target.options.inference_method`
 #   (ABC has no loss, so it must stay `nothing`).
 #   If given, it must equal that loss, otherwise `mcmcrun` throws.
+# - `early_rejection` (AM only): draw the uniform of the accept/reject step before the proposal is
+#   evaluated, and skip the simulation when even the largest possible log-likelihood of the method
+#   (`max_log_likelihood`) could not get the proposal accepted. Exact: a skipped proposal would have
+#   been rejected. Gains come only from informative priors (with uniform priors the prior ratio is 1
+#   inside the support, so nothing is skipped). It never triggers for GSL and BSL (no bound known);
+#   it is off with `likelihood_noise_scale > 0`, during ABC ε adaptation, and in DRAM. Chains with it
+#   on and off are bit-identical only when the per-step evaluation draws no global random numbers,
+#   eg. with a `LengthPreservingSampler` (`NoResampling`, ...) and `n_summaries = 1`. The resamplers
+#   use the global RNG, and `calculate_simulated_statistics` calls the resampler when
+#   `n_summaries > 1` or the sampler is length-changing (eg. the default `RademacherSplit`); the
+#   chains are then identical in distribution only.
 Base.@kwdef struct MCMCOptions{A, G, F}
     nsteps::Int = 1000
     update_interval::Int = 50
@@ -84,6 +96,7 @@ Base.@kwdef struct MCMCOptions{A, G, F}
     initial_params::G = nothing
     loss_function::F = nothing
     likelihood_noise_scale::Float64 = 0.0
+    early_rejection::Bool = true
 end
 
 #------------MCMC target

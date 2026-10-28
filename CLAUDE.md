@@ -17,14 +17,13 @@ references, and a runnable usage example (`examples/main.jl` mirrors it).
 ```bash
 julia --project=. -e 'using Pkg; Pkg.instantiate()'   # install deps
 julia --project=. -e 'using Pkg; Pkg.test()'           # run test suite
-julia --project=. test/runtests.jl                     # run tests directly
 julia --project=. examples/main.jl                     # run the example end-to-end
 ```
 
-There is no linter/formatter configured. `test/runtests.jl` is currently a stub (`@testset` with no
-assertions) — CI (`.github/workflows/CI.yml`) runs it on Julia 1.10, 1.12, and `pre` on
-ubuntu-latest/x64. When adding tests, add them inside that `@testset` block or new files included
-from it.
+There is no linter/formatter configured. Run the tests with `Pkg.test()`: a direct
+`julia --project=. test/runtests.jl` fails, because `StableRNGs` is a test-only dependency. CI
+(`.github/workflows/CI.yml`) runs the suite on Julia 1.10, 1.12, and `pre` on ubuntu-latest/x64.
+When adding tests, add them to a `test/test_*.jl` file included from `test/runtests.jl`.
 
 ## Architecture
 
@@ -36,48 +35,63 @@ is a flat `include()` list; there's no submodule structure, so load order there 
 `core_types.jl` and `utils/utils.jl` first, `mcmc/loss_functions.jl` before `inference/*.jl`, since
 the method structs hold a loss).
 
-### Inference methods (`src/inference/GSL.jl`, `BSL.jl`, `ABC.jl`)
+Three layers: (1) **inference methods** (`src/inference/`): target setup and one evaluation of the
+log-likelihood; (2) **samplers** (`src/mcmc/`): AM/DRAM, generic over an `EvaluatedState`, with no
+method-specific code; (3) **ABC population algorithms** (`src/abc/`).
 
+### Inference methods (`src/inference/`: `interface.jl`, `GSL.jl`, `BSL.jl`, `ABC/`)
+
+`interface.jl` documents the method interface and holds the fallbacks for `AbstractInferenceMethod`.
 One file per method holds the struct (`GSL(; loss)`, `BSL(n_sim; loss)`, the loss defaults to
 `LogLikelihood()`), its `Base.show` (`GSL()`, `BSL(500)`, loss appended only when non-default, eg.
 `BSL(500, LogLikelihood(2.0))`; downstream code uses `string(inference_method)` in file names, keep it
-stable) and the full method interface, each dispatched on the method:
+stable) and the method interface, each dispatched on the method:
 - `train_target(method, statistics, data_container, buffers, options)` -> `(mean, cov or nothing, training_summaries)`
 - `finalize_target_covariance(method, cov_mat, summary_length)`
-- `allocate_method_buffer(method, summary_length)` -> stored as `BufferContainer.method_buffer`
+- `allocate_method_buffer(method, summary_length)` -> shared scratch, stored as `BufferContainer.method_buffer`
 - `check_method_options(method, options)` -> throws `ArgumentError` (called first in `TargetData`)
-- `calculate_loss(method, target, model, mcmc_options, rng)` -> log-likelihood without prior
+- `log_likelihood!(method_data, method, inference_state, target, model, mcmc_options, rng)` ->
+  log-likelihood without prior, at the parameters already set in `model`
 
-A new method adds a file here with these five functions and an `include` after `loss_functions.jl`.
-Optionally it adds `finalize_inference_method(method, target, training_summaries, rng) -> target`
-(default: target unchanged), called at the end of `TargetData` to resolve settings that need the
-finished target.
+Optional (fallbacks in `interface.jl`): `finalize_inference_method(method, target, training_summaries,
+rng) -> target` (end of `TargetData`), `allocate_method_data(method)` (per-state data an evaluated state
+keeps, `nothing` by default) + `invalidate_method_data!`, `max_log_likelihood(method,
+inference_state)` (`Inf`; bound for early rejection) + `early_rejection_allowed(method, ii)` (`true`;
+ABC: `false` during ε adaptation), `allocate_inference_state(method)` (mutable
+run state of one chain, `nothing`), `adapt_inference_state!(inference_state, method, current, acceptance_probability,
+ii) -> Bool` (AM only, after each step), `allocate_results(method, model, chain_length, n_stages)`,
+`record_chain_step!(results, method, inference_state, current, ii)`, `finalize_results(results, method,
+inference_state, last_step)` (final ε, partial-chain slicing). A new method adds a file with the
+required functions and an `include` after `inference/interface.jl`.
 
-**ABC** (`ABC.jl`): `ABC(; epsilon = NaN, epsilon_quantile = 0.05, n_pilot = 1000, distance = :scaled,
-kernel = UniformKernel(), n_sim = 1, adapt_epsilon = nothing)`, `ABC(epsilon; kwargs...)`. No loss.
-`calculate_loss` runs `n_sim` × `simulate_distance(target, model, rng)` (simulate → summarize →
-distance to `target.obs_mean`; `Inf` on a failed simulation), stores the distances in
-`target.buffers.method_buffer` (length `n_sim`), and returns `logsumexp(log_kernel.(kernel, ρ, ε)) -
-log(n_sim)` (kernels `UniformKernel`/`GaussianKernel`/`EpanechnikovKernel`, unnormalized). ε and the
-kernel are read from `target.options.inference_method`. `train_target` shares
+**ABC** (`ABC/method.jl`: kernels, struct, interface, distance/ε resolution; `ABC/pilot.jl`;
+`ABC/mcmc.jl`: `EpsilonAdaptation`, run state, results; `ABC/post_correct.jl`): `ABC(; epsilon = NaN,
+epsilon_quantile = 0.05, n_pilot = 1000, distance = :scaled, kernel = UniformKernel(), n_sim = 1,
+adapt_epsilon = nothing)`, `ABC(epsilon; kwargs...)`. No loss. `log_likelihood!` runs `n_sim` ×
+`simulate_distance(target, model, rng)` (simulate → summarize → distance to `target.obs_mean`; `Inf`
+on a failed simulation), writes the distances into the evaluated state's `method_data` (length `n_sim`;
+`method_buffer` is unused), and returns `_log_kernel_average` = `logsumexp(log_kernel.(kernel, ρ, ε)) -
+log(n_sim)` (kernels `UniformKernel`/`GaussianKernel`/`EpanechnikovKernel`, unnormalized, so
+`max_log_likelihood = 0`). ε is read from the run state `ABCRunState` (mutable, built from the
+resolved method's ε by `mcmcrun`), the kernel from the method. `train_target` shares
 `_train_reference_summary` (in `BSL.jl`) with BSL but keeps the training covariance;
 `finalize_target_covariance` stores its regularized factorization (identity placeholder under
 `NoResampling`). `finalize_inference_method(::ABC, ...)` resolves `:scaled` →
 `WeightedEuclidean(1 ./ scale.^2)` (training sd with a resampler, pilot MAD under `NoResampling`;
 zero scales → smallest positive scale) and `:mahalanobis` → `Mahalanobis(inv(regularized cov))`,
 sets a `NaN` ε to a pilot-distance quantile, and `@set`s the resolved method into both
-`target.options` and `target.data.options`. The pilot (`pilot_simulations(target, n_pilot; rng)` →
-`(params, summaries, distances)`; internally `_pilot_summaries` then `_pilot_distances`, so scales are
-set before distances without re-simulating) samples the priors and throws if any active parameter has
-no prior. ABC rejects `standardize`, `MCMCOptions.loss_function` and the deprecated 5-arg `TargetData`.
-ABC-MCMC extras (bottom of `ABC.jl`): AM/DRAM keep the current state's distances in
-`MCMCState.current_distances` via dispatch hooks (`_commit_current_distances!` after every evaluation
-that becomes the current state, `_store_method_state!`; no-ops for GSL/BSL) and store them in
-`ResultsBuffer.distance_chain` (`n_sim × nsteps`; `0 × nsteps` otherwise), plus `epsilon_chain` and
-the final `epsilon` (NaN for GSL/BSL). `EpsilonAdaptation` (Vihola & Franks 2020, AM only; `mcmcrun`
-rejects it with DRAM) updates ε in the first `n_adapt` steps via `_adapt_epsilon`, rebuilding the
-local target with `_replace_inference_method` and recomputing the current log-target from the stored
-distances. `abc_post_correct(results, target, delta; burnin)` gives post-correction weights.
+`target.options` and `target.data.options` (`_replace_inference_method`). The pilot
+(`pilot_simulations(target, n_pilot; rng)` → `(params, summaries, distances)`; internally
+`_pilot_summaries` then `_pilot_distances`, so scales are set before distances without re-simulating)
+samples the priors and throws if any active parameter has no prior. ABC rejects `standardize`,
+`MCMCOptions.loss_function` and the deprecated 5-arg `TargetData`. ABC-MCMC: `record_chain_step!` stores each
+state's distances in `ResultsBuffer.distance_chain` (`n_sim × nsteps`; `0 × nsteps` otherwise) and
+its ε in `epsilon_chain`; `finalize_results` sets the final `epsilon` (NaN for GSL/BSL).
+`EpsilonAdaptation` (Vihola & Franks 2020, AM only; `mcmcrun` rejects it with DRAM) runs in
+`adapt_inference_state!`: a Robbins-Monro update of `ABCRunState.epsilon` in the first `n_adapt` steps, then the
+current log-target is recomputed from its stored distances (`_refresh_log_target!`, no simulation);
+the target is not rebuilt. `abc_post_correct(results, target, delta; burnin)` gives post-correction
+weights.
 
 **ABC population samplers** (`src/abc/rejection.jl`, `src/abc/smc.jl`, included after `mcmc/runner.jl`): `abc_rejection(target, n_draws; epsilon | n_keep, rng)` wraps `pilot_simulations`; `abc_smc(target, ABCSMCOptions(...); rng)` is Drovandi & Pettitt (2011) replenishment ABC-SMC (uniform kernel, `n_sim = 1` only; gen 0 via `_pilot_summaries`/`_pilot_distances`, MH moves via `simulate_distance` with a per-simulation `Xoshiro(rand(rng, UInt64))`).
 
@@ -132,7 +146,7 @@ distances. `abc_post_correct(results, target, delta; burnin)` gives post-correct
    `DataContainer`, precomputes numerical
    derivatives (step `model.dt_obs`) if any summary needs them, allocates all buffers up front (`BufferContainer` — the
    package is written to avoid allocations in the MCMC hot loop, including a method-specific
-   `method_buffer` from `allocate_method_buffer`: `(summary_length, n_sim)` under BSL, `n_sim` distances under ABC, empty under GSL), finalizes bin edges per summary, then computes the
+   `method_buffer` from `allocate_method_buffer`: `(summary_length, n_sim)` under BSL, empty under GSL and ABC), finalizes bin edges per summary, then computes the
    fixed reference summary via `train_target` (see the inference methods section): `GSL()`
    resamples the observed data `training_resamplings` times to estimate both the target mean and its
    covariance (`:cov` or `:donsker`); `BSL()` only needs the mean (its covariance instead comes from
@@ -144,26 +158,56 @@ distances. `abc_post_correct(results, target, delta; burnin)` gives post-correct
    is a deprecated shim that stores `loss` in the inference method and warns. Stores the model in
    `target.model`, then calls `finalize_inference_method` (ABC: distance/ε resolution, pilot; takes the
    `rng` kwarg of `TargetData`). Returns `(target::TargetData, training_summaries)`.
-6. **MCMC** (`src/mcmc/`) — `mcmcrun(target, mcmc_options)` (`runner.jl`) runs `target.model` and drives the chain via
-   a pluggable `mcmc_algorithm` (`AM.jl` = adaptive Metropolis, `DRAM.jl` = delayed rejection AM),
-   each implemented as a callable struct `(target, model, state, mcmc_options, results_buffer) ->
-   (results, state)`. Per step, the param-level `calculate_loss` (`loss.jl`: prior, model update, noise)
-   calls `calculate_loss(target.options.inference_method, ...)` from `src/inference/`: under `GSL()` it
-   simulates once (or `n_loss_evals` times, averaged), resamples/summarizes via
-   `calculate_simulated_statistics` (honoring `n_summaries`), and evaluates `method.loss(sim, obs_mean,
-   cov_factorization)` against the *fixed* target from `TargetData`; under `BSL()` it runs `n_sim` fresh
-   simulations (each resampled/summarized the same way, so any resampler works unchanged), estimates the
-   mean/covariance *from the spread across those simulations*, and evaluates the same loss callable with
-   that simulated factorization (no copy of `target`) minus `0.5*logdet`. The loss callables
-   (`loss_functions.jl`) return the raw value; `scale_loss(loss, raw, target)` applies standardization
-   (GSL only) and `inverse_scaling`. `MCMCOptions.loss_function` defaults to `nothing`; if set it must
-   equal the method's loss or `mcmcrun` throws. `regularized_inverse`
-   (`utils/utils.jl`) is the shared ridge-regularization-then-invert helper used by both engines.
-   Priors (`prior_eval.jl`) are `NamedTuple`s keyed by parameter name, valued as `Distributions.jl`
-   distributions or `nothing` (flat/uninformative). `mcmcrun` catches exceptions mid-chain and returns
-   the partial chain rather than losing progress. `AM` supports a "noisy likelihood" heuristic
-   (`update_interval`, `discard_noisy_updates`) to detect and kick the chain out of a run of
-   suspiciously good proposals (`update_interval <= 0` disables it; DRAM has none; BSL and ABC are exact
-   pseudo-marginal only with it off and `reevaluate_current_loss = false`); `reevaluate_current_loss` is particularly relevant under BSL, where
-   the current and proposed states' covariances are independent per-step Monte Carlo estimates.
+6. **MCMC** (`src/mcmc/`) — `mcmcrun(target, mcmc_options)` (`runner.jl`) runs `target.model`. It
+   builds a `RunContext` (immutable: `chain_states`, `proposal`, `policy`, `inference_state`),
+   evaluates the initial state, calls the pluggable `mcmc_algorithm` (`AM.jl` = adaptive Metropolis,
+   `DRAM.jl` = delayed rejection AM), a callable struct `(target, model, run_context, mcmc_options,
+   results) -> results`, then `finalize_results`. It returns `(results::ResultsBuffer,
+   state::MCMCState)`; it catches exceptions mid-chain and returns the partial chain.
+   - `evaluated_state.jl`: mutable `EvaluatedState{A}` (`params`, `log_prior`, `log_likelihood`,
+     `log_target`, `method_data`, `simulated`). `evaluate_log_target!(evaluated_state, target, model, params,
+     mcmc_options, inference_state; rng_seed, log_threshold = -Inf)`: prior (a zero prior returns
+     before simulating, `simulated = false`), `update_model_parameters`, `Xoshiro(rng_seed)`, the
+     method's `log_likelihood!`, plus prior and `likelihood_noise_scale` noise. Early rejection: if
+     `log_prior + max_log_likelihood < log_threshold` it skips the simulation (`simulated = false`,
+     log-target `-Inf`, no noise draw). `evaluate_log_target(params, target, model, mcmc_options;
+     rng_seed)` is a thin public wrapper returning the log-target.
+   - The samplers own the evaluated states: `chain_states[1]` is the current state, `[2:end]` the proposals
+     (one per DRAM stage); on acceptance the entries swap (no copies), so `chain_states[1]` is the
+     current state even after a crash.
+   - `adaptive_proposal.jl`: `AdaptiveProposal` (Welford running mean/cov via `recursive_welford!`,
+     every `adaptation_interval` steps after step 100 `cov = running_cov*2.38²/d + 1e-6 I`):
+     `propose_parameters!(params_out, proposal, current_params; scale)` (DRAM stages use `scale = γ_k`),
+     `update_proposal_covariance!(proposal, params, ii) -> Bool`, `backup_proposal_adaptation!`/`restore_proposal_adaptation!`.
+   - `noisy_likelihood_policy.jl`: `NoisyLikelihoodPolicy` from `update_interval`,
+     `discard_noisy_updates`, `reevaluate_current_loss`, honoured by AM and DRAM. The sampler
+     re-evaluates the current state with the proposal's step seed when `reevaluate_current_loss`;
+     `check_stuck_chain!(policy, accepted)` returns `:none`/`:kick` (re-evaluate current, more than
+     `update_interval` consecutive rejections)/`:rewind` (with `discard_noisy_updates`: restore
+     `backup_params` + running mean/cov, re-evaluate, repeat the step without storing it);
+     `apply_stuck_chain_action!` carries it out and counts `results.stuck_kicks`. `update_interval <= 0`
+     disables kicks. BSL and ABC are exact pseudo-marginal only with `update_interval <= 0` and
+     `reevaluate_current_loss = false`; `reevaluate_current_loss` is particularly relevant under BSL,
+     where the current and proposed states' covariances are independent per-step Monte Carlo estimates.
+   - AM step: `propose_parameters!` → step seed → optional re-evaluation → `log_u = log(rand())` → `evaluate_log_target!`
+     proposal with `log_threshold = log_u + current.log_target` (early rejection; `-Inf` when
+     `MCMCOptions.early_rejection = false`, `likelihood_noise_scale > 0` or `!early_rejection_allowed`)
+     → accept iff `log_u < log_ratio` (`backup_state!`, swap) → policy → `adapt_inference_state!` → `record_chain_step!` →
+     `update_proposal_covariance!`. Early rejection is exact; it saves simulations only with informative priors, never for
+     GSL/BSL (bound `Inf`); chains match bit for bit with it on/off only when the evaluation draws no
+     global random numbers (resampler called: `n_summaries > 1` or length-changing sampler). DRAM:
+     same, with delayed-rejection stages (`compute_log_path` on the stage states), no early
+     rejection and no `adapt_inference_state!`.
+   - Under `GSL()` `log_likelihood!` simulates once (or `n_loss_evals` times, averaged),
+     resamples/summarizes via `calculate_simulated_statistics` (`loss.jl`, honoring `n_summaries`), and
+     evaluates `method.loss(sim, obs_mean, cov_factorization)` against the *fixed* target from
+     `TargetData`; under `BSL()` it runs `n_sim` fresh simulations (each resampled/summarized the same
+     way, so any resampler works unchanged; summaries in `method_buffer`), estimates the
+     mean/covariance *from the spread across those simulations*, and evaluates the same loss callable
+     with that simulated factorization minus `0.5*logdet`. The loss callables (`loss_functions.jl`)
+     return the raw value; `scale_loss(loss, raw, target)` applies standardization (GSL only) and
+     `inverse_scaling`. `MCMCOptions.loss_function` defaults to `nothing`; if set it must equal the
+     method's loss or `mcmcrun` throws. `regularized_cholesky` (`utils/utils.jl`) is the shared
+     ridge-regularization helper used by GSL and BSL. Priors (`prior_eval.jl`) are `NamedTuple`s keyed
+     by parameter name, valued as `Distributions.jl` distributions or `nothing` (flat/uninformative).
 

@@ -56,14 +56,14 @@
         @test size(EmpiricalLikelihoodToolbox.allocate_method_buffer(BSL(7), 6)) == (6, 7)
     end
 
-    @testset "the method's loss is used by calculate_loss" begin
+    @testset "the method's loss is used by evaluate_log_target" begin
         model = NormalModel(mu = 0.0, sigma = 1.0)
         opts = MCMCOptions(mcmc_algorithm = AM(), nsteps = 5)
         seed = UInt64(31)
         values = map((1.0, 2.0)) do scaling
             target, _ = make_target(data, StandardECDF(5); resampling_type = NoResampling(),
                                     inference_method = GSL(loss = LogLikelihood(scaling)))
-            calculate_loss([0.0, 1.0], target, model, opts; rng_seed = seed)
+            evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = seed)
         end
         @test values[2] ≈ values[1] / 2
     end

@@ -51,8 +51,13 @@ end
         @test string(ABC(0.12; n_sim = 5)) == "ABC(ε=0.12, n_sim=5)"
     end
 
-    @testset "allocate_method_buffer holds n_sim distances" begin
-        @test size(ELT.allocate_method_buffer(ABC(n_sim = 4), 6)) == (4,)
+    @testset "the method data holds n_sim distances, the method buffer is unused" begin
+        @test size(ELT.allocate_method_data(ABC(n_sim = 4))) == (4,)
+        @test all(isnan, ELT.allocate_method_data(ABC(n_sim = 4)))
+        @test isempty(ELT.allocate_method_buffer(ABC(n_sim = 4), 6))
+        @test ELT.allocate_inference_state(ABC(0.25)).epsilon == 0.25
+        @test ELT.max_log_likelihood(ABC(0.25), ELT.allocate_inference_state(ABC(0.25))) == 0.0
+        @test ELT.max_log_likelihood(GSL(), nothing) == Inf
     end
 
     @testset "check_method_options" begin
@@ -70,14 +75,17 @@ end
                                                inference_method = ABC(0.1; distance = :bogus))
     end
 
-    @testset "calculate_loss with the uniform kernel" begin
+    @testset "log_likelihood! with the uniform kernel" begin
         model = NormalModel(mu = 1.0, sigma = 2.0)
         opts = MCMCOptions(mcmc_algorithm = AM(), nsteps = 5)
         for (epsilon, expected) in ((1e10, 0.0), (1e-12, -Inf))
             target, _ = abc_target(ABC(epsilon; distance = euclidean_distance);
                                    resampling_type = NoResampling())
             method = target.options.inference_method
-            @test ELT.calculate_loss(method, target, model, opts, StableRNG(1)) == expected
+            distances = ELT.allocate_method_data(method)
+            inference_state = ELT.allocate_inference_state(method)
+            @test ELT.log_likelihood!(distances, method, inference_state, target, model, opts,
+                                      StableRNG(1)) == expected
         end
     end
 
@@ -88,9 +96,10 @@ end
         target, _ = abc_target(ABC(epsilon; distance = euclidean_distance, kernel = GaussianKernel(),
                                    n_sim = 6); resampling_type = NoResampling())
         method = target.options.inference_method
-        loss = ELT.calculate_loss(method, target, model, opts, StableRNG(2))
+        distances = ELT.allocate_method_data(method)
+        inference_state = ELT.allocate_inference_state(method)
+        loss = ELT.log_likelihood!(distances, method, inference_state, target, model, opts, StableRNG(2))
 
-        distances = copy(target.buffers.method_buffer)
         @test length(distances) == 6
         @test all(>(0), distances)
         @test length(unique(distances)) == 6             # six independent simulations
@@ -108,7 +117,11 @@ end
         @test simulate_distance(target, broken_model, StableRNG(1)) == Inf
         opts = MCMCOptions(mcmc_algorithm = AM(), nsteps = 5)
         method = target.options.inference_method
-        @test ELT.calculate_loss(method, target, broken_model, opts, StableRNG(1)) == -Inf
+        distances = ELT.allocate_method_data(method)
+        inference_state = ELT.allocate_inference_state(method)
+        @test ELT.log_likelihood!(distances, method, inference_state, target, broken_model, opts,
+                                  StableRNG(1)) == -Inf
+        @test distances == [Inf]
     end
 
     @testset "distance resolution" begin

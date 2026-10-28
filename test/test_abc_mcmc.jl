@@ -241,3 +241,75 @@ moves(chain) = count(jj -> chain[:, jj] != chain[:, jj - 1], 2:size(chain, 2))
         @test log_targets_match_distances(results, target)
     end
 end
+
+# Number of ABC distance evaluations, ie. simulations (counted by counting_distance).
+const DISTANCE_CALLS = Ref(0)
+
+function counting_distance(simulated, observed)
+    DISTANCE_CALLS[] += 1
+    return sqrt(sum(abs2, simulated .- observed))
+end
+
+# ABC target with informative priors (so early rejection can skip proposals) and the counting
+# distance. ε from the pilot quantile, then fixed (unless the method adapts it).
+function early_rejection_target(; adapt_epsilon = nothing)
+    data = solve_model(NormalModel(mu = 1.0, sigma = 2.0), 100.0; rng = StableRNG(3))
+    priors = (mu = Normal(1.0, 0.3), sigma = truncated(Normal(2.0, 0.3), 0.1, 5.0))
+    method = ABC(n_pilot = 200, epsilon_quantile = 0.2, distance = counting_distance,
+                 adapt_epsilon = adapt_epsilon)
+    opts = make_options(; N_obs = size(data, 2), inference_method = method,
+                        resampling_type = NoResampling(), n_summaries = 1)
+    target, _ = TargetData(data, JointSummaryStatistics(StandardECDF(8)), opts, NormalModel();
+                           priors = priors, rng = StableRNG(11))
+    return target
+end
+
+# AM run with early rejection on or off; returns the results and the number of simulations.
+function run_counted(target, early_rejection; nsteps = 600)
+    opts = MCMCOptions(nsteps = nsteps, mcmc_algorithm = AM(proposal_width = 0.05),
+                       initial_params = [1.0, 2.0], update_interval = 0,
+                       early_rejection = early_rejection)
+    DISTANCE_CALLS[] = 0
+    Random.seed!(7)
+    results, _ = mcmcrun(target, opts)
+    return results, DISTANCE_CALLS[]
+end
+
+same_chains(first, second) = isequal(first.chain, second.chain) &&
+                             isequal(first.sschain, second.sschain) &&
+                             isequal(first.distance_chain, second.distance_chain) &&
+                             isequal(first.epsilon_chain, second.epsilon_chain)
+
+@testset "Early rejection (AM)" begin
+    @testset "ABC with fixed ε: same chain, fewer simulations" begin
+        target = early_rejection_target()
+        results_on, calls_on = run_counted(target, true)
+        results_off, calls_off = run_counted(target, false)
+        @test same_chains(results_on, results_off)
+        @test calls_on < calls_off
+        @test results_on.acceptance == results_off.acceptance
+        @test log_targets_match_distances(results_on, target)
+    end
+
+    @testset "off during ε adaptation" begin
+        target = early_rejection_target(adapt_epsilon = EpsilonAdaptation(n_adapt = 300))
+        results_on, calls_on = run_counted(target, true; nsteps = 300)
+        results_off, calls_off = run_counted(target, false; nsteps = 300)
+        @test same_chains(results_on, results_off)
+        @test calls_on == calls_off
+    end
+
+    # RademacherSplit shuffles the target's index cache with the global RNG, so each run builds
+    # its own target after seeding.
+    @testset "GSL: no bound, so nothing changes" begin
+        chains = map((true, false)) do early_rejection
+            Random.seed!(5)
+            target, _ = make_target(wiggly(40), StandardECDF(5); inference_method = GSL())
+            opts = MCMCOptions(nsteps = 100, mcmc_algorithm = AM(), initial_params = [0.0, 1.0],
+                               early_rejection = early_rejection)
+            results, _ = mcmcrun(target, opts)
+            return results
+        end
+        @test same_chains(chains[1], chains[2])
+    end
+end

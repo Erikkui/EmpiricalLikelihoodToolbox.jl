@@ -9,8 +9,10 @@ A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
 - `n_stages::Int`: The number of proposal stages, INCLUDING the initial proposal) (default: 2).
 - `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages specifying the scale for each stage (default: [1, 0.5]).
 
-Under ABC, DRAM tracks the distances of the current state (stored in `results.distance_chain`).
-ABC ε adaptation (`EpsilonAdaptation`) is not supported: DRAM throws an `ArgumentError`.
+DRAM honours the noisy-likelihood options of `MCMCOptions` (`update_interval`,
+`discard_noisy_updates`, `reevaluate_current_loss`; the re-evaluation shares its random numbers with
+the first-stage proposal). It does not call the inference method's `adapt_inference_state!` hook, so ABC ε
+adaptation (`EpsilonAdaptation`) is not supported: `mcmcrun` throws an `ArgumentError`.
 
 """
 Base.@kwdef struct DRAM{P}
@@ -57,65 +59,73 @@ function compute_log_path( states, log_pi, idx_range, zero_mean_dists )
     return log_D_sub + log_rej + log_q
 end
 
-function delayed_rejection_stage(
+# Propose and evaluate delayed-rejection stage `stage` (≥ 2) into chain_states[stage + 1], and return
+# the log acceptance ratio of the path current → stage-1 proposal → ... → this proposal.
+function delayed_rejection_stage!(
     stage,
-    state,
+    chain_states,
+    adaptive_proposal,
     target,
     model,
     mcmc_options,
-    params_proposal,
-    proposal_cov_L,
+    inference_state,
     dram_buffers
     )
 
     # Unpack buffers
-    log_post_values = dram_buffers.log_post_values
-    proposals = dram_buffers.proposals
+    path_params = dram_buffers.path_params
+    path_log_targets = dram_buffers.path_log_targets
     mv_normals = dram_buffers.mv_normals
     gamma_values = dram_buffers.gamma_values
-    noise_buffer = dram_buffers.noise_buffer
 
-    randn!( noise_buffer )
-    noise_buffer .*= sqrt( gamma_values[ stage ] )  # Scale the noise for the next proposal
+    # Generate and evaluate the next proposal, with the proposal covariance scaled by gamma
+    current = chain_states[1]
+    stage_proposal = chain_states[stage + 1]
+    propose_parameters!( stage_proposal.params, adaptive_proposal, current.params; scale=gamma_values[ stage ] )
+    evaluate_log_target!( stage_proposal, target, model, stage_proposal.params, mcmc_options, inference_state )
 
-    # Generate the next proposal
-    mul!( params_proposal, proposal_cov_L, noise_buffer )
-    params_proposal .+= state.current_params
-    proposals[ stage + 1 ] .= params_proposal
-
-    ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )
-    log_post_values[ stage + 1 ] = ss_proposal
+    # The states and log-targets of the path, in stage order (no copies)
+    for jj in 1:(stage + 1)
+        path_params[ jj ] = chain_states[ jj ].params
+        path_log_targets[ jj ] = chain_states[ jj ].log_target
+    end
 
     # Define exact index ranges
     forward_range = 1:(stage + 1)
     reverse_range = (stage + 1):-1:1
 
     # Calculate probabilities
-    log_D_kk = compute_log_path( proposals, log_post_values, forward_range, mv_normals )
-    log_N_kk = compute_log_path( proposals, log_post_values, reverse_range, mv_normals )
+    log_D_kk = compute_log_path( path_params, path_log_targets, forward_range, mv_normals )
+    log_N_kk = compute_log_path( path_params, path_log_targets, reverse_range, mv_normals )
 
     # Final acceptance probability for this stage
     log_ratio = log_N_kk - log_D_kk
-
-    # Return ss_proposal so the main loop captures the correct density if accepted
-    return log_ratio, ss_proposal
+    return log_ratio
 end
 
-# Removed unused flat buffers (alphas, D_values, N_values, etc.)
+# path_params/path_log_targets: the states of the current delayed-rejection path, filled from the
+# chain_states before each compute_log_path call.
 struct DRAMBuffers{T}
-    log_post_values::Vector{Float64}
-    proposals::Vector{Vector{Float64}}
+    path_params::Vector{Vector{Float64}}
+    path_log_targets::Vector{Float64}
     mv_normals::Vector{T}
     gamma_values::Vector{Float64}
-    noise_buffer::Vector{Float64}
 end
 
 
-function (DRAM::DRAM)( target, model, state, mcmc_options, results )
+# One DRAM chain. run_context.chain_states holds the current state ([1]) and one proposal per stage
+# ([2:n_stages+1]); the accepted proposal swaps with the current state. Returns the results; the
+# final state is run_context.chain_states[1].
+function (dram::DRAM)( target, model, run_context, mcmc_options, results )
     # Initialization
-    adaptation_interval = DRAM.adaptation_interval
-    n_stages = DRAM.n_stages
-    gamma = DRAM.proposal_scale
+    chain_states = run_context.chain_states
+    adaptive_proposal = run_context.proposal
+    policy = run_context.policy
+    inference_state = run_context.inference_state
+    method = target.options.inference_method
+
+    n_stages = dram.n_stages
+    gamma = dram.proposal_scale
 
     if isa( gamma, Number )
         gamma_values = vcat( 1.0, map( k -> Float64(gamma^(2*k+1)), 0:n_stages-2 ) )
@@ -124,49 +134,24 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
     end
 
     chain_length = mcmc_options.nsteps
-
     verbose = target.options.verbose
 
-    # Inference-method hooks: the ABC distances of the current state (no-ops for GSL and BSL).
-    # mcmcrun has already rejected ABC ε adaptation, which DRAM does not support.
-    method = target.options.inference_method
-    current_distances = state.current_distances
-
-    npar = length( state.current_params )
-    chain = results.chain
-    sschain = results.sschain
-    current_iter = results.current_iter
-
-    am_scaling_parameter = 2.38^2 / npar
-    epsilon = 1e-6
-
-    noise_buffer = zeros( npar )
-    params_proposal = zeros( npar )
-
-    # Buffers for the Welford covariance update
-    running_mean = copy(state.current_params)
-    running_cov = copy(state.proposal_cov)
-    diff1 = zeros(npar)
-    diff2 = zeros(npar)
+    npar = length( chain_states[1].params )
 
     # Buffers for the delayed rejection
-    log_post_values = zeros( Float64, n_stages+1 )
-    proposals = [ zeros(npar) for _ in 0:n_stages ]
+    path_params = [ zeros(npar) for _ in 0:n_stages ]
+    path_log_targets = zeros( Float64, n_stages+1 )
 
     # Properly initialize the zero-mean distributions using Symmetric
-    mv_normals = [ MvNormal(Symmetric(g * state.proposal_cov)) for g in gamma_values ]
+    proposal_cov = adaptive_proposal.proposal_cov
+    mv_normals = [ MvNormal(Symmetric(g * proposal_cov)) for g in gamma_values ]
 
     dram_buffers = DRAMBuffers(
-        log_post_values,
-        proposals,
+        path_params,
+        path_log_targets,
         mv_normals,
         gamma_values,
-        noise_buffer
     )
-
-    # Initial Cholesky
-    proposal_cov = copy( state.proposal_cov )
-    proposal_cov_L = cholesky( Symmetric(state.proposal_cov) ).L
 
     is_master_thread = Threads.nthreads() == 1 || Threads.threadid() == 1
 
@@ -178,83 +163,72 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
     ii = 1
     while ii <= chain_length
+        current = chain_states[1]
+        first_proposal = chain_states[2]
 
-        # 1. Propose
-        randn!( noise_buffer )
-        mul!( params_proposal, proposal_cov_L, noise_buffer )
-        params_proposal .+= state.current_params
+        # 1. Propose and evaluate
+        propose_parameters!( first_proposal.params, adaptive_proposal, current.params; scale=gamma_values[1] )
 
-        ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options )
+        step_seed = rand(UInt64)
+        if policy.reevaluate_current_loss
+            # Recalculate the current state's log-target with the proposal's random numbers
+            evaluate_log_target!( current, target, model, current.params, mcmc_options, inference_state; rng_seed=step_seed )
+        end
 
-        # 2. Metropolis accept/reject
-        log_ratio = ss_proposal - state.ss_current
-        rd = log( rand() )
-        accepted = rd < log_ratio
+        evaluate_log_target!( first_proposal, target, model, first_proposal.params, mcmc_options, inference_state; rng_seed=step_seed )
 
-        if accepted
-            # Update state with the proposal and its specific target density
-            copyto!( state.current_params, params_proposal )
-            @reset state.ss_current = ss_proposal
-            _commit_current_distances!( method, current_distances, target, state.current_params )
+        # 2. Metropolis accept/reject, then delayed rejection. accepted_stage = 0: all stages rejected
+        log_ratio = first_proposal.log_target - current.log_target
+        log_u = log( rand() )
+        accepted_stage = log_u < log_ratio ? 1 : 0
 
-            # Update acceptance count
-            results.acceptance[1] += 1
-        else
-            # Delayed rejection
-
-            # Anchor the sequence buffers
-            proposals[1] .= state.current_params
-            proposals[2] .= params_proposal
-            log_post_values[1] = state.ss_current
-            log_post_values[2] = ss_proposal
-
+        if accepted_stage == 0
             for kk in 2:n_stages
-                log_ratio, ss_proposal_kk = delayed_rejection_stage(
+                log_ratio = delayed_rejection_stage!(
                     kk,
-                    state,
+                    chain_states,
+                    adaptive_proposal,
                     target,
                     model,
                     mcmc_options,
-                    params_proposal,
-                    proposal_cov_L,
+                    inference_state,
                     dram_buffers
                 )
 
-                rd = log( rand() )
-                accepted = rd < log_ratio
-
-                if accepted
-                    # The method buffer holds the distances of this stage's proposal
-                    copyto!( state.current_params, params_proposal )
-                    @reset state.ss_current = ss_proposal_kk
-                    _commit_current_distances!( method, current_distances, target, state.current_params )
-
-                    results.acceptance[kk] += 1
+                log_u = log( rand() )
+                if log_u < log_ratio
+                    accepted_stage = kk
                     break
                 end
             end
         end
 
-        # Store
-        chain[:, ii] .= state.current_params
-        sschain[ii] = state.ss_current
-        _store_method_state!( method, results, current_distances, ii )
-        current_iter[] = ii
+        accepted = accepted_stage > 0
+        if accepted
+            # Save the last known "good" state for a rewind, then make the accepted proposal the current state
+            backup_state!( policy, current, adaptive_proposal )
+            accepted_index = accepted_stage + 1
+            chain_states[1] = chain_states[accepted_index]
+            chain_states[accepted_index] = current
+            current = chain_states[1]
 
-        # 3. Adaptive Update
-        recursive_welford!( running_mean, running_cov, state.current_params, diff1, diff2, npar, ii )
-        if ii > 100 && ii % adaptation_interval == 0
-            for col in 1:npar
-                for row in 1:npar
-                    proposal_cov[row, col] = running_cov[row, col] * am_scaling_parameter
-                end
-                proposal_cov[col, col] += epsilon
-            end
+            results.acceptance[accepted_stage] += 1
+        end
 
-            # Use Symmetric to ensure numeric stability during factorization
-            proposal_cov_L = cholesky( Symmetric(proposal_cov) ).L
-            state.proposal_cov .= proposal_cov
+        # 3. Noisy-likelihood policy: kick the stuck chain, or rewind and repeat the step
+        action = check_stuck_chain!( policy, accepted )
+        repeat_step = apply_stuck_chain_action!( action, policy, current, adaptive_proposal,
+                                                 target, model, mcmc_options, inference_state, results )
+        if repeat_step
+            continue
+        end
 
+        # 4. Store
+        record_chain_step!( results, method, inference_state, current, ii )
+
+        # 5. Adaptive update of the proposal covariance
+        covariance_changed = update_proposal_covariance!( adaptive_proposal, current.params, ii )
+        if covariance_changed
             # Rebuild scaled distributions
             for (idx, g) in enumerate(gamma_values)
                 mv_normals[idx] = MvNormal( Symmetric(g * proposal_cov) )
@@ -264,7 +238,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
         # Progress display update
         if !isnothing(pbar)
             accepted_text = round.( results.acceptance ./ ii, digits=2 )
-            set_description(pbar, "Acc: $(accepted_text) SS: $(round(state.ss_current, digits=2))")
+            set_description(pbar, "Acc: $(accepted_text) SS: $(round(current.log_target, digits=2))")
             update(pbar)
         end
 
@@ -276,5 +250,5 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
         println()
     end
 
-    return results, state
+    return results
 end

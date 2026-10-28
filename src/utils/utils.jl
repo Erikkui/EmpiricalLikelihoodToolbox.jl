@@ -193,10 +193,10 @@ Base.show(io::IO, ::MIME"text/plain", x::AbstractSummaryStatistic) = show( io, x
 
 # Ridge-regularize a covariance matrix and return its inverse. Shared by GSL's one-time target
 # covariance (computed once in TargetData) and BSL's per-iteration simulated covariance (computed
-# fresh in calculate_loss at every MCMC step).
+# fresh in log_likelihood! at every MCMC step).
 function regularized_cholesky( cov_mat::AbstractMatrix{<:Real} )
     cov_mat_reg = cov_mat +
-                    # 1e-2 * Diagonal(diag(cov_mat)) +
+                    1e-2 * Diagonal(diag(cov_mat)) +
                     1e-6*I # Regularization to avoid singularity
     return cholesky!( Symmetric( cov_mat_reg ) )
 end

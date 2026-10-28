@@ -28,7 +28,7 @@ abstract type AbstractResampler end
 
 Resamplers whose x and y sets each have the same length as the original data.
 
-This matters beyond bookkeeping: `calculate_loss` takes a faster path that skips resampling
+This matters beyond bookkeeping: `calculate_simulated_statistics` takes a faster path that skips resampling
 entirely when `n_summaries <= 1` and the resampler is length-preserving, since the full index cache
 can be used directly.
 """
