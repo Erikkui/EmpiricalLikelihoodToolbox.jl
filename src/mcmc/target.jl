@@ -63,10 +63,7 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
     mcmc_buffer = zeros( training_summary_length, n_summaries )
     simulation_statistic_buffer = zeros( training_summary_length )
 
-    inference_method = options.inference_method
-    bsl_buffer = isa( inference_method, BSL ) ?
-        zeros( training_summary_length, inference_method.n_sim ) :
-        Matrix{Float64}( undef, 0, 0 )
+    method_buffer = allocate_method_buffer( options.inference_method, training_summary_length )
 
     buffers = BufferContainer(
         stat_buffers,
@@ -75,78 +72,11 @@ function allocate_buffers( statistics::Tuple, data_container, options, diff_orde
         buffer_differences,
         simulation_statistic_buffer,
         index_cache,
-        bsl_buffer,
+        method_buffer,
         )
     return buffers, data_container, training_summary_length
 end
 
-
-function train_target( ::GSL, statistics, data_container, buffer_container, options )
-    training_summaries = buffer_container.training_buffer
-    index_cache = buffer_container.index_cache
-
-    resampling_type = options.resampling_type
-    training_resamplings = options.training_resamplings
-    cov_type = options.covariance_type
-
-    if options.verbose
-        println( "Resampling data for target mean and covariance, ndata = $(size(data_container.observations, 2))" )
-        iter = ProgressBar( 1:training_resamplings, printing_delay=0.1 )
-    else
-        iter = 1:training_resamplings
-    end
-
-    for ii in iter
-        x_inds, y_inds = resampling_type( data_container, options, index_cache )
-
-        view_in = @view training_summaries[:, ii]
-        statistics( view_in, x_inds, y_inds, data_container, buffer_container )
-    end
-
-    mean_summary = mean( training_summaries, dims=2 ) |> vec
-
-    C = nothing
-    if cov_type == :cov
-        C = cov( training_summaries' )
-    elseif cov_type == :donsker
-        ndata = size( data_container.observations, 2 )
-        C = donsker_covariance( mean_summary, ndata )
-    else
-        throw( ArgumentError( "Unknown covariance_type $(cov_type). Must be :cov or :donsker." ) )
-    end
-
-    return mean_summary, C, training_summaries
-end
-
-# Under BSL the observed summary is a fixed reference value; its covariance is irrelevant, since
-# the likelihood's covariance is re-estimated from simulations at every MCMC step (see calculate_loss).
-# With a deterministic, length-preserving resampler (eg. NoResampling), a single pass over all the
-# available data already *is* the reference statistic, so the training_resamplings loop is skipped
-# entirely. For any other resampler (eg. length-changing splitters like RademacherSplit, which have
-# no well-defined "use all the data" shortcut), we still need to average over the resampler's own
-# variability to get a stable reference value, computed consistently with how simulated summaries
-# will be resampled during MCMC - so we simply reuse GSL's training loop and discard its covariance.
-function train_target( ::BSL, statistics, data_container, buffer_container, options )
-    if options.resampling_type isa NoResampling
-        index_cache = buffer_container.index_cache
-        view_in = @view buffer_container.training_buffer[:, 1]
-        statistics( view_in, index_cache, index_cache, data_container, buffer_container )
-
-        mean_summary = collect( view_in )
-        training_summaries = reshape( mean_summary, :, 1 )
-    else
-        mean_summary, _, training_summaries = train_target( GSL(), statistics, data_container, buffer_container, options )
-    end
-
-    return mean_summary, nothing, training_summaries
-end
-
-# GSL's target covariance is fixed for the whole run, so it is factorized once here.
-finalize_target_covariance( ::GSL, cov_mat, summary_length ) = regularized_cholesky( cov_mat )
-
-# BSL refactorizes from simulations at every MCMC step; this placeholder only fixes the type and
-# size up front so the later @set in the MCMC loop does not change it.
-finalize_target_covariance( ::BSL, cov_mat, summary_length ) = cholesky( Matrix( 1.0I, summary_length, summary_length ) )
 
 # A parameter with no prior falls back to a flat (uninformative) prior in evaluate_log_prior;
 # just warn so the user notices a partially-specified priors NamedTuple.
@@ -172,14 +102,16 @@ end
 
 # `data` is the raw observed series. It is embedded here with options.embedding_dim/embedding_type,
 # exactly as create_simulated_data embeds each simulation, and its length sets options.N_obs, the
-# length of every simulation. `model` is stored in the target and is the one mcmcrun runs.
+# length of every simulation. `model` is stored in the target and is the one mcmcrun runs. The loss
+# lives in the inference method (`options.inference_method.loss`). `rng` drives the method's
+# finalization (eg. ABC's pilot simulations); training resampling does not use it.
 function TargetData(
     data::AbstractMatrix{Float64},
     summary_stats::JointSummaryStatistics,
     options::MethodsOptions,
-    loss,
     model::AbstractSimulationModel;
     priors = nothing,
+    rng = Random.default_rng(),
     )
 
     statistics = summary_stats.statistics
@@ -187,6 +119,7 @@ function TargetData(
 
     diff_orders = map( required_diff_order, statistics )
 
+    check_method_options( options.inference_method, options )
     _check_priors( priors, model )  # Only warning if some priors are missing
     options = _set_n_obs( options, data )
     observations = embedding( data, options.embedding_dim, options.embedding_type )
@@ -222,20 +155,12 @@ function TargetData(
     mean_summary, cov_mat, training_summaries = train_target( inference_method, statistics, data_container, buffer_container, options )
     cov_factorization = finalize_target_covariance( inference_method, cov_mat, total_summary_length )
 
-    # Standardization is calibrated from the spread of losses across training_summaries. NoResampling
-    # is deterministic, so every training draw is identical regardless of inference_method (GSL loops
-    # training_resamplings times over the same fixed indices; BSL skips the loop and uses a single
-    # deterministic pass, see train_target above) - the resulting spread is degenerate (zero variance),
-    # so standardization is meaningless and disallowed under NoResampling for both GSL and BSL.
-    if options.resampling_type isa NoResampling && options.standardize
-        throw( ArgumentError( "standardize=true is not supported with NoResampling (no variability to standardize against)." ) )
-    end
-
     # Calculate standardization factors for loss function if requested
     mean_standardization = nothing
     sd_standardization = nothing
     if options.standardize
         losses = zeros( training_resamplings )
+        loss = inference_method.loss
         for (ii, col) in enumerate( eachcol( training_summaries ) )
             temp = loss( col, mean_summary, cov_factorization )
             losses[ii] = temp
@@ -257,6 +182,32 @@ function TargetData(
         sd_standardization,
         model )
 
+    # Resolve method settings that need the finished target (eg. ABC's distance and ε, which may
+    # need pilot simulations). Returns the target unchanged for GSL and BSL.
+    target = finalize_inference_method( inference_method, target, training_summaries, rng )
+
     return target, training_summaries
 end
 #-------------------------------
+
+# Deprecated: the loss now belongs to the inference method. Kept so existing scripts keep working;
+# it stores `loss` in `options.inference_method` and calls the new method. ABC has no loss, so
+# passing one with ABC throws rather than silently ignoring it.
+function TargetData(
+    data::AbstractMatrix{Float64},
+    summary_stats::JointSummaryStatistics,
+    options::MethodsOptions,
+    loss,
+    model::AbstractSimulationModel;
+    priors = nothing,
+    )
+    Base.depwarn(
+        "TargetData(data, stats, options, loss, model) is deprecated: set the loss in the inference method (eg. `GSL(loss = $(_loss_string( loss )))` or `BSL(n_sim; loss = ...)`) and call TargetData(data, stats, options, model).",
+        :TargetData,
+        )
+    if options.inference_method isa ABC
+        throw( ArgumentError( "ABC has no loss function. Call TargetData(data, stats, options, model) without the loss." ) )
+    end
+    options = @set options.inference_method.loss = loss
+    return TargetData( data, summary_stats, options, model; priors = priors )
+end

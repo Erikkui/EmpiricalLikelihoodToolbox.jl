@@ -189,6 +189,40 @@ end
             @test results.stuck_kicks[] ≥ 0
         end
 
+        @testset "update_interval <= 0 disables the stuck-chain heuristic" begin
+            # A huge proposal at the mode is rejected almost always, so the chain is stuck.
+            wide = AM(proposal_width = 1e6)
+            kicks_for(interval; discard = false) = begin
+                opts = MCMCOptions(nsteps = 300, mcmc_algorithm = wide, initial_params = [1.0, -2.0],
+                                   update_interval = interval, discard_noisy_updates = discard)
+                Random.seed!(8)
+                results, _ = mcmcrun(target, opts)
+                @test results.current_iter[] == 300
+                results.stuck_kicks[]
+            end
+
+            @test kicks_for(5) > 0
+            @test kicks_for(5; discard = true) > 0
+            @test kicks_for(0) == 0
+            @test kicks_for(-1) == 0
+            @test kicks_for(0; discard = true) == 0
+        end
+
+        @testset "an explicit loss_function must match the inference method's loss" begin
+            Random.seed!(9)
+            matching = MCMCOptions(nsteps = 5, mcmc_algorithm = AM(), loss_function = LogLikelihood(),
+                                   initial_params = [1.0, -2.0])
+            results, _ = mcmcrun(target, matching)
+            @test results.current_iter[] == 5
+
+            mismatched = MCMCOptions(nsteps = 5, mcmc_algorithm = AM(), loss_function = RobustChamfer(),
+                                     initial_params = [1.0, -2.0])
+            @test_throws ArgumentError mcmcrun(target, mismatched)
+            scaled = MCMCOptions(nsteps = 5, mcmc_algorithm = AM(), loss_function = LogLikelihood(2.0),
+                                 initial_params = [1.0, -2.0])
+            @test_throws ArgumentError mcmcrun(target, scaled)
+        end
+
         @testset "initial_params defaults to a perturbation of the model's own values" begin
             opts = MCMCOptions(nsteps = 50, mcmc_algorithm = AM(), initial_params = nothing)
             Random.seed!(7)

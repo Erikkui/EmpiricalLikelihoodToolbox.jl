@@ -15,7 +15,8 @@ using CairoMakie
 
 function run_test_mcmc()
 
-    inference_method = BSL(500)
+    lossfun = LogLikelihood( scaling_parameter = 1.0 )
+    inference_method = BSL( 500; loss = lossfun )    # The loss lives in the inference method
     axis_unif = :yax
     covariance_type = :cov
 
@@ -62,8 +63,6 @@ function run_test_mcmc()
     # resampler = RademacherSplit()
     resampler = ContiguousBlockSplit( timeseries_block_size = timeseries_block_size )
 
-    lossfun = LogLikelihood( scaling_parameter = 1.0 )
-
     sampler = AM( proposal_width = 0.01, adaptation_interval = 50 )
     # sampler = DRAM( proposal_width = 0.01, adaptation_interval = 50, n_stages = 2, proposal_scale = [1.0, 0.01] )
 
@@ -100,12 +99,11 @@ function run_test_mcmc()
         mcmc_algorithm = sampler,
         reevaluate_current_loss = reevaluate_current_loss,
         update_interval = 30,
-        loss_function = lossfun,
         discard_noisy_updates = false,
         likelihood_noise_scale = likelihood_noise_scale
         )
 
-    target, training_summaries = TargetData( data, summary_statistics, methods_options, lossfun, model; priors = priors )
+    target, training_summaries = TargetData( data, summary_statistics, methods_options, model; priors = priors )
 
     results, state = mcmcrun( target, mcmc_options )
 

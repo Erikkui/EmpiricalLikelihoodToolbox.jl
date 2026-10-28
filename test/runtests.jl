@@ -15,6 +15,10 @@ include("testutils.jl")
     # Phase 3 -- integration
     include("test_target.jl")
     include("test_loss.jl")
+    include("test_inference.jl")
+    include("test_abc.jl")
+    include("test_abc_mcmc.jl")
+    include("test_abc_smc.jl")
     include("test_mcmc.jl")
     include("test_integration.jl")
 

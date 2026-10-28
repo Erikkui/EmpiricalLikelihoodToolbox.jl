@@ -171,7 +171,7 @@ end
 initial_state( m::AbstractSimulationModel ) = copy( m.x0 )
 
 # Standardize summary statistics using provided mean and standard deviation.
-standardize!( ss, standard_mean, standard_sd ) = ( ss - standard_mean ) / standard_sd
+standardize( ss, standard_mean, standard_sd ) = ( ss .- standard_mean ) ./ standard_sd
 
 
 # Clean "show" method for printing summary statistic objects without printing the entire
@@ -196,7 +196,7 @@ Base.show(io::IO, ::MIME"text/plain", x::AbstractSummaryStatistic) = show( io, x
 # fresh in calculate_loss at every MCMC step).
 function regularized_cholesky( cov_mat::AbstractMatrix{<:Real} )
     cov_mat_reg = cov_mat +
-                    1e-2 * Diagonal(diag(cov_mat)) +
+                    # 1e-2 * Diagonal(diag(cov_mat)) +
                     1e-6*I # Regularization to avoid singularity
     return cholesky!( Symmetric( cov_mat_reg ) )
 end

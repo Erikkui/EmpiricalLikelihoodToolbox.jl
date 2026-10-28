@@ -24,14 +24,30 @@
             @test LogLikelihood()(x, xs, C) < 0.0
         end
 
-        @testset "two-argument form reads the covariance off the target" begin
+        @testset "the callable returns the raw, unscaled value" begin
+            C = regularized_cholesky(cov(randn(StableRNG(53), 4, 30)'))
+            x = [1.0, 2.0, 3.0, 4.0]
+            xs = [0.5, 2.5, 2.0, 5.0]
+            @test LogLikelihood(2.0)(x, xs, C) == LogLikelihood()(x, xs, C)
+        end
+
+        @testset "scale_loss applies inverse_scaling" begin
             target, _ = make_target(data, StandardECDF(5); training_resamplings = 100)
             sim = target.obs_mean .+ 0.01
+            raw = LogLikelihood()(sim, target.obs_mean, target.cov_factorization)
 
-            expected = -0.5 * dot(sim - target.obs_mean, target.cov_factorization \ (sim - target.obs_mean))
-            @test LogLikelihood()(target, sim) ≈ expected
-            @test LogLikelihood(2.0)(target, sim) ≈ expected / 2      # inverse_scaling applied
-            @test LogLikelihood()(target, copy(target.obs_mean)) == 0.0
+            @test scale_loss(LogLikelihood(), raw, target) ≈ raw
+            @test scale_loss(LogLikelihood(2.0), raw, target) ≈ raw / 2
+        end
+
+        @testset "scale_loss standardizes before scaling when requested" begin
+            target, _ = make_target(data, StandardECDF(5); standardize = true, training_resamplings = 100)
+            sim = target.obs_mean .+ 0.01
+            raw = LogLikelihood()(sim, target.obs_mean, target.cov_factorization)
+            standardized = (raw - target.standardization_mean) / target.standardization_sd
+
+            @test scale_loss(LogLikelihood(), raw, target) ≈ standardized
+            @test scale_loss(LogLikelihood(2.0), raw, target) ≈ standardized / 2
         end
     end
 
@@ -40,8 +56,9 @@
 
         target, _ = make_target(data, ChamferDistance(1); training_resamplings = 50)
         sim = [0.5]
-        @test RobustChamfer()(target, sim) ≈ -0.5
-        @test RobustChamfer(2.0)(target, sim) ≈ -0.25
+        raw = RobustChamfer()(sim, target.obs_mean, target.cov_factorization)
+        @test raw ≈ -0.5
+        @test scale_loss(RobustChamfer(2.0), raw, target) ≈ -0.25
 
         @testset "three-argument form just sums the chamfer distances in x" begin
             # The robust chamfer distance has no covariance term (unlike LogLikelihood's Mahalanobis
@@ -132,7 +149,20 @@
             # The per-step covariance is written into the buffer, leaving the target's own
             # placeholder factorization untouched.
             @test Matrix(target.cov_factorization) ≈ Matrix(I, target.summary_length, target.summary_length)
-            @test size(target.buffers.bsl_buffer) == (target.summary_length, 20)
+            @test size(target.buffers.method_buffer) == (target.summary_length, 20)
+        end
+
+        @testset "BSL scales the whole value, including the log-determinant" begin
+            # With inverse_scaling = 1/2 the loss is exactly half, as the likelihood term and the
+            # log-determinant term are scaled together. The same seed gives the same simulations.
+            seed = UInt64(5)
+            values = map((1.0, 2.0)) do scaling
+                target, _ = make_target(data, StandardECDF(5);
+                                        resampling_type = NoResampling(), training_resamplings = 20,
+                                        inference_method = BSL(20, LogLikelihood(scaling)))
+                calculate_loss([0.0, 1.0], target, model, opts; rng_seed = seed)
+            end
+            @test values[2] ≈ values[1] / 2
         end
 
         @testset "likelihood noise widens the loss" begin

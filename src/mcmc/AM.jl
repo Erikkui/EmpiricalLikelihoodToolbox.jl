@@ -7,6 +7,10 @@ A struct for the adaptive MCMC algorithm.
 - `proposal_width`: The variance of the initial proposal distribution (default: 0.01), the same for every parameter; or a vector of per-parameter variances (a diagonal initial proposal, for parameters on different scales).
 - `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
 
+Under ABC, AM also tracks the distances of the current state (stored in `results.distance_chain`)
+and, with `ABC( adapt_epsilon = EpsilonAdaptation( ... ) )`, adapts the tolerance ε during the
+first `n_adapt` iterations (see `EpsilonAdaptation`).
+
 """
 Base.@kwdef struct AM{T}
     proposal_width::T = 0.01
@@ -23,6 +27,13 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     discard_noisy_updates = mcmc_options.discard_noisy_updates
     reevaluate_current_loss = mcmc_options.reevaluate_current_loss
     verbose = target.options.verbose
+
+    # Inference-method hooks: the ABC distances of the current state and the ε adaptation.
+    # No-ops for GSL and BSL. The method's type does not change when ε is adapted. mcmcrun has
+    # already checked the adaptation settings.
+    method = target.options.inference_method
+    epsilon_adaptation = _epsilon_adaptation( method )
+    current_distances = state.current_distances
 
     npar = length( state.current_params )
     chain = results.chain
@@ -56,7 +67,9 @@ function (AM::AM)( target, model, state, mcmc_options, results )
     n_stuck = 0
 
     if discard_noisy_updates || !verbose
-        print_interval = min( 50, update_interval, adaptation_interval ) - 5
+        # update_interval <= 0 disables the stuck-chain heuristic, so it must not set the interval
+        heuristic_interval = update_interval > 0 ? update_interval : typemax( Int )
+        print_interval = min( 50, heuristic_interval, adaptation_interval ) - 5
         print_interval = max( print_interval, 20 ) # Ensure a reasonable print interval
         pbar = nothing
     else
@@ -79,6 +92,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
             # Recalculate the loss for the current parameters
             ss_current_reevaluated = calculate_loss( state.current_params, target, model, mcmc_options, rng_seed=step_seed )
             @reset state.ss_current = ss_current_reevaluated
+            _commit_current_distances!( method, current_distances, target, state.current_params )
         end
 
         ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options, rng_seed=step_seed )
@@ -97,9 +111,10 @@ function (AM::AM)( target, model, state, mcmc_options, results )
             backup_ss = state.ss_current
             backup_ii = ii
 
-            # Then accept the new proposal
+            # Then accept the new proposal. The method buffer still holds the proposal's distances.
             copyto!( state.current_params, params_proposal )
             @reset state.ss_current = ss_proposal
+            _commit_current_distances!( method, current_distances, target, state.current_params )
 
             # Update acceptance count
             results.acceptance[1] += 1
@@ -107,16 +122,19 @@ function (AM::AM)( target, model, state, mcmc_options, results )
             n_stuck = 0 # Reset stuck counter on move
         else
             n_stuck += 1
-            if n_stuck > update_interval    # If mcmc gets stuck in "too good" proposal
+            # The heuristic is only active for update_interval > 0
+            if update_interval > 0 && n_stuck > update_interval    # If mcmc gets stuck in "too good" proposal
                 if discard_noisy_updates
                     # Restore the last known "good" state
                     copyto!( state.current_params, backup_params )
                     copyto!( running_mean, backup_mean )
                     copyto!( running_cov, backup_cov )
 
+                    # The restored state is simulated again, so its distances need no backup
                     ss_recalc = calculate_loss( state.current_params, target, model, mcmc_options )
 
                     @reset state.ss_current = ss_recalc
+                    _commit_current_distances!( method, current_distances, target, state.current_params )
                     results.stuck_kicks[] += 1
 
                     n_stuck = 0 # Reset counter
@@ -128,6 +146,7 @@ function (AM::AM)( target, model, state, mcmc_options, results )
                     ss_recalc = calculate_loss( state.current_params, target, model, mcmc_options )
 
                     @reset state.ss_current = ss_recalc
+                    _commit_current_distances!( method, current_distances, target, state.current_params )
                     results.stuck_kicks[] += 1
 
                     n_stuck = 0 # Reset counter
@@ -135,9 +154,14 @@ function (AM::AM)( target, model, state, mcmc_options, results )
             end
         end
 
+        # ABC tolerance adaptation (first n_adapt iterations only): new ε in the target, and the
+        # current state's log-target recomputed at the new ε from its stored distances
+        target, state = _adapt_epsilon( epsilon_adaptation, target, state, log_ratio, ii )
+
         # Store
         chain[:, ii] .= state.current_params
         sschain[ii] = state.ss_current
+        _store_method_state!( target.options.inference_method, results, current_distances, ii )
         current_iter[] = ii
 
         # 3. Adaptive Update

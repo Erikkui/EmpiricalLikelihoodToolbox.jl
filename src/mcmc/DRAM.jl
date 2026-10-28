@@ -9,6 +9,9 @@ A struct for the delayed rejection adaptive Metropolis MCMC algorithm.
 - `n_stages::Int`: The number of proposal stages, INCLUDING the initial proposal) (default: 2).
 - `proposal_scale`: The scaling factor for the proposal covariance at each stage. Can be a single number (applied as gamma^(2k+1), k = 0, ..., n_stages-2) or a vector of length n_stages specifying the scale for each stage (default: [1, 0.5]).
 
+Under ABC, DRAM tracks the distances of the current state (stored in `results.distance_chain`).
+ABC ε adaptation (`EpsilonAdaptation`) is not supported: DRAM throws an `ArgumentError`.
+
 """
 Base.@kwdef struct DRAM{P}
     proposal_width::Float64 = 0.01
@@ -124,6 +127,11 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
 
     verbose = target.options.verbose
 
+    # Inference-method hooks: the ABC distances of the current state (no-ops for GSL and BSL).
+    # mcmcrun has already rejected ABC ε adaptation, which DRAM does not support.
+    method = target.options.inference_method
+    current_distances = state.current_distances
+
     npar = length( state.current_params )
     chain = results.chain
     sschain = results.sschain
@@ -187,6 +195,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
             # Update state with the proposal and its specific target density
             copyto!( state.current_params, params_proposal )
             @reset state.ss_current = ss_proposal
+            _commit_current_distances!( method, current_distances, target, state.current_params )
 
             # Update acceptance count
             results.acceptance[1] += 1
@@ -215,8 +224,10 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
                 accepted = rd < log_ratio
 
                 if accepted
+                    # The method buffer holds the distances of this stage's proposal
                     copyto!( state.current_params, params_proposal )
                     @reset state.ss_current = ss_proposal_kk
+                    _commit_current_distances!( method, current_distances, target, state.current_params )
 
                     results.acceptance[kk] += 1
                     break
@@ -227,6 +238,7 @@ function (DRAM::DRAM)( target, model, state, mcmc_options, results )
         # Store
         chain[:, ii] .= state.current_params
         sschain[ii] = state.ss_current
+        _store_method_state!( method, results, current_distances, ii )
         current_iter[] = ii
 
         # 3. Adaptive Update

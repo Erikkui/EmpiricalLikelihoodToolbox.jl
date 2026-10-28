@@ -9,7 +9,7 @@ using Distributions
 using EmpiricalLikelihoodToolbox:
     DataContainer, BufferContainer, MCMCState, ResultsBuffer,
     calculate_diffs, calculate_diffs!, recursive_welford!, regularized_cholesky,
-    donsker_covariance, contract, contract!, invcdf, standardize!,
+    donsker_covariance, contract, contract!, invcdf, standardize,
     update_model_parameters, initial_state,
     empcdf_raw, empcdf_raw!, empcdf_kernelsmoothed, empcdf_kernelsmoothed!, resolve_ecdf,
     chamfer_distance, chamfer_distance!,
@@ -19,7 +19,7 @@ using EmpiricalLikelihoodToolbox:
     finalize_summary, get_bin_quantity, calculate_summary_statistic!,
     StandardECDFMultiDimensional, StandardECDFDiffMultiDimensional,
     evaluate_log_prior, evaluate_single_prior, calculate_loss,
-    allocate_buffers, initialize_datacontainer, train_target, compute_log_path,
+    allocate_buffers, initialize_datacontainer, train_target, compute_log_path, scale_loss,
     AbstractResampler, LengthPreservingSampler, LengthChangingSampler, ResultsBuffer,
     TwoSetSummary, ChamferECDFSummary, step!
 
@@ -54,7 +54,7 @@ function make_container(data::AbstractMatrix{Float64}; kwargs...)
 end
 
 """
-    make_target(data, stats...; priors=nothing, loss=LogLikelihood(), model=NormalModel(), kwargs...)
+    make_target(data, stats...; priors=nothing, model=NormalModel(), kwargs...)
 
 Build a `TargetData` the same way the real pipeline does. The model supplies `dt_obs` (1.0 by
 default), the time step of the derivative summaries, and is the one `mcmcrun(target, opts)` runs. Always construct the summary statistics
@@ -62,9 +62,9 @@ fresh at the call site: `finalize_summary` binds a summary instance to one `Buff
 shared instance would alias buffers across tests.
 """
 function make_target(data::AbstractMatrix{Float64}, stats...;
-                     priors = nothing, loss = LogLikelihood(), model = NormalModel(), kwargs...)
+                     priors = nothing, model = NormalModel(), kwargs...)
     opts = make_options(; N_obs = size(data, 2), kwargs...)
-    return TargetData(data, JointSummaryStatistics(stats...), opts, loss, model; priors = priors)
+    return TargetData(data, JointSummaryStatistics(stats...), opts, model; priors = priors)
 end
 
 "Every concrete simulation model, with parameters left at their defaults."
