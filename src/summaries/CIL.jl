@@ -63,7 +63,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data_X = @view data.observations[ :, x_inds ]
     data_Y = @view data.observations[ :, y_inds ]
 
-    pairwise!( buffer, Euclidean(), data_X, data_Y )
+    pairwise!( buffer, Euclidean(), data_X, data_Y; dims = 2 )
 
     empcdf!( view_out, vec( buffer ), nbins, bins )
     return nothing
@@ -91,7 +91,7 @@ function calculate_summary_statistic!(  # To be used in MCMC
     data_X = @view R0[ :, x_inds ]
     data_Y = @view Rsim[ :, y_inds ]
 
-    pairwise!( buffer, Euclidean(), data_X, data_Y )
+    pairwise!( buffer, Euclidean(), data_X, data_Y; dims = 2 )
 
     empcdf!( view_out, vec( buffer ), nbins, bins )
     return nothing
@@ -100,7 +100,7 @@ end
 function get_bin_quantity( summary_statistic::CIL, data::DataContainer, inds_X, inds_Y )
     data_X = @view data.observations[ :, inds_X ]
     data_Y = @view data.observations[ :, inds_Y ]
-    distances = pairwise( Euclidean(), data_X, data_Y )
+    distances = pairwise( Euclidean(), data_X, data_Y; dims = 2 )
     distances = reshape( distances, :, 1 )
     return distances
 end

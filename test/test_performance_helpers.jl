@@ -1,7 +1,7 @@
 # Allocation-free helpers that replace allocating library calls in the hot loop. Each must give the
 # same values as the call it replaces.
 
-using EmpiricalLikelihoodToolbox: BlockComplement
+using EmpiricalLikelihoodToolbox: BlockComplement, partialsort_smallest!
 
 @testset "performance helpers" begin
 
@@ -47,5 +47,32 @@ using EmpiricalLikelihoodToolbox: BlockComplement
             component_total += component_allocations( component_out, summary, target, cache )
         end
         @test joint_allocations( joint_out, target, cache ) == component_total
+    end
+
+    @testset "partialsort_smallest! equals partialsort!" begin
+        rng = StableRNG( 11 )
+        for count in ( 1, 2, 4, 40 )
+            values = randn( rng, 40 )
+            expected = partialsort!( copy( values ), 1:count )
+            @test partialsort_smallest!( values, count )[ 1:count ] == expected
+        end
+
+        # Ties, signed zeros and NaN: same `isless` order as partialsort!
+        special_values = [ 3.0, 0.0, NaN, -0.0, 1.0, 1.0, -2.0, 0.0 ]
+        for count in 1:length( special_values )
+            expected = partialsort!( copy( special_values ), 1:count )
+            result = partialsort_smallest!( copy( special_values ), count )[ 1:count ]
+            @test isequal( result, expected )
+        end
+
+        # Strided row views, as ID uses them, are sorted in place without allocating
+        distances = rand( rng, 6, 30 )
+        expected_rows = [ partialsort!( collect( row ), 1:3 ) for row in eachrow( distances ) ]
+        row_sort_allocations( matrix, count ) = @allocated for row in eachrow( matrix )
+            partialsort_smallest!( row, count )
+        end
+        row_sort_allocations( copy( distances ), 3 )
+        @test row_sort_allocations( distances, 3 ) == 0
+        @test all( distances[ ii, 1:3 ] == expected_rows[ ii ] for ii in 1:6 )
     end
 end

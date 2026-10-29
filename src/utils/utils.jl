@@ -329,3 +329,25 @@ function contract( input::AbstractMatrix{<:Real}, window_size::Int )
 
     return output
 end
+
+# Move the `count` smallest entries of `values` into values[1:count], in ascending order by `isless`:
+# the same first `count` entries as partialsort!( values, 1:count ), whose order of the remaining
+# entries differs. Selection sort, O(count * length(values)), and allocation-free, unlike
+# partialsort!, which allocates scratch space on every call. Meant for small counts, eg. the
+# nearest-neighbour ranks of ID / IDDiff.
+function partialsort_smallest!( values::AbstractVector, count::Int )
+    first_ind = firstindex( values )
+    last_ind = lastindex( values )
+
+    for target_ind in first_ind:( first_ind + count - 1 )
+        min_ind = target_ind
+        for candidate_ind in ( target_ind + 1 ):last_ind
+            if isless( values[ candidate_ind ], values[ min_ind ] )
+                min_ind = candidate_ind
+            end
+        end
+        values[ target_ind ], values[ min_ind ] = values[ min_ind ], values[ target_ind ]
+    end
+
+    return values
+end
