@@ -1,7 +1,8 @@
 # Allocation-free helpers that replace allocating library calls in the hot loop. Each must give the
 # same values as the call it replaces.
 
-using EmpiricalLikelihoodToolbox: BlockComplement, partialsort_smallest!
+using EmpiricalLikelihoodToolbox: BlockComplement, partialsort_smallest!, ChamferWorkspace, _load_set_B!,
+    _knn_distance_table!, _chamfer_distance_from_table!
 
 @testset "performance helpers" begin
 
@@ -97,5 +98,48 @@ using EmpiricalLikelihoodToolbox: BlockComplement, partialsort_smallest!
         prior_allocations( params, priors, names ) = @allocated evaluate_log_prior( params, priors, names )
         prior_allocations( new_params, priors, active_names )
         @test prior_allocations( new_params, priors, active_names ) == 0
+    end
+
+    @testset "ChamferWorkspace equals the allocating chamfer_distance" begin
+        rng = StableRNG( 5 )
+        for dimension in ( 1, 2 ), kvals in ( 1, [ 1, 3 ], [ 2, 4, 5 ] )
+            workspace = ChamferWorkspace( dimension, 40, kvals )
+            # Several sizes on one workspace: a rebuilt tree must not keep points of the previous call
+            for ( n_A, n_B ) in ( ( 12, 28 ), ( 20, 20 ), ( 7, 33 ) )
+                set_A = randn( rng, dimension, n_A )
+                set_B = randn( rng, dimension, n_B )
+                out = zeros( length( kvals ) )
+                chamfer_distance!( out, workspace, set_A, set_B, kvals )
+                @test out == chamfer_distance( set_A, set_B, kvals )
+            end
+        end
+
+        # Two tree rebuilds (one small allocation each), nothing else
+        set_A = randn( rng, 2, 15 )
+        set_B = randn( rng, 2, 25 )
+        kvals = [ 1, 3 ]
+        workspace = ChamferWorkspace( 2, 40, kvals )
+        out = zeros( 2 )
+        chamfer_allocations( out, workspace, set_A, set_B, kvals ) =
+            @allocations chamfer_distance!( out, workspace, set_A, set_B, kvals )
+        chamfer_allocations( out, workspace, set_A, set_B, kvals )
+        @test chamfer_allocations( out, workspace, set_A, set_B, kvals ) <= 3
+    end
+
+    @testset "Chamfer from a distance table equals chamfer_distance" begin
+        rng = StableRNG( 6 )
+        kvals = [ 1, 3 ]
+        data_A = randn( rng, 2, 30 )
+        set_B = randn( rng, 2, 25 )
+        workspace = ChamferWorkspace( 2, 30, kvals )
+        _load_set_B!( workspace, set_B )
+        table = zeros( length( kvals ), 30 )
+        _knn_distance_table!( table, workspace, data_A, 1:30, kvals )
+
+        out = zeros( length( kvals ) )
+        for x_inds in ( 1:10, [ 30, 2, 17, 5, 9 ], 11:30 )
+            _chamfer_distance_from_table!( out, workspace, table, data_A, x_inds, kvals )
+            @test out == chamfer_distance( data_A[ :, x_inds ], set_B, kvals )
+        end
     end
 end

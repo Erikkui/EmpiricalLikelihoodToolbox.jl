@@ -22,6 +22,7 @@ include("testutils.jl")
     include("test_abc_smc.jl")
     include("test_mcmc.jl")
     include("test_integration.jl")
+    include("test_allocations.jl")
 
     # Phase 4 -- package quality
     include("test_aqua.jl")
