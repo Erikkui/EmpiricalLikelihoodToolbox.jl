@@ -1,120 +1,19 @@
-function calculate_chamfer_result!( result, kvals, dists_A_to_B, dists_B_to_A, n, m )
-    @inbounds for ( ii, kk ) in enumerate( kvals )
-        sum_AB = 0.0
-        for distances in dists_A_to_B
-            sum_AB += distances[kk]
-        end
-
-        sum_BA = 0.0
-        for distances in dists_B_to_A
-            sum_BA += distances[kk]
-        end
-
-        result[ii] = (sum_AB / n) + (sum_BA / m)
-    end
-    return nothing
-end
-
-function chamfer_distance(
-    set_A::AbstractMatrix{<:Real},
-    set_B::AbstractMatrix{<:Real},
-    kvals
-    )
-
-    n = size( set_A, 2 )
-    m = size( set_B, 2 )
-    k_max = maximum( kvals )
-
-    tree_A = KDTree( set_A )
-    tree_B = KDTree( set_B )
-
-    _, dists_A_to_B = knn( tree_B, set_A, k_max, true )
-    _, dists_B_to_A = knn( tree_A, set_B, k_max, true )
-
-    result = Vector{Float64}( undef, length(kvals) )
-
-    calculate_chamfer_result!( result, kvals, dists_A_to_B, dists_B_to_A, n, m )
-
-    return result
-end
-
-function chamfer_distance!(
-    view_out::AbstractVector{<:Real},
-    set_A::AbstractMatrix{<:Real},
-    set_B::AbstractMatrix{<:Real},
-    kvals
-    )
-
-    n = size( set_A, 2 )
-    m = size( set_B, 2 )
-    k_max = maximum( kvals )
-
-    tree_A = KDTree( set_A )
-    tree_B = KDTree( set_B )
-
-    _, dists_A_to_B = knn( tree_B, set_A, k_max, true )
-    _, dists_B_to_A = knn( tree_A, set_B, k_max, true )
-
-    calculate_chamfer_result!( view_out, kvals, dists_A_to_B, dists_B_to_A, n, m )
-
-    return nothing
-end
-
-
-
-function chamfer_distance(
-    set_A::AbstractMatrix{<:Real},
-    set_B::AbstractMatrix{<:Real},
-    tree_B::KDTree,
-    kvals
-    )
-
-    n = size( set_A, 2 )
-    m = size( set_B, 2 )
-
-    tree_A = KDTree( set_A, tree_B.metric )
-
-    k_max = maximum( kvals )
-
-    _, dists_A_to_B = knn( tree_B, set_A, k_max, true )
-    _, dists_B_to_A = knn( tree_A, set_B, k_max, true )
-
-    result = Vector{Float64}( undef, length(kvals) )
-
-    calculate_chamfer_result!( result, kvals, dists_A_to_B, dists_B_to_A, n, m )
-
-    return result
-end
-
-
-function chamfer_distance!(
-    view_out::AbstractVector{<:Real},
-    set_A::AbstractMatrix{<:Real},
-    set_B::AbstractMatrix{<:Real},
-    tree_B::KDTree,
-    kvals
-    )
-    n = size( set_A, 2 )
-    m = size( set_B, 2 )
-
-    tree_A = KDTree( set_A, tree_B.metric )
-
-    k_max = maximum( kvals )
-
-    # knn still allocates the output vectors, which is unavoidable with NearestNeighbors.jl
-    _, dists_A_to_B = knn( tree_B, set_A, k_max, true )
-    _, dists_B_to_A = knn(  tree_A, set_B, k_max, true )
-
-
-    calculate_chamfer_result!( view_out, kvals, dists_A_to_B, dists_B_to_A, n, m )
-
-    return nothing
-end
-
-
-# Allocation-free Chamfer distance. The functions above build two new k-d trees and allocate the
-# knn output on every call; these reuse one workspace instead and give bit-identical results: the
-# same k-th neighbour distances, summed over the points in the same order.
+# Chamfer distance between point sets A (n points) and B (m points), for each neighbour index k in
+# kvals:
+#
+#     d_k(A, B) = (1/n) Σ_{a ∈ A} r_k(a, B)  +  (1/m) Σ_{b ∈ B} r_k(b, A)
+#
+# where r_k(p, S) is the distance from p to its k-th nearest neighbour in S. Points are the columns
+# of the data matrices.
+#
+# Implementation: r_k comes from k-d trees (NearestNeighbors.jl). A ChamferWorkspace keeps the point
+# sets, both trees and the knn output between calls, so the MCMC hot loop allocates only one small
+# object per tree rebuild. Each sum runs over the points in column order, starting from 0.0.
+#
+# ChamferECDF evaluates d_k for many resamples A of the observed data against one fixed simulated
+# set B. The first term then only picks which r_k(a, B) to add, so those are looked up once per
+# observed point and stored in a table (_knn_distance_table!); per resample only the tree of A is
+# rebuilt for the second term (_chamfer_distance_from_table!).
 
 # Reusable storage: the two point sets as SVectors, their k-d trees (rebuilt with KDTree!, which
 # reuses the old tree's storage but returns a new tree object, hence the mutable struct), the knn!
@@ -169,7 +68,7 @@ function _copy_points!( workspace::ChamferWorkspace, points, set::AbstractMatrix
     return points
 end
 
-# sums[ii] = sum over `points`, in order, of the distance to the kvals[ii]-th nearest neighbour in `tree`
+# sums[ii] = Σ_{p ∈ points} r_kk(p, tree's set) with kk = kvals[ii], summed in the order of `points`
 function _add_knn_distances!( sums, workspace::ChamferWorkspace, tree::KDTree, points, kvals )
     knn_idxs = workspace.knn_idxs
     knn_dists = workspace.knn_dists
@@ -192,7 +91,7 @@ function _combine_chamfer_sums!( view_out, workspace::ChamferWorkspace, n::Int, 
     return nothing
 end
 
-# Same as chamfer_distance!( view_out, set_A, set_B, kvals ), with both trees rebuilt in `workspace`
+# d_k(set_A, set_B) for each k in kvals, written into view_out. Both trees are rebuilt in `workspace`.
 function chamfer_distance!(
     view_out::AbstractVector{<:Real},
     workspace::ChamferWorkspace,
@@ -213,17 +112,32 @@ function chamfer_distance!(
     return nothing
 end
 
-# For ChamferECDF, where set_B is fixed over many resamples of set_A: load set_B into the workspace
-# (points_B and tree_B) once
+# Allocating version with a one-off workspace, for code outside the hot loop (eg. bin calculation)
+function chamfer_distance(
+    set_A::AbstractMatrix{<:Real},
+    set_B::AbstractMatrix{<:Real},
+    kvals
+    )
+
+    dimension = size( set_A, 1 )
+    max_points = max( size( set_A, 2 ), size( set_B, 2 ) )
+    workspace = ChamferWorkspace( dimension, max_points, kvals )
+
+    result = Vector{Float64}( undef, length( kvals ) )
+    chamfer_distance!( result, workspace, set_A, set_B, kvals )
+
+    return result
+end
+
+# ChamferECDF: load the fixed set B into the workspace (points_B and tree_B) once
 function _load_set_B!( workspace::ChamferWorkspace, set_B::AbstractMatrix{<:Real} )
     points_B = _copy_points!( workspace, workspace.points_B, set_B )
     workspace.tree_B = KDTree!( workspace.tree_B, points_B )
     return workspace
 end
 
-# With set_B loaded, the A->B distances do not depend on the resample of set_A: table[ii, col]
-# is the distance from column `col` of `data_A` to its kvals[ii]-th nearest neighbour in set_B, for
-# every column in `columns`.
+# ChamferECDF: with set B loaded, table[ii, col] = r_kk(data_A[:, col], B) with kk = kvals[ii], for
+# every column in `columns`
 function _knn_distance_table!( table, workspace::ChamferWorkspace, data_A::AbstractMatrix, columns, kvals )
     knn_idxs = workspace.knn_idxs
     knn_dists = workspace.knn_dists
@@ -239,9 +153,8 @@ function _knn_distance_table!( table, workspace::ChamferWorkspace, data_A::Abstr
     return table
 end
 
-# Chamfer distance between set_A = data_A[:, x_inds] and the set_B loaded in the workspace, with the
-# A->B part summed from `table` (see _knn_distance_table!). Same value as chamfer_distance! on the
-# two sets.
+# ChamferECDF: d_k(data_A[:, x_inds], B) with the loaded set B. The A->B sums are read from `table`
+# in x_inds order, so the value equals chamfer_distance! on the two sets.
 function _chamfer_distance_from_table!( view_out, workspace::ChamferWorkspace, table, data_A::AbstractMatrix,
                                         x_inds, kvals )
     sums_AB = workspace.sums_AB

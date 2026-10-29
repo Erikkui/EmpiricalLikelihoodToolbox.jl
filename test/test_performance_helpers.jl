@@ -100,11 +100,12 @@ using EmpiricalLikelihoodToolbox: BlockComplement, partialsort_smallest!, Chamfe
         @test prior_allocations( new_params, priors, active_names ) == 0
     end
 
-    @testset "ChamferWorkspace equals the allocating chamfer_distance" begin
+    @testset "a reused ChamferWorkspace equals a fresh one" begin
         rng = StableRNG( 5 )
         for dimension in ( 1, 2 ), kvals in ( 1, [ 1, 3 ], [ 2, 4, 5 ] )
             workspace = ChamferWorkspace( dimension, 40, kvals )
-            # Several sizes on one workspace: a rebuilt tree must not keep points of the previous call
+            # Several sizes on one workspace: a rebuilt tree must not keep points of the previous
+            # call. chamfer_distance builds a fresh workspace each time.
             for ( n_A, n_B ) in ( ( 12, 28 ), ( 20, 20 ), ( 7, 33 ) )
                 set_A = randn( rng, dimension, n_A )
                 set_B = randn( rng, dimension, n_B )
