@@ -5,6 +5,7 @@ include("testutils.jl")
     include("test_utils.jl")
     include("test_ecdf.jl")
     include("test_chamfer.jl")
+    include("test_performance_helpers.jl")
 
     # Phase 2 -- component contracts
     include("test_resamplers.jl")

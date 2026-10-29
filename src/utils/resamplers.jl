@@ -134,9 +134,28 @@ function (RS::ContiguousBlockSplit)( data::DataContainer, options::MethodsOption
     end_ind = start_ind + block_size - 1
 
     x_inds = @view index_cache[ start_ind:end_ind ]
-    y_inds = setdiff( index_cache, x_inds )
+    y_inds = BlockComplement( index_cache, start_ind, block_size )
 
     return x_inds, y_inds
+end
+
+# The entries of `indices` outside the contiguous block indices[block_start : block_start+block_length-1],
+# in their original order, as a lazy vector. ContiguousBlockSplit returns this as its y set: the same
+# values as setdiff( index_cache, x_inds ) (the cache holds unique indices), without allocating.
+struct BlockComplement{V<:AbstractVector{Int}} <: AbstractVector{Int}
+    indices::V
+    block_start::Int
+    block_length::Int
+end
+
+Base.size( complement::BlockComplement ) = ( length( complement.indices ) - complement.block_length, )
+
+Base.@propagate_inbounds function Base.getindex( complement::BlockComplement, ii::Int )
+    @boundscheck checkbounds( complement, ii )
+    if ii < complement.block_start
+        return complement.indices[ ii ]
+    end
+    return complement.indices[ ii + complement.block_length ]
 end
 
 function get_index_size( sampler::ContiguousBlockSplit, data, options )
