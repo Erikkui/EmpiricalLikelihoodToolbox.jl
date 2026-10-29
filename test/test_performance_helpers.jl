@@ -27,4 +27,25 @@ using EmpiricalLikelihoodToolbox: BlockComplement
         resample_allocations( resampler, dc, index_cache )
         @test resample_allocations( resampler, dc, index_cache ) == 0
     end
+
+    @testset "JointSummaryStatistics adds no allocations to its components" begin
+        data = row( 1.0:24.0 )
+        target, _ = make_target( data, StandardECDF( 4 ), CumulativeSum( 3 );
+                                 resampling_type = NoResampling(), inference_method = BSL( 2 ) )
+        cache = target.buffers.index_cache
+        joint_out = fill( NaN, target.summary_length )
+        joint_allocations( out, target, cache ) =
+            @allocated target.summary_statistics( out, cache, cache, target.data, target.buffers )
+        component_allocations( out, summary, target, cache ) =
+            @allocated calculate_summary_statistic!( out, summary, cache, cache, target.data, target.buffers )
+
+        joint_allocations( joint_out, target, cache )
+        component_total = 0
+        for summary in target.summary_statistics.statistics
+            component_out = fill( NaN, summary.summary_length )
+            component_allocations( component_out, summary, target, cache )
+            component_total += component_allocations( component_out, summary, target, cache )
+        end
+        @test joint_allocations( joint_out, target, cache ) == component_total
+    end
 end
