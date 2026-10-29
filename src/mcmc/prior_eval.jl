@@ -18,3 +18,13 @@ function evaluate_log_prior( params::AbstractVector, priors::NamedTuple, active_
 
     return log_prior_val
 end
+
+# Same, with the names as a type (TargetData.active_names): the loop is unrolled and every prior
+# lookup is resolved at compile time. Summed left to right from 0.0, like the loop above.
+function evaluate_log_prior( params::AbstractVector, priors::NamedTuple, ::Val{active_param_names} ) where {active_param_names}
+    npar = length( active_param_names )
+    log_prior_terms = ntuple( Val( npar ) ) do ii
+        evaluate_single_prior( get( priors, active_param_names[ii], nothing ), params[ii] )
+    end
+    return foldl( +, log_prior_terms; init = 0.0 )
+end

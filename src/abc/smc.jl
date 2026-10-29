@@ -126,7 +126,7 @@ function _abc_mh_moves!( particles, distances, log_priors, particle_index::Int, 
                          proposal_factor, epsilon::Float64, target, proposal_buffer, noise_buffer, rng )
     model = target.model
     priors = target.priors
-    active_param_names = model.active_parameters
+    active_names = target.active_names
     current_params = @view particles[:, particle_index]
 
     n_accepted = 0
@@ -136,14 +136,14 @@ function _abc_mh_moves!( particles, distances, log_priors, particle_index::Int, 
         mul!( proposal_buffer, proposal_factor, noise_buffer )
         proposal_buffer .+= current_params
 
-        proposal_log_prior = evaluate_log_prior( proposal_buffer, priors, active_param_names )
+        proposal_log_prior = evaluate_log_prior( proposal_buffer, priors, active_names )
         isfinite( proposal_log_prior ) || continue      # zero prior density: no simulation
 
         log_prior_ratio = proposal_log_prior - log_priors[particle_index]
         log_uniform = log( rand( rng ) )
         log_uniform < log_prior_ratio || continue       # fails the prior test: no simulation
 
-        proposal_model = update_model_parameters( model, proposal_buffer )
+        proposal_model = update_model_parameters( model, proposal_buffer, active_names )
         simulation_rng = Xoshiro( rand( rng, UInt64 ) )
         proposal_distance = simulate_distance( target, proposal_model, simulation_rng )
         n_simulated += 1
@@ -234,12 +234,12 @@ function abc_smc( target, smc_options::ABCSMCOptions; rng = Random.default_rng()
     max_mcmc_repeats = smc_options.max_mcmc_repeats
     verbose = smc_options.verbose
     priors = target.priors
-    active_param_names = target.model.active_parameters
+    active_names = target.active_names
 
     # Generation 0: ABC rejection with ε = Inf, ie. prior draws and their distances
     params, summaries = _pilot_summaries( target, n_particles, rng )
     distances = _pilot_distances( abc.distance, target.obs_mean, summaries )
-    log_priors = [ evaluate_log_prior( column, priors, active_param_names ) for column in eachcol( params ) ]
+    log_priors = [ evaluate_log_prior( column, priors, active_names ) for column in eachcol( params ) ]
     particles = params
     n_simulations = n_particles
 

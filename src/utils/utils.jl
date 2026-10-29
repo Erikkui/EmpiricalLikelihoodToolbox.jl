@@ -158,9 +158,15 @@ end
 
 # Helper to update the parameters of a model with new values. Returns a new model instance with updated parameters.
 function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
-    active_params_names = m.active_parameters
-    npar = length(active_params_names)
-    active_param_values = ntuple( ii -> new_params[ii], npar )
+    return update_model_parameters( m, new_params, Val( m.active_parameters ) )
+end
+
+# Same, with the active parameter names as a type (TargetData.active_names). The NamedTuple type is
+# then known at compile time, so the update is type-stable. Used in the MCMC hot loop.
+function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real},
+                                  ::Val{active_params_names} ) where {active_params_names}
+    npar = length( active_params_names )
+    active_param_values = ntuple( ii -> new_params[ii], Val( npar ) )
     new_param_tuple = NamedTuple{ active_params_names }( active_param_values )
     m_updated = setproperties( m, new_param_tuple )
     return m_updated

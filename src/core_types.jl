@@ -100,7 +100,7 @@ Base.@kwdef struct MCMCOptions{A, G, F}
 end
 
 #------------MCMC target
-struct TargetData{C, S, P, O, B, T, OM, IC, SL, M}
+struct TargetData{C, S, P, O, B, T, OM, IC, SL, M, N}
     data::C
     summary_statistics::S
     priors::P
@@ -112,4 +112,13 @@ struct TargetData{C, S, P, O, B, T, OM, IC, SL, M}
     standardization_mean::T
     standardization_sd::T
     model::M    # The simulator: mcmcrun starts from it, and its dt_obs is the step of the observed data's differences
+    active_names::N    # Val( model.active_parameters ): the names as a type, so the per-step parameter update and prior are type-stable
+end
+
+# All fields but active_names, which is derived from the model
+function TargetData( data, summary_statistics, priors, options, buffers, obs_mean, cov_factorization,
+                     summary_length, standardization_mean, standardization_sd, model )
+    return TargetData( data, summary_statistics, priors, options, buffers, obs_mean, cov_factorization,
+                       summary_length, standardization_mean, standardization_sd, model,
+                       Val( model.active_parameters ) )
 end

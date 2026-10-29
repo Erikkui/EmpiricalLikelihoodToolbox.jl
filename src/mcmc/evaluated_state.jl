@@ -33,7 +33,7 @@ function evaluate_log_target!( evaluated_state, target, model, params, mcmc_opti
                                rng_seed::UInt64 = rand(UInt64), log_threshold::Float64 = -Inf )
     copyto!( evaluated_state.params, params )
 
-    log_prior = evaluate_log_prior( evaluated_state.params, target.priors, model.active_parameters )
+    log_prior = evaluate_log_prior( evaluated_state.params, target.priors, target.active_names )
     evaluated_state.log_prior = log_prior
 
     # Parameters with zero prior density have zero posterior density: no simulation is needed
@@ -57,7 +57,7 @@ function evaluate_log_target!( evaluated_state, target, model, params, mcmc_opti
         return evaluated_state
     end
 
-    updated_model = update_model_parameters( model, evaluated_state.params )
+    updated_model = update_model_parameters( model, evaluated_state.params, target.active_names )
     rng = Xoshiro( rng_seed )
 
     log_likelihood = log_likelihood!( evaluated_state.method_data, method, inference_state, target, updated_model, mcmc_options, rng )

@@ -36,7 +36,7 @@ function _pilot_summaries( target, n_pilot::Integer, rng )
         end
         params[:, jj] .= param_draw
 
-        pilot_model = update_model_parameters( model, param_draw )
+        pilot_model = update_model_parameters( model, param_draw, target.active_names )
         Rsim_container = create_simulated_data( pilot_model, target, buffers, options, rng )
         if isinf( Rsim_container.observations[1] )
             continue    # failed simulation: the NaN column is kept, its distance becomes Inf

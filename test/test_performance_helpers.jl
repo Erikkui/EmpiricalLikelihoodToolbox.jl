@@ -75,4 +75,27 @@ using EmpiricalLikelihoodToolbox: BlockComplement, partialsort_smallest!
         @test row_sort_allocations( distances, 3 ) == 0
         @test all( distances[ ii, 1:3 ] == expected_rows[ ii ] for ii in 1:6 )
     end
+
+    @testset "parameter names as a type: same values, inferred" begin
+        model = RickerModel()
+        active_names = Val( model.active_parameters )
+        new_params = [ 3.5, -1.0, 2.2 ]
+
+        updated_model = update_model_parameters( model, new_params, active_names )
+        @test updated_model == update_model_parameters( model, new_params )
+        @test ( updated_model.r, updated_model.sigma, updated_model.phi ) == ( 3.5, -1.0, 2.2 )
+        @test @inferred( update_model_parameters( model, new_params, active_names ) ) isa RickerModel{Float64}
+
+        # Key order differs from the parameter order, and :sigma has no prior (flat)
+        priors = ( phi = Uniform( 1.61, 3.0 ), r = Normal( 3.0, 1.0 ) )
+        @test evaluate_log_prior( new_params, priors, active_names ) ===
+              evaluate_log_prior( new_params, priors, model.active_parameters )
+        @test @inferred( evaluate_log_prior( new_params, priors, active_names ) ) isa Float64
+        @test evaluate_log_prior( [ 3.5, -1.0, 5.0 ], priors, active_names ) == -Inf
+        @test evaluate_log_prior( new_params, nothing, active_names ) == 0.0
+
+        prior_allocations( params, priors, names ) = @allocated evaluate_log_prior( params, priors, names )
+        prior_allocations( new_params, priors, active_names )
+        @test prior_allocations( new_params, priors, active_names ) == 0
+    end
 end
