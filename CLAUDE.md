@@ -1,113 +1,149 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repository. Keep it under 150 lines: describe structure,
+contracts and pitfalls, not details the code already shows.
 
 ## What this is
 
-`EmpiricalLikelihoodToolbox` is a Julia package for Bayesian inference on intractable-likelihood
-(simulator-based) models using empirical-likelihood-style summary statistics. Two likelihood
-approximations are supported, selected via `MethodsOptions.inference_method`: Gaussian Subset
-Likelihood (`GSL()`, Haario et al. 2015, the default) and Bayesian Synthetic Likelihood (`BSL(n_sim)`,
-Wood 2010). See the README for the full summary-statistic catalog, resamplers, the GSL/BSL tradeoffs,
-references, and a runnable usage example (`examples/main.jl` mirrors it).
+`EmpiricalLikelihoodToolbox` is a Julia package for Bayesian inference on simulator-based
+(intractable-likelihood) models with empirical-likelihood-style summary statistics. The likelihood
+approximation is chosen by `MethodsOptions.inference_method`: Gaussian Subset Likelihood (`GSL()`,
+Haario et al. 2015, default), Bayesian Synthetic Likelihood (`BSL(n_sim)`, Wood 2010) or ABC-MCMC
+(`ABC(...)`, Marjoram et al. 2003), plus ABC rejection and ABC-SMC. The README has the summary
+catalog, method tradeoffs, references and a usage example.
 
 ## Commands
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.instantiate()'   # install deps
 julia --project=. -e 'using Pkg; Pkg.test()'           # run test suite
-julia --project=. test/runtests.jl                     # run tests directly
-julia --project=. examples/main.jl                     # run the example end-to-end
+julia --project=examples -e 'include("examples/main.jl"); run_test_mcmc()'   # Lorenz63 example, plots
 ```
 
-There is no linter/formatter configured. `test/runtests.jl` is currently a stub (`@testset` with no
-assertions) — CI (`.github/workflows/CI.yml`) runs it on Julia 1.10, 1.12, and `pre` on
-ubuntu-latest/x64. When adding tests, add them inside that `@testset` block or new files included
-from it.
+- Run tests only via `Pkg.test()` (`StableRNGs` is test-only, so `julia test/runtests.jl` fails).
+  New tests go in a `test/test_*.jl` included from `test/runtests.jl`. CI: Julia 1.10, 1.12, `pre`.
+- No formatter. Match the existing style (e.g. spaces inside call parentheses: `f( x, y )`).
 
-## Architecture
+## Layout
 
-The package wires together four kinds of pluggable pieces — **models**, **summary statistics**,
-**resamplers**, and **MCMC algorithms/loss functions** — through a small set of container structs
-defined in `src/core_types.jl`. `src/EmpiricalLikelihoodToolbox.jl` is a flat `include()` list; there's
-no submodule structure, so load order there matters (e.g. `core_types.jl` and `utils/utils.jl` first).
+`src/EmpiricalLikelihoodToolbox.jl` is a flat `include()` list with no submodules, so load order
+matters: `core_types.jl` and `utils/utils.jl` first, `mcmc/loss_functions.jl` before `inference/`
+(method structs hold a loss), `inference/interface.jl` before the method files.
 
-### The pipeline (see `examples/main.jl` / README for the full call sequence)
+| Path | Contents |
+|---|---|
+| `src/core_types.jl` | Abstract types, `MethodsOptions`, `BufferContainer`, containers |
+| `src/models/` | Simulation models, `solvers.jl` |
+| `src/summaries/` | Summary statistics, ECDF and Chamfer kernels |
+| `src/utils/` | `utils.jl`, `resamplers.jl`, `bin_calculation.jl`, `chi2_test.jl` |
+| `src/inference/` | `interface.jl`, `GSL.jl`, `BSL.jl`, `ABC/{method,pilot,mcmc,post_correct}.jl` |
+| `src/mcmc/` | `target.jl`, samplers (`AM.jl`, `DRAM.jl`, `runner.jl`) and their parts |
 
-1. **Model** (`src/models/*.jl`) — a `Base.@kwdef struct <: AbstractSimulationModel` holding
-   parameters plus `all_parameters`/`active_parameters` tuples of `Symbol`s (which params exist vs.
-   which are being inferred; others are held fixed). `solve_model(model, t_end; rng)` simulates data.
-   `get_active_model_params`/`update_model_parameters` (in `utils/utils.jl`) read/write params
-   generically off these tuples via `getfield`/`Accessors.setproperties`.
-2. **Summary statistics** (`src/summaries/*.jl`) — each is a struct subtyping
-   `AbstractSummaryStatistic` (see the type hierarchy in `core_types.jl`:
-   `AbstractECDFSummary`/`StandardECDFSummary`/`TwoSetSummary` → `CILSummary`/`IDSummary`/
-   `ChamferECDFSummary`, plus `AbstractChamferSummary`/`AbstractCumulativeSumSummary`). Several
-   summaries come in `X` and `XDiff` variants (e.g. `StandardECDF`/`StandardECDFDiff`,
-   `CIL`/`CILDiff`, `ID`/`IDDiff`, `ChamferDistance`/`ChamferDistanceDiff`) — the `Diff` variant
-   computes the same statistic on numerical derivatives of the data (order `diff_order`) instead of
-   the raw series. The summaries carry no time step: the derivatives' step is `model.dt_obs`, for
-   the observed data in `TargetData` and for the simulated data in `create_simulated_data`, both
-   from the model stored in the target. Multiple summaries are combined via
-   `JointSummaryStatistics(stat1, stat2, ...)`, which concatenates their outputs into one vector
-   using each summary's `summary_length`.
-   Each summary struct implements a small informal interface (grep any `summaries/*.jl` file for the
-   pattern): two `calculate_summary_statistic!` methods (one training-time signature taking a single
-   `DataContainer`, one MCMC-time signature taking observed + simulated `DataContainer`s), plus
-   `allocate_buffer`, `get_summary_length`, `required_diff_order`, `generate_stat_name`, and
-   `finalize_summary`. ECDF-based summaries additionally need `get_bin_quantity` and go through
-   `create_bins`/`_bin_select` (`src/utils/bin_calculation.jl`) which auto-selects bin edges from
-   the quantity each summary evaluates its ECDF on (raw rows, `differences[order]` for the Diff
-   summaries, resampled distances/ratios for two-set summaries), within the 0.5-99.5 % quantile range
-   (`axis_uniform` option controls whether bins are uniform in `:xax`, uniform in CDF-space via `:yax`
-   at equal-mass midpoint levels with ties snapped onto distinct data values, or `:log`-spaced) — `create_bins` skips
-   this and returns the summary unchanged when it already carries bins (`_has_existing_bins`), so
-   bins passed to a summary's constructor survive a full `TargetData` pipeline run.
-3. **Resamplers** (`src/utils/resamplers.jl`) — callable structs (`RademacherSplit` 50/50 split,
-   `ContiguosBlockSplit` contiguous block for time series, `StandardBootstrap`, `NoResampling` a
-   deterministic identity split that returns all data unchanged as both sets) subtyping either
-   `LengthPreservingSampler` or `LengthChangingSampler`. Called as `resampler(data_container, options,
-   index_cache)` → `(x_inds, y_inds)`, used both to build the training distribution of summaries and,
-   per MCMC step, to resample simulated data before comparing to the observed target.
-4. **`MethodsOptions`** (`core_types.jl`) bundles cross-cutting config: which resampler/ECDF
-   calculation to use, bin count, number of training resamplings, `n_summaries`/`n_loss_evals`
-   (noise-reduction knobs — average multiple resampled summaries / multiple loss evaluations per
-   MCMC step), `standardize` (z-score the loss), and `embedding_dim`/`embedding_type` (embedding via
-   `embedding()` in `utils/utils.jl`, applied to the observed data in `TargetData` and to each
-   simulation in `create_simulated_data`). `N_obs` (raw series length, the length of every
-   simulation) and `effective_N_obs` (post-embedding, post-trim length) are filled in by `TargetData`.
-5. **`TargetData(data, summary_statistics, methods_options, loss, model; priors)`** (`src/mcmc/target.jl`)
-   is the main entry point that ties everything together: takes the *raw* observed series, sets
-   `N_obs` from its length, warns about active parameters without a prior, embeds the series, builds a
-   `DataContainer`, precomputes numerical
-   derivatives (step `model.dt_obs`) if any summary needs them, allocates all buffers up front (`BufferContainer` — the
-   package is written to avoid allocations in the MCMC hot loop, including a `bsl_buffer` sized
-   `(summary_length, n_sim)` used only under BSL), finalizes bin edges per summary, then computes the
-   fixed reference summary via `train_target`, dispatched on `options.inference_method`: `GSL()`
-   resamples the observed data `training_resamplings` times to estimate both the target mean and its
-   covariance (`:cov` or `:donsker`); `BSL()` only needs the mean (its covariance instead comes from
-   simulations at every MCMC step, see below) — a single deterministic pass over all the data when
-   `resampling_type isa NoResampling`, otherwise GSL's same resampling loop with the covariance
-   discarded. `finalize_target_covariance` (also dispatched on `inference_method`) regularizes+inverts
-   GSL's covariance once, or allocates a correctly-shaped zero-matrix placeholder for BSL (overwritten
-   every MCMC step). Stores the model in `target.model`. Returns `(target::TargetData, training_summaries)`.
-6. **MCMC** (`src/mcmc/`) — `mcmcrun(target, mcmc_options)` (`runner.jl`) runs `target.model` and drives the chain via
-   a pluggable `mcmc_algorithm` (`AM.jl` = adaptive Metropolis, `DRAM.jl` = delayed rejection AM),
-   each implemented as a callable struct `(target, model, state, mcmc_options, results_buffer) ->
-   (results, state)`. Per step, `calculate_loss` (`loss.jl`) is dispatched on `target.options.
-   inference_method`: under `GSL()` it simulates once (or `n_loss_evals` times, averaged), resamples/
-   summarizes via `calculate_simulated_statistics` (honoring `n_summaries`), and compares against the
-   *fixed* target mean/covariance from `TargetData`; under `BSL()` it runs `n_sim` fresh simulations
-   (each resampled/summarized the same way, so any resampler — including length-changing ones — works
-   unchanged), estimates the mean/covariance *from the spread across those simulations*, and
-   `@set`s that covariance into a local copy of `target` before calling the *same* `loss_function` —
-   the quadratic form is symmetric in which side is "observed" vs "simulated", so `LogLikelihood`/
-   `RobustChamfer` (`loss_functions.jl`) need no BSL-specific logic. `regularized_inverse`
-   (`utils/utils.jl`) is the shared ridge-regularization-then-invert helper used by both engines.
-   Priors (`prior_eval.jl`) are `NamedTuple`s keyed by parameter name, valued as `Distributions.jl`
-   distributions or `nothing` (flat/uninformative). `mcmcrun` catches exceptions mid-chain and returns
-   the partial chain rather than losing progress. `AM` supports a "noisy likelihood" heuristic
-   (`update_interval`, `discard_noisy_updates`) to detect and kick the chain out of a run of
-   suspiciously good proposals; `reevaluate_current_loss` is particularly relevant under BSL, where
-   the current and proposed states' covariances are independent per-step Monte Carlo estimates.
+Three layers: (1) **inference methods** set up the target and evaluate the log-likelihood once;
+(2) **samplers** (AM/DRAM) are generic over an `EvaluatedState` and contain no method-specific
+code; (3) **ABC population algorithms** (`src/abc/{rejection,smc}.jl`, included after
+`mcmc/runner.jl`) reuse the ABC pilot and distance code.
 
+## Pipeline
+
+1. **Model** (`src/models/*.jl`): a `Base.@kwdef struct <: AbstractSimulationModel` with its
+   parameters and `all_parameters`/`active_parameters` tuples of `Symbol`s (inactive ones stay
+   fixed). `solve_model(model, t_end; rng)` simulates. `get_active_model_params` and
+   `update_model_parameters` (`utils/utils.jl`) read and write parameters through these tuples.
+2. **Summary statistics** (`src/summaries/*.jl`): structs subtyping `AbstractSummaryStatistic`
+   (hierarchy in `core_types.jl`). `XDiff` variants use numerical derivatives of order
+   `diff_order`, with step `model.dt_obs` (summaries hold no time step).
+   `JointSummaryStatistics(s1, s2, ...)` concatenates outputs.
+   Informal interface (copy an existing file): two `calculate_summary_statistic!` methods (training:
+   one `DataContainer`; MCMC: observed + simulated), `allocate_buffer`, `get_summary_length`,
+   `required_diff_order`, `generate_stat_name`, `finalize_summary`. ECDF summaries also implement
+   `get_bin_quantity`; `create_bins` (`utils/bin_calculation.jl`) picks edges within the 0.5–99.5 %
+   quantiles, spaced by `axis_uniform` (`:xax`, `:yax` equal-mass, `:log`). Bins given to a
+   constructor are kept (`_has_existing_bins`). Chamfer summaries keep a `ChamferWorkspace`
+   (`KDTree!`, needs NearestNeighbors 0.4.29) in `buffer`; `ChamferECDF` resamples on its own index cache.
+3. **Resamplers** (`utils/resamplers.jl`): callable structs, `resampler(data_container, options,
+   index_cache) -> (x_inds, y_inds)`. `LengthChangingSampler`: `RademacherSplit`,
+   `ContiguousBlockSplit`. `LengthPreservingSampler`: `StandardBootstrap`, `MovingBlockBootstrap`,
+   `NoResampling` (identity, all data as both sets). Used for training and per MCMC step.
+4. **`MethodsOptions`** (`core_types.jl`): method, resampler, ECDF type, bins, resampling counts,
+   `n_summaries`/`n_loss_evals` (averaging), `standardize`, embedding. `TargetData` fills in `N_obs`
+   (raw length = simulation length) and `effective_N_obs` (after embedding and trimming).
+5. **`TargetData(data, joint_stats, options, model; priors, rng)`** (`mcmc/target.jl`): entry point,
+   `data` is the raw `Matrix{Float64}`. Order: `check_method_options`, `N_obs`, prior warnings,
+   embedding, `DataContainer`, derivatives, all buffers, bins, `train_target`,
+   `finalize_target_covariance`, store model, `finalize_inference_method`. Returns
+   `(target, training_summaries)`. The 5-arg form with a `loss` argument is a deprecated shim.
+   `active_names = Val( model.active_parameters )` (type-stable hot loop) is set here: never replace
+   `target.model` with a model with other active parameters.
+6. **MCMC**: `mcmcrun(target, mcmc_options) -> (results, state)`; returns the partial chain on error.
+
+## Inference method interface (`src/inference/interface.jl`)
+
+Required, dispatched on the method:
+- `train_target(method, statistics, data_container, buffers, options)` →
+  `(mean, cov or nothing, training_summaries)`
+- `finalize_target_covariance(method, cov_mat, summary_length)`
+- `allocate_method_buffer(method, summary_length)` → `BufferContainer.method_buffer` (scratch)
+- `check_method_options(method, options)` → throws `ArgumentError`
+- `log_likelihood!(method_data, method, inference_state, target, model, mcmc_options, rng)`:
+  log-likelihood without prior, at the parameters already set in `model`
+
+Optional, with fallbacks: `finalize_inference_method`, `allocate_method_data`/
+`invalidate_method_data!` (per-state data, e.g. ABC distances), `max_log_likelihood` (`Inf`) and
+`early_rejection_allowed`, `allocate_inference_state`/`adapt_inference_state!` (mutable per-chain
+run state, AM only), `allocate_results`/`record_chain_step!`/`finalize_results`.
+
+Each method has a `Base.show` (`GSL()`, `BSL(500)`, loss only when not the default). Downstream
+code puts `string(inference_method)` in file names: keep this output stable.
+
+- **GSL**: `train_target` resamples the observed data `training_resamplings` times for a fixed mean
+  and covariance (`:cov` or `:donsker`), regularized and factorized once. Per step: simulate once
+  (or `n_loss_evals` times, averaged), summarize via `calculate_simulated_statistics` (`loss.jl`),
+  evaluate `method.loss(sim, obs_mean, cov_factorization)`.
+- **BSL**: training gives only the mean (one pass under `NoResampling`). Per step: `n_sim`
+  simulations into `method_buffer` `(summary_length, n_sim)`, mean/covariance from their spread,
+  same loss minus `0.5*logdet`. The target covariance is an unused identity placeholder.
+- Losses (`loss_functions.jl`) return raw values; `scale_loss` applies standardization (GSL only)
+  and `inverse_scaling`. `regularized_cholesky` (`utils/utils.jl`) is shared by GSL, BSL and ABC.
+- Option rules: BSL rejects `standardize`; GSL rejects it with `NoResampling`; ABC rejects
+  `standardize`, `MCMCOptions.loss_function` and the deprecated `TargetData`. A non-`nothing`
+  `MCMCOptions.loss_function` must equal the method's loss, else `mcmcrun` throws.
+
+## ABC (`src/inference/ABC/`, `src/abc/`)
+
+- `ABC(; epsilon = NaN, epsilon_quantile, n_pilot, distance = :scaled, kernel, n_sim = 1,
+  adapt_epsilon)`. No loss. `log_likelihood!` runs `n_sim` × `simulate_distance` (`Inf` on a failed
+  simulation), stores distances in the state's `method_data`, returns the log of the mean kernel
+  value. Kernels are unnormalized, so `max_log_likelihood = 0`.
+- `finalize_inference_method` resolves the distance (`:scaled` → `WeightedEuclidean`, `:mahalanobis`
+  → `Mahalanobis`) and a `NaN` ε from a pilot quantile, then writes the resolved method into
+  **both** `target.options` and `target.data.options` (`_replace_inference_method`).
+- The pilot (`pilot_simulations`) samples priors: every active parameter needs a prior.
+- In MCMC, ε lives in the mutable run state `ABCRunState`, not in the method. `EpsilonAdaptation`
+  (Vihola & Franks 2020, AM only) updates ε in the first `n_adapt` steps and recomputes the current
+  log-target from stored distances. The target is never rebuilt.
+- Results add `distance_chain`, `epsilon_chain`, `epsilon` (NaN for GSL/BSL); see `abc_post_correct`.
+- `abc_rejection(target, n_draws; epsilon | n_keep, rng)`; `abc_smc(target, ABCSMCOptions(...);
+  rng)`: Drovandi & Pettitt (2011) replenishment SMC, uniform kernel, `n_sim = 1` only.
+
+## Samplers (`src/mcmc/`)
+
+- `runner.jl`: builds an immutable `RunContext` (`chain_states`, `proposal`, `policy`,
+  `inference_state`), evaluates the initial state, calls `mcmc_options.mcmc_algorithm` (callable
+  `AM`/`DRAM` struct), then `finalize_results`. `adaptive_proposal.jl` is shared by AM and DRAM.
+- `evaluated_state.jl`: mutable `EvaluatedState` (`params`, `log_prior`, `log_likelihood`,
+  `log_target`, `method_data`, `simulated`). `evaluate_log_target!`: prior (zero → no simulation),
+  set parameters, `Xoshiro(rng_seed)`, `log_likelihood!`. It skips the simulation if
+  `log_prior + max_log_likelihood < log_threshold` (early rejection).
+- `chain_states[1]` is the current state, the rest are proposals (one per DRAM stage). Acceptance
+  swaps entries, no copies, so `chain_states[1]` is valid even after a crash.
+- `noisy_likelihood_policy.jl`: `update_interval` (`<= 0` disables kicks), `discard_noisy_updates`,
+  `reevaluate_current_loss`; used by AM and DRAM. BSL and ABC are exact pseudo-marginal only with
+  `update_interval <= 0` and `reevaluate_current_loss = false`.
+- Early rejection (`MCMCOptions.early_rejection`, AM only): `log u` is drawn before the evaluation.
+  Exact; saves simulations only for ABC with informative priors. Off with `likelihood_noise_scale >
+  0` and during ε adaptation. Chains match on/off only if evaluation draws no global random numbers.
+- The hot loop must not allocate: put scratch space in `BufferContainer`, allocated in `TargetData`.
+  `test/test_allocations.jl` bounds one step; counts differ per Julia version, so look for a real
+  regression before raising a bound.
+- Priors (`prior_eval.jl`): `NamedTuple` by parameter name; `Distributions.jl` or `nothing` (flat).

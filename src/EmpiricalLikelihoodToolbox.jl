@@ -26,7 +26,11 @@ module EmpiricalLikelihoodToolbox
     export StandardBootstrap, RademacherSplit, ContiguousBlockSplit, NoResampling, MovingBlockBootstrap, MethodsOptions, TargetData
 
     # Inference methods
-    export GSL, BSL
+    export GSL, BSL, ABC, UniformKernel, GaussianKernel, EpanechnikovKernel, pilot_simulations, simulate_distance
+    export EpsilonAdaptation, abc_post_correct
+
+    # ABC rejection and ABC-SMC
+    export abc_rejection, abc_smc, ABCSMCOptions
 
     # MCMC functionalities and loss functions
     export MCMCOptions, mcmcrun, AM, DRAM
@@ -61,12 +65,25 @@ module EmpiricalLikelihoodToolbox
     include("summaries/chamfer_distance.jl")
 
     include("mcmc/prior_eval.jl")
-    include("mcmc/loss.jl")
     include("mcmc/loss_functions.jl")
+    include("inference/interface.jl")
+    include("inference/GSL.jl")
+    include("inference/BSL.jl")
+    include("inference/ABC/method.jl")
+    include("inference/ABC/pilot.jl")
+    include("inference/ABC/mcmc.jl")
+    include("inference/ABC/post_correct.jl")
+    include("mcmc/loss.jl")
+    include("mcmc/evaluated_state.jl")
     include("mcmc/target.jl")
+    include("mcmc/adaptive_proposal.jl")
+    include("mcmc/noisy_likelihood_policy.jl")
     include("mcmc/AM.jl")
     include("mcmc/DRAM.jl")
     include("mcmc/runner.jl")
+
+    include("abc/rejection.jl")
+    include("abc/smc.jl")
 
     include("models/Lorenz63Model.jl")
     include("models/OUModel.jl")

@@ -20,20 +20,6 @@ abstract type AbstractSimulationModel end
 with_name( stat ) = @set stat.name = generate_stat_name( stat )
 
 
-# Inference methods
-#------------Gaussian Subset Likelihood (Haario et al., 2015): the target mean/covariance are
-# estimated once from the observed data (via resampling), and compared against a single simulated
-# summary at each MCMC step.
-struct GSL <: AbstractInferenceMethod end
-
-#------------Bayesian Synthetic Likelihood (Wood, 2010): the observed summary is a fixed quantity,
-# and the mean/covariance used in the likelihood are re-estimated at every MCMC step from `n_sim`
-# fresh simulations at the current parameter proposal.
-Base.@kwdef struct BSL <: AbstractInferenceMethod
-    n_sim::Int = 10
-end
-
-
 # Container structs
 #------------Main options struct
 Base.@kwdef struct MethodsOptions{R, F, E, IM}
@@ -57,14 +43,14 @@ Base.@kwdef struct MethodsOptions{R, F, E, IM}
 end
 
 #------------Buffer container for non-allocating in-place computations
-struct BufferContainer{S, I, M, SD, ST, BB}
+struct BufferContainer{S, I, M, SD, ST, MB}
     summary_buffers::S
     training_buffer::M
     mcmc_buffer::M
     simulation_diffs::SD
     simulation_statistic::ST
     index_cache::I
-    bsl_buffer::BB
+    method_buffer::MB    # Inference-method specific scratch space, see allocate_method_buffer
 end
 
 #------------Container for passing data, differences and options to functions
@@ -76,6 +62,31 @@ Base.@kwdef struct DataContainer{M <: AbstractMatrix{Float64}, D <: AbstractVect
 end
 
 #------------MCMC options struct
+# The noisy-likelihood options below are honoured by AM and DRAM (see src/mcmc/noisy_likelihood_policy.jl):
+# - `update_interval`: the "noisy likelihood" heuristic kicks the chain (re-evaluates the current
+#   loss) after this many consecutive rejections. `update_interval <= 0` disables the heuristic.
+# - `discard_noisy_updates`: on a kick, instead rewind to the last known good state and repeat the step.
+# - `reevaluate_current_loss`: re-evaluate the current state's loss at every step.
+#   BSL and ABC are exact pseudo-marginal methods only with the heuristic off (`update_interval <= 0`)
+#   and `reevaluate_current_loss = false`. ABC also needs a fixed ε: with ε adaptation
+#   (`EpsilonAdaptation`, AM only), only the chain after the adaptation phase is a valid ABC-MCMC
+#   chain, at the final ε (`results.epsilon`).
+# - `likelihood_noise_scale`: sd of Gaussian noise added to each log-target evaluation (testing aid).
+#   Under ABC ε adaptation, the recomputed current log-target does not get this noise again.
+# - `loss_function`: `nothing` (default) uses the loss stored in `target.options.inference_method`
+#   (ABC has no loss, so it must stay `nothing`).
+#   If given, it must equal that loss, otherwise `mcmcrun` throws.
+# - `early_rejection` (AM only): draw the uniform of the accept/reject step before the proposal is
+#   evaluated, and skip the simulation when even the largest possible log-likelihood of the method
+#   (`max_log_likelihood`) could not get the proposal accepted. Exact: a skipped proposal would have
+#   been rejected. Gains come only from informative priors (with uniform priors the prior ratio is 1
+#   inside the support, so nothing is skipped). It never triggers for GSL and BSL (no bound known);
+#   it is off with `likelihood_noise_scale > 0`, during ABC ε adaptation, and in DRAM. Chains with it
+#   on and off are bit-identical only when the per-step evaluation draws no global random numbers,
+#   eg. with a `LengthPreservingSampler` (`NoResampling`, ...) and `n_summaries = 1`. The resamplers
+#   use the global RNG, and `calculate_simulated_statistics` calls the resampler when
+#   `n_summaries > 1` or the sampler is length-changing (eg. the default `RademacherSplit`); the
+#   chains are then identical in distribution only.
 Base.@kwdef struct MCMCOptions{A, G, F}
     nsteps::Int = 1000
     update_interval::Int = 50
@@ -83,12 +94,13 @@ Base.@kwdef struct MCMCOptions{A, G, F}
     reevaluate_current_loss::Bool = false
     mcmc_algorithm::A
     initial_params::G = nothing
-    loss_function::F = LogLikelihood()
+    loss_function::F = nothing
     likelihood_noise_scale::Float64 = 0.0
+    early_rejection::Bool = true
 end
 
 #------------MCMC target
-struct TargetData{C, S, P, O, B, T, OM, IC, SL, M}
+struct TargetData{C, S, P, O, B, T, OM, IC, SL, M, N}
     data::C
     summary_statistics::S
     priors::P
@@ -100,4 +112,13 @@ struct TargetData{C, S, P, O, B, T, OM, IC, SL, M}
     standardization_mean::T
     standardization_sd::T
     model::M    # The simulator: mcmcrun starts from it, and its dt_obs is the step of the observed data's differences
+    active_names::N    # Val( model.active_parameters ): the names as a type, so the per-step parameter update and prior are type-stable
+end
+
+# All fields but active_names, which is derived from the model
+function TargetData( data, summary_statistics, priors, options, buffers, obs_mean, cov_factorization,
+                     summary_length, standardization_mean, standardization_sd, model )
+    return TargetData( data, summary_statistics, priors, options, buffers, obs_mean, cov_factorization,
+                       summary_length, standardization_mean, standardization_sd, model,
+                       Val( model.active_parameters ) )
 end

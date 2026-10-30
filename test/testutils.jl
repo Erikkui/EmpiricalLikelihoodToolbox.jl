@@ -9,7 +9,7 @@ using Distributions
 using EmpiricalLikelihoodToolbox:
     DataContainer, BufferContainer, MCMCState, ResultsBuffer,
     calculate_diffs, calculate_diffs!, recursive_welford!, regularized_cholesky,
-    donsker_covariance, contract, contract!, invcdf, standardize!,
+    donsker_covariance, contract, contract!, invcdf, standardize,
     update_model_parameters, initial_state,
     empcdf_raw, empcdf_raw!, empcdf_kernelsmoothed, empcdf_kernelsmoothed!, resolve_ecdf,
     chamfer_distance, chamfer_distance!,
@@ -18,8 +18,8 @@ using EmpiricalLikelihoodToolbox:
     allocate_buffer, get_summary_length, required_diff_order, generate_stat_name,
     finalize_summary, get_bin_quantity, calculate_summary_statistic!,
     StandardECDFMultiDimensional, StandardECDFDiffMultiDimensional,
-    evaluate_log_prior, evaluate_single_prior, calculate_loss,
-    allocate_buffers, initialize_datacontainer, train_target, compute_log_path,
+    evaluate_log_prior, evaluate_single_prior, evaluate_log_target,
+    allocate_buffers, initialize_datacontainer, train_target, compute_log_path, scale_loss,
     AbstractResampler, LengthPreservingSampler, LengthChangingSampler, ResultsBuffer,
     TwoSetSummary, ChamferECDFSummary, step!
 
@@ -54,7 +54,7 @@ function make_container(data::AbstractMatrix{Float64}; kwargs...)
 end
 
 """
-    make_target(data, stats...; priors=nothing, loss=LogLikelihood(), model=NormalModel(), kwargs...)
+    make_target(data, stats...; priors=nothing, model=NormalModel(), kwargs...)
 
 Build a `TargetData` the same way the real pipeline does. The model supplies `dt_obs` (1.0 by
 default), the time step of the derivative summaries, and is the one `mcmcrun(target, opts)` runs. Always construct the summary statistics
@@ -62,9 +62,9 @@ fresh at the call site: `finalize_summary` binds a summary instance to one `Buff
 shared instance would alias buffers across tests.
 """
 function make_target(data::AbstractMatrix{Float64}, stats...;
-                     priors = nothing, loss = LogLikelihood(), model = NormalModel(), kwargs...)
+                     priors = nothing, model = NormalModel(), kwargs...)
     opts = make_options(; N_obs = size(data, 2), kwargs...)
-    return TargetData(data, JointSummaryStatistics(stats...), opts, loss, model; priors = priors)
+    return TargetData(data, JointSummaryStatistics(stats...), opts, model; priors = priors)
 end
 
 "Every concrete simulation model, with parameters left at their defaults."
@@ -130,7 +130,7 @@ with_priors(t::TargetData, priors) = TargetData(
 )
 
 # A model with real active_parameters but no solve_model/step! method, for proving a prior of
-# -Inf short-circuits calculate_loss before any simulation is attempted (accessing
+# -Inf short-circuits evaluate_log_target before any simulation is attempted (accessing
 # active_parameters, to resolve the log-prior, is not itself "touching" the model).
 struct NeverSimulatedModel <: AbstractSimulationModel
     active_parameters::Tuple{Vararg{Symbol}}
@@ -149,9 +149,9 @@ ExplodingModel() = ExplodingModel(0.0, 0.0, (:p1, :p2), (:p1, :p2), 1.0)
 const EXPLODE_AFTER = Ref(20)
 const EXPLODE_CALLS = Ref(0)
 
-function EmpiricalLikelihoodToolbox.calculate_loss(
-        params, target, ::ExplodingModel, mcmc_options; rng_seed::UInt64 = rand(UInt64))
+function EmpiricalLikelihoodToolbox.log_likelihood!(
+        method_data, ::GSL, inference_state, target, model::ExplodingModel, mcmc_options, rng)
     EXPLODE_CALLS[] += 1
     EXPLODE_CALLS[] > EXPLODE_AFTER[] && error("simulated mid-chain failure")
-    return -0.5 * sum(abs2, params)
+    return -0.5 * (model.p1^2 + model.p2^2)
 end

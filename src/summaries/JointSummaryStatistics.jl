@@ -44,18 +44,8 @@ function (SS::JointSummaryStatistics)(
     data::DataContainer,
     buffers::BufferContainer )
 
-    summaries = SS.statistics
-
-    start_ind = 1
-    foreach( summaries ) do summary
-        summary_length = summary.summary_length
-        end_ind = start_ind + summary_length - 1
-        view_out = @view view_in[ start_ind:end_ind ]
-
-        calculate_summary_statistic!( view_out, summary, x_inds, y_inds, data, buffers )
-
-        start_ind += summary_length
-    end
+    summary_args = ( x_inds, y_inds, data, buffers )
+    _summarize_each!( view_in, 1, SS.statistics, summary_args )
 
     return nothing
 end
@@ -70,18 +60,24 @@ function (SS::JointSummaryStatistics)(
     sim_data::DataContainer,
     buffers::BufferContainer )
 
-    summaries = SS.statistics
-
-    start_ind = 1
-    foreach(summaries) do summary
-        summary_length = summary.summary_length
-        end_ind = start_ind + summary_length - 1
-        view_out = @view view_in[ start_ind:end_ind ]
-
-        calculate_summary_statistic!( view_out, summary, x_inds, y_inds, obs_data, sim_data, buffers )
-
-        start_ind += summary_length
-    end
+    summary_args = ( x_inds, y_inds, obs_data, sim_data, buffers )
+    _summarize_each!( view_in, 1, SS.statistics, summary_args )
 
     return nothing
+end
+
+# Writes each summary into its slice of view_in, in order. Recursion over the tuple instead of a
+# foreach closure: the closure boxed the mutated start index, and the compiler unrolls the recursion
+# so every calculate_summary_statistic! call dispatches statically.
+_summarize_each!( view_in, start_ind::Int, summaries::Tuple{}, summary_args::Tuple ) = nothing
+
+function _summarize_each!( view_in, start_ind::Int, summaries::Tuple, summary_args::Tuple )
+    summary = first( summaries )
+    end_ind = start_ind + summary.summary_length - 1
+    view_out = @view view_in[ start_ind:end_ind ]
+
+    calculate_summary_statistic!( view_out, summary, summary_args... )
+
+    remaining_summaries = Base.tail( summaries )
+    return _summarize_each!( view_in, end_ind + 1, remaining_summaries, summary_args )
 end

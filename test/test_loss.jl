@@ -24,14 +24,30 @@
             @test LogLikelihood()(x, xs, C) < 0.0
         end
 
-        @testset "two-argument form reads the covariance off the target" begin
+        @testset "the callable returns the raw, unscaled value" begin
+            C = regularized_cholesky(cov(randn(StableRNG(53), 4, 30)'))
+            x = [1.0, 2.0, 3.0, 4.0]
+            xs = [0.5, 2.5, 2.0, 5.0]
+            @test LogLikelihood(2.0)(x, xs, C) == LogLikelihood()(x, xs, C)
+        end
+
+        @testset "scale_loss applies inverse_scaling" begin
             target, _ = make_target(data, StandardECDF(5); training_resamplings = 100)
             sim = target.obs_mean .+ 0.01
+            raw = LogLikelihood()(sim, target.obs_mean, target.cov_factorization)
 
-            expected = -0.5 * dot(sim - target.obs_mean, target.cov_factorization \ (sim - target.obs_mean))
-            @test LogLikelihood()(target, sim) ≈ expected
-            @test LogLikelihood(2.0)(target, sim) ≈ expected / 2      # inverse_scaling applied
-            @test LogLikelihood()(target, copy(target.obs_mean)) == 0.0
+            @test scale_loss(LogLikelihood(), raw, target) ≈ raw
+            @test scale_loss(LogLikelihood(2.0), raw, target) ≈ raw / 2
+        end
+
+        @testset "scale_loss standardizes before scaling when requested" begin
+            target, _ = make_target(data, StandardECDF(5); standardize = true, training_resamplings = 100)
+            sim = target.obs_mean .+ 0.01
+            raw = LogLikelihood()(sim, target.obs_mean, target.cov_factorization)
+            standardized = (raw - target.standardization_mean) / target.standardization_sd
+
+            @test scale_loss(LogLikelihood(), raw, target) ≈ standardized
+            @test scale_loss(LogLikelihood(2.0), raw, target) ≈ standardized / 2
         end
     end
 
@@ -40,8 +56,9 @@
 
         target, _ = make_target(data, ChamferDistance(1); training_resamplings = 50)
         sim = [0.5]
-        @test RobustChamfer()(target, sim) ≈ -0.5
-        @test RobustChamfer(2.0)(target, sim) ≈ -0.25
+        raw = RobustChamfer()(sim, target.obs_mean, target.cov_factorization)
+        @test raw ≈ -0.5
+        @test scale_loss(RobustChamfer(2.0), raw, target) ≈ -0.25
 
         @testset "three-argument form just sums the chamfer distances in x" begin
             # The robust chamfer distance has no covariance term (unlike LogLikelihood's Mahalanobis
@@ -53,25 +70,25 @@
         end
     end
 
-    @testset "calculate_loss" begin
+    @testset "evaluate_log_target" begin
         model = NormalModel(mu = 0.0, sigma = 1.0)
         opts = MCMCOptions(mcmc_algorithm = AM(), nsteps = 10, loss_function = LogLikelihood(),
                            likelihood_noise_scale = 0.0)
 
         @testset "returns a finite log-density for a sane proposal" begin
             target, _ = make_target(data, StandardECDF(5); training_resamplings = 100)
-            loss = calculate_loss([0.0, 1.0], target, model, opts; rng_seed = UInt64(7))
+            loss = evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = UInt64(7))
             @test isfinite(loss)
         end
 
         @testset "likelihood_noise_scale defaults to 0.0" begin
             # MCMCOptions no longer defaults it to a NaN sentinel that only mcmcrun rewrote to
-            # 0.0, so calling calculate_loss directly (bypassing mcmcrun) no longer poisons the loss.
+            # 0.0, so calling evaluate_log_target directly (bypassing mcmcrun) no longer poisons the loss.
             target, _ = make_target(data, StandardECDF(5);
                                     resampling_type = NoResampling(), training_resamplings = 20)
             defaults = MCMCOptions(mcmc_algorithm = AM(), nsteps = 10)
             @test defaults.likelihood_noise_scale == 0.0
-            @test isfinite(calculate_loss([0.0, 1.0], target, model, defaults))
+            @test isfinite(evaluate_log_target([0.0, 1.0], target, model, defaults))
         end
 
         @testset "an out-of-support proposal short-circuits to -Inf without simulating" begin
@@ -80,7 +97,7 @@
             target, _ = make_target(data, StandardECDF(5);
                                     priors = (mu = Uniform(0.0, 1.0), sigma = Uniform(0.0, 2.0)),
                                     training_resamplings = 50)
-            @test calculate_loss([5.0, 1.0], target, NeverSimulatedModel((:mu, :sigma)), opts) == -Inf
+            @test evaluate_log_target([5.0, 1.0], target, NeverSimulatedModel((:mu, :sigma)), opts) == -Inf
         end
 
         @testset "the log-prior is added exactly once" begin
@@ -97,8 +114,8 @@
             # must be exactly the log-prior -- not twice it, which was the review's critical
             # "initial state counts the prior twice" bug.
             seed = UInt64(123)
-            diff = calculate_loss(params, informative, model, opts; rng_seed = seed) -
-                   calculate_loss(params, flat, model, opts; rng_seed = seed)
+            diff = evaluate_log_target(params, informative, model, opts; rng_seed = seed) -
+                   evaluate_log_target(params, flat, model, opts; rng_seed = seed)
             @test diff ≈ evaluate_log_prior(params, priors, model.active_parameters)
         end
 
@@ -108,10 +125,10 @@
             target, _ = make_target(data, StandardECDF(5);
                                     resampling_type = NoResampling(), training_resamplings = 20)
             seed = UInt64(99)
-            a = calculate_loss([0.0, 1.0], target, model, opts; rng_seed = seed)
-            b = calculate_loss([0.0, 1.0], target, model, opts; rng_seed = seed)
+            a = evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = seed)
+            b = evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = seed)
             @test a == b
-            @test a != calculate_loss([0.0, 1.0], target, model, opts; rng_seed = UInt64(100))
+            @test a != evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = UInt64(100))
         end
 
         @testset "a length-changing resampler adds unseeded randomness" begin
@@ -119,7 +136,7 @@
             target, _ = make_target(data, StandardECDF(5);
                                     resampling_type = RademacherSplit(), training_resamplings = 50)
             seed = UInt64(99)
-            vals = [calculate_loss([0.0, 1.0], target, model, opts; rng_seed = seed) for _ in 1:5]
+            vals = [evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = seed) for _ in 1:5]
             @test length(unique(vals)) > 1
         end
 
@@ -127,12 +144,25 @@
             target, _ = make_target(data, StandardECDF(5);
                                     resampling_type = NoResampling(),
                                     inference_method = BSL(20), training_resamplings = 20)
-            loss = calculate_loss([0.0, 1.0], target, model, opts; rng_seed = UInt64(5))
+            loss = evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = UInt64(5))
             @test isfinite(loss)
             # The per-step covariance is written into the buffer, leaving the target's own
             # placeholder factorization untouched.
             @test Matrix(target.cov_factorization) ≈ Matrix(I, target.summary_length, target.summary_length)
-            @test size(target.buffers.bsl_buffer) == (target.summary_length, 20)
+            @test size(target.buffers.method_buffer) == (target.summary_length, 20)
+        end
+
+        @testset "BSL scales the whole value, including the log-determinant" begin
+            # With inverse_scaling = 1/2 the loss is exactly half, as the likelihood term and the
+            # log-determinant term are scaled together. The same seed gives the same simulations.
+            seed = UInt64(5)
+            values = map((1.0, 2.0)) do scaling
+                target, _ = make_target(data, StandardECDF(5);
+                                        resampling_type = NoResampling(), training_resamplings = 20,
+                                        inference_method = BSL(20, LogLikelihood(scaling)))
+                evaluate_log_target([0.0, 1.0], target, model, opts; rng_seed = seed)
+            end
+            @test values[2] ≈ values[1] / 2
         end
 
         @testset "likelihood noise widens the loss" begin
@@ -141,7 +171,7 @@
             noisy = MCMCOptions(mcmc_algorithm = AM(), nsteps = 10,
                                 loss_function = LogLikelihood(), likelihood_noise_scale = 1.0)
             seed = UInt64(11)
-            vals = [calculate_loss([0.0, 1.0], target, model, noisy; rng_seed = seed) for _ in 1:5]
+            vals = [evaluate_log_target([0.0, 1.0], target, model, noisy; rng_seed = seed) for _ in 1:5]
             @test length(unique(vals)) > 1        # noise uses the global RNG, not rng_seed
         end
     end

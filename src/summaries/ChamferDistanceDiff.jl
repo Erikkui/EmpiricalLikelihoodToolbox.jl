@@ -1,5 +1,5 @@
 """
-    ChamferDistanceDiff{T}
+    ChamferDistanceDiff{T, BUF}
 
 Chamfer distance computed on a numerical derivative of the data.
 
@@ -13,6 +13,7 @@ padding.
 - `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
 - `diff_order::Int`: How many times to differentiate. `1` is the first derivative.
 - `summary_length::Int`: `1` for a scalar `neighbors`, otherwise `length(neighbors)`.
+- `buffer::BUF`: Scratch space (a `ChamferWorkspace`), filled in by `TargetData`. `nothing` until then.
 - `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
@@ -23,20 +24,21 @@ stat = ChamferDistanceDiff([1, 3], 1)   # summary_length == 2
 
 See also [`ChamferDistance`](@ref).
 """
-struct ChamferDistanceDiff{T} <: AbstractChamferSummary
+struct ChamferDistanceDiff{T, BUF} <: AbstractChamferSummary
     neighbors::T
     highest_neighbor::Int
     diff_order::Int
     summary_length::Int
+    buffer::BUF
     name::String
 end
 
 function ChamferDistanceDiff( neighbors::Int, diff_order::Int )
-    return with_name( ChamferDistanceDiff( neighbors, maximum(neighbors), diff_order, 1, "" ) )
+    return with_name( ChamferDistanceDiff( neighbors, maximum(neighbors), diff_order, 1, nothing, "" ) )
 end
 
 function ChamferDistanceDiff( neighbors::AbstractVector{<:Int}, diff_order::Int )
-    return with_name( ChamferDistanceDiff( collect(vec(neighbors)), maximum(neighbors), diff_order, length(neighbors), "" ) )
+    return with_name( ChamferDistanceDiff( collect(vec(neighbors)), maximum(neighbors), diff_order, length(neighbors), nothing, "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -48,13 +50,14 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     buffers::BufferContainer )
 
     diff_order = summary_statistic.diff_order
+    stat_buffers = summary_statistic.buffer
 
     data_X = @view data.differences[ diff_order ][ :, x_inds ]
     data_Y = @view data.differences[ diff_order ][ :, y_inds ]
 
     kvals = summary_statistic.neighbors
 
-    chamfer_distance!( view_out, data_X, data_Y, kvals )
+    chamfer_distance!( view_out, stat_buffers, data_X, data_Y, kvals )
 
     return nothing
 end
@@ -69,21 +72,21 @@ function calculate_summary_statistic!(  # To be used in MCMC
     buffers::BufferContainer )
 
     diff_order = summary_statistic.diff_order
+    stat_buffers = summary_statistic.buffer
 
     data_X = @view target.data.differences[ diff_order ][ :, x_inds ]
     Rsim = @view sim_data_all.differences[ diff_order ][ :, y_inds ]
-    ytree = KDTree( Rsim )
 
     kvals = summary_statistic.neighbors
 
-    chamfer_distance!( view_out, data_X, Rsim, ytree, kvals )
+    chamfer_distance!( view_out, stat_buffers, data_X, Rsim, kvals )
 
     return nothing
 end
 
 function allocate_buffer( statistic::ChamferDistanceDiff, data::DataContainer )
-    buffer = Vector{Float64}( undef, statistic.summary_length )
-    return buffer
+    dimension = size( data.observations, 1 )
+    return ChamferWorkspace( dimension, data.options.effective_N_obs, statistic.neighbors )
 end
 
 required_diff_order(stat::ChamferDistanceDiff) = stat.diff_order
@@ -95,5 +98,5 @@ end
 get_summary_length(stat::ChamferDistanceDiff, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ChamferDistanceDiff, data::DataContainer, buffers::BufferContainer )
-    return stat
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

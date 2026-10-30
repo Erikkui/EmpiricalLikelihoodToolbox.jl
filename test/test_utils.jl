@@ -284,10 +284,10 @@
         @test minimum(x) < r[1] && r[end] < maximum(x)
     end
 
-    @testset "standardize!" begin
+    @testset "standardize" begin
         # Despite the bang, this is a pure function returning a value -- callers must capture it.
-        @test standardize!(10.0, 4.0, 2.0) == 3.0
-        @test standardize!([3.0, 5.0], [1.0, 1.0], 2.0) == [1.0, 2.0]
+        @test standardize(10.0, 4.0, 2.0) == 3.0
+        @test standardize([3.0, 5.0], [1.0, 1.0], 2.0) == [1.0, 2.0]
     end
 
     @testset "model parameter accessors" begin

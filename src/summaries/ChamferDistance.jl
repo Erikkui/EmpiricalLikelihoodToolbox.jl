@@ -1,6 +1,6 @@
 #------------Chamfer Distance
 """
-    ChamferDistance{T}
+    ChamferDistance{T, BUF}
 
 Chamfer distance between point sets "x" and "y".
 
@@ -20,6 +20,7 @@ resampler (`MethodsOptions.resampling_type`), not the raw series.
 - `neighbors::T`: The neighbour index (or indices) to evaluate. An `Int` or a vector of `Int`.
 - `highest_neighbor::Int`: `maximum(neighbors)`, the depth the k-d tree search must reach.
 - `summary_length::Int`: `1` for a scalar `neighbors`, otherwise `length(neighbors)`.
+- `buffer::BUF`: Scratch space (a `ChamferWorkspace`), filled in by `TargetData`. `nothing` until then.
 - `name::String`: The statistic's name from `generate_stat_name`, set by the constructors.
 
 # Examples
@@ -30,19 +31,20 @@ stat = ChamferDistance([1, 3])   # 1st and 3rd neighbour, summary_length == 2
 
 See also [`ChamferDistanceDiff`](@ref), [`ChamferECDF`](@ref).
 """
-struct ChamferDistance{T} <: AbstractChamferSummary
+struct ChamferDistance{T, BUF} <: AbstractChamferSummary
     neighbors::T
     highest_neighbor::Int
     summary_length::Int
+    buffer::BUF
     name::String
 end
 
 function ChamferDistance( neighbors::Int )
-    return with_name( ChamferDistance( neighbors, maximum(neighbors), 1, "" ) )
+    return with_name( ChamferDistance( neighbors, maximum(neighbors), 1, nothing, "" ) )
 end
 
 function ChamferDistance( neighbors::AbstractVector{<:Int} )
-    return with_name( ChamferDistance( collect(vec(neighbors)), maximum(neighbors), length(neighbors), "" ) )
+    return with_name( ChamferDistance( collect(vec(neighbors)), maximum(neighbors), length(neighbors), nothing, "" ) )
 end
 
 function calculate_summary_statistic!(  # To be used in target and bin initialization
@@ -58,7 +60,7 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
 
     kvals = summary_statistic.neighbors
 
-    chamfer_distance!( view_out, data_X, data_Y, kvals )
+    chamfer_distance!( view_out, summary_statistic.buffer, data_X, data_Y, kvals )
 
     return nothing
 end
@@ -74,21 +76,17 @@ function calculate_summary_statistic!(  # To be used in MCMC
 
     data_X = @view target.data.observations[ :, x_inds ]
     Rsim = @view sim_data_all.observations[ :, y_inds ]
-    ytree = KDTree( Rsim )
 
     kvals = summary_statistic.neighbors
 
-    # key = nameof( typeof(summary_statistic) )
-    # buffer = buffers.summary_buffers[ key ]
-
-    chamfer_distance!( view_out, data_X, Rsim, ytree, kvals )
+    chamfer_distance!( view_out, summary_statistic.buffer, data_X, Rsim, kvals )
 
     return nothing
 end
 
 function allocate_buffer( statistic::ChamferDistance, data::DataContainer )
-    buffer = Vector{Float64}( undef, statistic.summary_length )
-    return buffer
+    dimension = size( data.observations, 1 )
+    return ChamferWorkspace( dimension, data.options.effective_N_obs, statistic.neighbors )
 end
 
 required_diff_order(stat::ChamferDistance) = 0
@@ -100,5 +98,5 @@ end
 get_summary_length(stat::ChamferDistance, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ChamferDistance, data::DataContainer, buffers::BufferContainer )
-    return stat
+    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
 end

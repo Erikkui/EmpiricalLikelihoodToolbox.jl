@@ -98,15 +98,15 @@ function calculate_summary_statistic!(  # To be used in target and bin initializ
     data_X = @view data.observations[ :, x_inds ]
     data_Y = @view data.observations[ :, y_inds ]
 
-    pairwise!( dist_buffer_xy, Euclidean(), data_X, data_Y )
+    pairwise!( dist_buffer_xy, Euclidean(), data_X, data_Y; dims = 2 )
     copyto!( dist_buffer_yx, dist_buffer_xy )
 
     # Sort each row from x->y and each column from y->x of the distance buffers and keep only specified neighbors
     for row in eachrow( dist_buffer_xy )
-        partialsort!( row, 1:sort_max )
+        partialsort_smallest!( row, sort_max )
     end
     for col in eachcol( dist_buffer_yx )
-        partialsort!( col, 1:sort_max )
+        partialsort_smallest!( col, sort_max )
     end
 
     # Compute the eCDF summary statistic
@@ -156,15 +156,15 @@ function calculate_summary_statistic!(  # To be used in MCMC
     data_X = @view R0[ :, x_inds ]
     data_Y = @view Rsim[ :, y_inds ]
 
-    pairwise!( dist_buffer_xy, Euclidean(), data_X, data_Y )
+    pairwise!( dist_buffer_xy, Euclidean(), data_X, data_Y; dims = 2 )
     copyto!( dist_buffer_yx, dist_buffer_xy )
 
     # Sort each row from x->y and each column from y->x of the distance buffers and keep only specified neighbors
     for row in eachrow( dist_buffer_xy )
-        partialsort!( row, 1:sort_max )
+        partialsort_smallest!( row, sort_max )
     end
     for col in eachcol( dist_buffer_yx )
-        partialsort!( col, 1:sort_max )
+        partialsort_smallest!( col, sort_max )
     end
 
     # Compute the eCDF summary statistic
@@ -192,15 +192,15 @@ function get_bin_quantity( summary_statistic::ID, data::DataContainer, inds_X, i
     data_X = @view data.observations[ :, inds_X ]
     data_Y = @view data.observations[ :, inds_Y ]
 
-    dists_xy = pairwise( Euclidean(), data_X, data_Y )
+    dists_xy = pairwise( Euclidean(), data_X, data_Y; dims = 2 )
     dists_yx = copy( dists_xy )
 
     # Sort each row of the distance buffer and keep only specified neighbors
     for row in eachrow( dists_xy )
-        partialsort!( row, 1:sort_max )
+        partialsort_smallest!( row, sort_max )
     end
     for col in eachcol( dists_yx )
-        partialsort!( col, 1:sort_max )
+        partialsort_smallest!( col, sort_max )
     end
 
     n_rows, n_cols = size( dists_xy )

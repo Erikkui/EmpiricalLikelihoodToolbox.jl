@@ -14,8 +14,10 @@ distance under the resampler rather than one realization of it, giving a summary
     Evaluating it once performs `dists_for_ecdf` (fixed at 1000) resampling operations, so building
     a target with `training_resamplings = 1000` costs on the order of a million. Budget accordingly.
 
-Unlike the other two-set summaries, the `x_inds`/`y_inds` handed in by the caller are ignored: this
-summary draws its own splits from `MethodsOptions.resampling_type`.
+Unlike the other two-set summaries, the `x_inds`/`y_inds` handed in by the caller are ignored in
+training: this summary draws its own splits from `MethodsOptions.resampling_type`, on a private copy
+of the index cache, so the caller's split (shared with the other summaries of a
+`JointSummaryStatistics`) is left untouched. During MCMC the simulated set is the caller's `y_inds`.
 
 # Fields
 - `bins::B`: One vector of bin edges per requested neighbour. If `nothing`, calculated from the data.
@@ -89,14 +91,16 @@ function calculate_summary_statistic!(      # To be used in target and bin initi
     stat_buffer = summary_statistic.buffer
     buffer = stat_buffer.chamfer
     chamfers = stat_buffer.chamfers
+    workspace = stat_buffer.workspace
+    index_cache = stat_buffer.index_cache
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     n_resample = summary_statistic.dists_for_ecdf
     for ii in 1:n_resample
-        x_inds, y_inds = data.options.resampling_type( data, data.options, buffers.index_cache )
+        x_inds, y_inds = data.options.resampling_type( data, data.options, index_cache )
         data_X = @view data.observations[ :, x_inds ]
         data_Y = @view data.observations[ :, y_inds ]
-        chamfer_distance!( buffer, data_X, data_Y, kvals )
+        chamfer_distance!( buffer, workspace, data_X, data_Y, kvals )
         chamfers[ii, :] .= buffer
     end
     for jj in eachindex( kvals )
@@ -123,20 +127,27 @@ function calculate_summary_statistic!(      # To be used in MCMC
     kvals = summary_statistic.neighbors
 
     R0 = target.data.observations
-    Rsim = sim_data_all.observations[ :, y_inds ]
-    ytree = KDTree( Rsim )
+    Rsim = @view sim_data_all.observations[ :, y_inds ]
 
     stat_buffer = summary_statistic.buffer
     buffer = stat_buffer.chamfer
     chamfers = stat_buffer.chamfers
+    workspace = stat_buffer.workspace
+    index_cache = stat_buffer.index_cache
+    obs_to_sim = stat_buffer.obs_to_sim
+
+    # The simulated set is the same for every resample: build its tree once, and look up the
+    # observed-to-simulated distances of every observed point once (each resample only picks
+    # which of them to sum)
+    _load_set_B!( workspace, Rsim )
+    _knn_distance_table!( obs_to_sim, workspace, R0, index_cache, kvals )
 
     # Loop for calculating chamfer distances from which an ecdf is finally calculated
     resampler = target.data.options.resampling_type
     n_resample = summary_statistic.dists_for_ecdf
     for ii in 1:n_resample
-        x_inds, _ = resampler( target.data, target.data.options, buffers.index_cache )
-        data_X = @view R0[ :, x_inds ]
-        chamfer_distance!( buffer, data_X, Rsim, ytree, kvals )
+        x_inds, _ = resampler( target.data, target.data.options, index_cache )
+        _chamfer_distance_from_table!( buffer, workspace, obs_to_sim, R0, x_inds, kvals )
         chamfers[ii, :] .= buffer
     end
 
@@ -169,9 +180,14 @@ end
 
 function allocate_buffer( statistic::ChamferECDF, data::DataContainer )
     nk = length( statistic.neighbors )
+    dimension, n_columns = size( data.observations )
+    effective_nobs = data.options.effective_N_obs
     return (
         chamfer = Vector{Float64}( undef, nk ),
         chamfers = Matrix{Float64}( undef, statistic.dists_for_ecdf, nk ),
+        workspace = ChamferWorkspace( dimension, effective_nobs, statistic.neighbors ),
+        obs_to_sim = Matrix{Float64}( undef, nk, n_columns ),   # indexed by observed column
+        index_cache = Vector{Int}( undef, effective_nobs ),     # private copy, filled by finalize_summary
         )
 end
 
@@ -184,5 +200,9 @@ end
 get_summary_length(stat::ChamferECDF, data::DataContainer) = stat.summary_length
 
 function finalize_summary( stat::ChamferECDF, data::DataContainer, buffers::BufferContainer )
-    return @set stat.buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
+    stat_buffer = buffers.summary_buffers[ Symbol( stat.name ) ]
+    # The inner resampling uses its own index cache: RademacherSplit shuffles the cache in place,
+    # which would change the split the caller passed to the other summaries of a Joint
+    copyto!( stat_buffer.index_cache, buffers.index_cache )
+    return @set stat.buffer = stat_buffer
 end

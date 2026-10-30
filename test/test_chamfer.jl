@@ -1,25 +1,26 @@
-# src/summaries/chamfer_distance.jl -- four methods that must all agree.
+# src/summaries/chamfer_distance.jl -- checked against a brute-force reference that shares no code
+# with the k-d tree implementation.
+
+# All pairwise distances, sorted per point; the k-th one is the k-th nearest-neighbour distance.
+function brute_force_chamfer(A, B, kvals)
+    distances = [norm(a - b) for a in eachcol(A), b in eachcol(B)]   # n × m
+    sorted_A_to_B = sort(distances; dims = 2)
+    sorted_B_to_A = sort(distances; dims = 1)
+    return [mean(sorted_A_to_B[:, k]) + mean(sorted_B_to_A[k, :]) for k in kvals]
+end
 
 @testset "chamfer_distance" begin
     rng = StableRNG(31)
     A = randn(rng, 2, 30)
     B = randn(rng, 2, 25)
 
-    @testset "all four methods agree" begin
+    @testset "matches the brute-force reference" begin
         for kvals in (1, 3, [1, 3], [1, 2, 3])
-            expected = chamfer_distance(A, B, kvals)
-
-            out = similar(expected)
-            chamfer_distance!(out, A, B, kvals)
-            @test out == expected
-
-            tree_B = EmpiricalLikelihoodToolbox.KDTree(B)
-            @test chamfer_distance(A, B, tree_B, kvals) == expected
-
-            out2 = similar(expected)
-            chamfer_distance!(out2, A, B, tree_B, kvals)
-            @test out2 == expected
+            @test chamfer_distance(A, B, kvals) ≈ brute_force_chamfer(A, B, kvals)
         end
+        A_1d = randn(rng, 1, 18)
+        B_1d = randn(rng, 1, 22)
+        @test chamfer_distance(A_1d, B_1d, [1, 4]) ≈ brute_force_chamfer(A_1d, B_1d, [1, 4])
     end
 
     @testset "a scalar k behaves like a one-element vector" begin

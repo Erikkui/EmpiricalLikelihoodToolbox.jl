@@ -7,57 +7,36 @@ A struct for the adaptive MCMC algorithm.
 - `proposal_width`: The variance of the initial proposal distribution (default: 0.01), the same for every parameter; or a vector of per-parameter variances (a diagonal initial proposal, for parameters on different scales).
 - `adaptation_interval::Int`: The interval at which to adapt the proposal distribution (default: 50).
 
+AM honours the noisy-likelihood options of `MCMCOptions` (`update_interval`,
+`discard_noisy_updates`, `reevaluate_current_loss`). After every step it calls the inference
+method's `adapt_inference_state!` hook: under ABC with `ABC( adapt_epsilon = EpsilonAdaptation( ... ) )`, this
+adapts the tolerance ε during the first `n_adapt` iterations (see `EpsilonAdaptation`). With
+`MCMCOptions.early_rejection`, AM skips the simulation of proposals that could not be accepted.
+
 """
 Base.@kwdef struct AM{T}
     proposal_width::T = 0.01
     adaptation_interval::Int = 50
 end
 
-
-function (AM::AM)( target, model, state, mcmc_options, results )
+# One AM chain. run_context.chain_states holds the current state ([1]) and the proposal ([2]); they
+# swap on acceptance. Returns the results; the final state is run_context.chain_states[1].
+function (::AM)( target, model, run_context, mcmc_options, results )
     # Initialization
-    adaptation_interval = AM.adaptation_interval
+    chain_states = run_context.chain_states
+    adaptive_proposal = run_context.proposal
+    policy = run_context.policy
+    inference_state = run_context.inference_state
+    method = target.options.inference_method
 
     chain_length = mcmc_options.nsteps
-    update_interval = mcmc_options.update_interval
-    discard_noisy_updates = mcmc_options.discard_noisy_updates
-    reevaluate_current_loss = mcmc_options.reevaluate_current_loss
+    discard_noisy_updates = policy.discard_noisy_updates
     verbose = target.options.verbose
 
-    npar = length( state.current_params )
-    chain = results.chain
-    sschain = results.sschain
-    current_iter = results.current_iter
-
-    am_scaling_parameter = 2.38^2 / npar
-    epsilon = 1e-6
-
-    noise_buffer = zeros( npar )
-    params_proposal = zeros( npar )
-
-    # Buffers for the Welford covariance update
-    running_mean = deepcopy(state.current_params)
-    running_cov = deepcopy(state.proposal_cov)
-    diff1 = zeros(npar)
-    diff2 = zeros(npar)
-
-    # Backup buffers for "unsticking" the chain if discard_noisy_updates is true
-    backup_mean = similar( running_mean )
-    backup_cov  = similar( running_cov )
-    backup_params = similar( state.current_params )
-    backup_ss = state.ss_current
-    backup_ii = 1
-
-    # Initial Cholesky
-    proposal_cov = deepcopy( state.proposal_cov )
-    proposal_cov_L = cholesky( state.proposal_cov ).L
-
-    # Bookkeeping
-    n_stuck = 0
+    # Early rejection is exact only for a noise-free log-target
+    early_rejection = mcmc_options.early_rejection && mcmc_options.likelihood_noise_scale == 0
 
     if discard_noisy_updates || !verbose
-        print_interval = min( 50, update_interval, adaptation_interval ) - 5
-        print_interval = max( print_interval, 20 ) # Ensure a reasonable print interval
         pbar = nothing
     else
         pbar = ProgressBar( 1:chain_length, printing_delay=0.25)
@@ -67,104 +46,70 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
     ii = 1
     while ii <= chain_length
+        current = chain_states[1]
+        proposal = chain_states[2]
 
-        # 1. Propose
-        # params_proposal = state.current_params + proposal_cov_L * noise_buffer
-        randn!( noise_buffer )
-        mul!( params_proposal, proposal_cov_L, noise_buffer ) # params_proposal = proposal_cov_L * noise_buffer
-        params_proposal .+= state.current_params
+        # 1. Propose and evaluate
+        propose_parameters!( proposal.params, adaptive_proposal, current.params )
 
         step_seed = rand(UInt64)
-        if reevaluate_current_loss
-            # Recalculate the loss for the current parameters
-            ss_current_reevaluated = calculate_loss( state.current_params, target, model, mcmc_options, rng_seed=step_seed )
-            @reset state.ss_current = ss_current_reevaluated
+        if policy.reevaluate_current_loss
+            # Recalculate the current state's log-target with the proposal's random numbers
+            evaluate_log_target!( current, target, model, current.params, mcmc_options, inference_state; rng_seed=step_seed )
         end
 
-        ss_proposal = calculate_loss( params_proposal, target, model, mcmc_options, rng_seed=step_seed )
+        # The uniform of the accept/reject step is drawn before the evaluation, so a proposal that
+        # could not be accepted is not simulated (early rejection, see MCMCOptions.early_rejection)
+        log_u = log( rand() )
+        if early_rejection && early_rejection_allowed( method, ii )
+            log_threshold = log_u + current.log_target
+        else
+            log_threshold = -Inf
+        end
+
+        evaluate_log_target!( proposal, target, model, proposal.params, mcmc_options, inference_state;
+                              rng_seed=step_seed, log_threshold=log_threshold )
 
         # 2. Metropolis accept/reject
-        log_ratio = ss_proposal - state.ss_current
-        rd = log( rand() )
-        accepted = rd < log_ratio
+        log_ratio = proposal.log_target - current.log_target
+        accepted = log_u < log_ratio
 
         if accepted
-            # println("Accepted proposal at iteration $ii with log ratio: ", log_ratio)
-            # Create a backup of the last known "good" state before accepting the new proposal
-            copyto!( backup_params, state.current_params )
-            copyto!( backup_mean, running_mean )
-            copyto!( backup_cov, running_cov )
-            backup_ss = state.ss_current
-            backup_ii = ii
+            # Save the last known "good" state for a rewind, then make the proposal the current state
+            backup_state!( policy, current, adaptive_proposal )
+            chain_states[1] = proposal
+            chain_states[2] = current
+            current = proposal
 
-            # Then accept the new proposal
-            copyto!( state.current_params, params_proposal )
-            @reset state.ss_current = ss_proposal
-
-            # Update acceptance count
             results.acceptance[1] += 1
-
-            n_stuck = 0 # Reset stuck counter on move
-        else
-            n_stuck += 1
-            if n_stuck > update_interval    # If mcmc gets stuck in "too good" proposal
-                if discard_noisy_updates
-                    # Restore the last known "good" state
-                    copyto!( state.current_params, backup_params )
-                    copyto!( running_mean, backup_mean )
-                    copyto!( running_cov, backup_cov )
-
-                    ss_recalc = calculate_loss( state.current_params, target, model, mcmc_options )
-
-                    @reset state.ss_current = ss_recalc
-                    results.stuck_kicks[] += 1
-
-                    n_stuck = 0 # Reset counter
-
-                    # Skip storing/updating for this step and jump to the beginning
-                    continue
-                else
-                    # Standard behavior: Just kick it to recalculate, do not "rewind time".
-                    ss_recalc = calculate_loss( state.current_params, target, model, mcmc_options )
-
-                    @reset state.ss_current = ss_recalc
-                    results.stuck_kicks[] += 1
-
-                    n_stuck = 0 # Reset counter
-                end
-            end
         end
 
-        # Store
-        chain[:, ii] .= state.current_params
-        sschain[ii] = state.ss_current
-        current_iter[] = ii
-
-        # 3. Adaptive Update
-        # Update running mean and covariance using Welford's algorithm
-        recursive_welford!( running_mean, running_cov, state.current_params, diff1, diff2, npar, ii )
-        if ii > 100 && ii % adaptation_interval == 0
-            for col in 1:npar
-                for row in 1:npar
-                    proposal_cov[row, col] = running_cov[row, col] * am_scaling_parameter
-                end
-                # Add epsilon to diagonal without allocating a new Matrix(I)
-                proposal_cov[col, col] += epsilon
-            end
-            proposal_cov_L = cholesky(Symmetric(proposal_cov)).L
-            state.proposal_cov .= proposal_cov
+        # 3. Noisy-likelihood policy: kick the stuck chain, or rewind and repeat the step
+        action = check_stuck_chain!( policy, accepted )
+        repeat_step = apply_stuck_chain_action!( action, policy, current, adaptive_proposal,
+                                                 target, model, mcmc_options, inference_state, results )
+        if repeat_step
+            continue
         end
+
+        # 4. Inference-method hook (eg. the ABC ε adaptation), then store
+        step_acceptance_probability = _acceptance_probability( log_ratio )
+        adapt_inference_state!( inference_state, method, current, step_acceptance_probability, ii )
+        record_chain_step!( results, method, inference_state, current, ii )
+
+        # 5. Adaptive update of the proposal covariance
+        update_proposal_covariance!( adaptive_proposal, current.params, ii )
 
         # Progress display update
         if verbose
             if discard_noisy_updates && ii % 25 == 0
                 progress_text = round(ii/chain_length * 100, digits=1)
                 accepted_text = round.( results.acceptance ./ ii, digits=2 )
-                ss_text = round(state.ss_current, digits=2)
+                ss_text = round(current.log_target, digits=2)
                 print("\rProgress: $progress_text% | Acc: $accepted_text | SS: $ss_text")
             elseif !isnothing(pbar)
                 accepted_text = round.( results.acceptance ./ ii, digits=2 )
-                ss_text = round(state.ss_current, digits=2)
+                ss_text = round(current.log_target, digits=2)
                 set_description(pbar, "Acc: $(accepted_text) SS: $(ss_text)")
                 update(pbar)
             end
@@ -176,5 +121,5 @@ function (AM::AM)( target, model, state, mcmc_options, results )
 
     println()
 
-    return results, state
+    return results
 end

@@ -119,15 +119,15 @@
             @test size(b.training_buffer) == (L, n_train)
             @test size(b.mcmc_buffer) == (L, n_summ)
             @test length(b.simulation_statistic) == L
-            @test size(b.bsl_buffer) == (0, 0)             # unused under GSL
+            @test size(b.method_buffer) == (0, 0)             # unused under GSL
             @test L == sum(s -> get_summary_length(s, target.data),
                            target.summary_statistics.statistics)
         end
 
-        @testset "BSL sizes bsl_buffer by n_sim" begin
+        @testset "BSL sizes method_buffer by n_sim" begin
             target, _ = make_target(data, StandardECDF(5);
                                     inference_method = BSL(7), training_resamplings = n_train)
-            @test size(target.buffers.bsl_buffer) == (target.summary_length, 7)
+            @test size(target.buffers.method_buffer) == (target.summary_length, 7)
         end
 
         @testset "simulation_diffs has max_diff_order + 2 entries" begin
@@ -156,7 +156,7 @@
         @testset "calibrates from the spread of training losses" begin
             loss = LogLikelihood()
             target, tsum = make_target(data, StandardECDF(5);
-                                       standardize = true, loss = loss, training_resamplings = 100)
+                                       standardize = true, training_resamplings = 100)
             losses = [loss(col, target.obs_mean, target.cov_factorization) for col in eachcol(tsum)]
             @test target.standardization_mean ≈ mean(losses)
             @test target.standardization_sd ≈ std(losses; corrected = false)

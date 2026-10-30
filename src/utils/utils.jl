@@ -158,9 +158,15 @@ end
 
 # Helper to update the parameters of a model with new values. Returns a new model instance with updated parameters.
 function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real} )
-    active_params_names = m.active_parameters
-    npar = length(active_params_names)
-    active_param_values = ntuple( ii -> new_params[ii], npar )
+    return update_model_parameters( m, new_params, Val( m.active_parameters ) )
+end
+
+# Same, with the active parameter names as a type (TargetData.active_names). The NamedTuple type is
+# then known at compile time, so the update is type-stable. Used in the MCMC hot loop.
+function update_model_parameters( m::AbstractSimulationModel, new_params::AbstractVector{<:Real},
+                                  ::Val{active_params_names} ) where {active_params_names}
+    npar = length( active_params_names )
+    active_param_values = ntuple( ii -> new_params[ii], Val( npar ) )
     new_param_tuple = NamedTuple{ active_params_names }( active_param_values )
     m_updated = setproperties( m, new_param_tuple )
     return m_updated
@@ -171,7 +177,7 @@ end
 initial_state( m::AbstractSimulationModel ) = copy( m.x0 )
 
 # Standardize summary statistics using provided mean and standard deviation.
-standardize!( ss, standard_mean, standard_sd ) = ( ss - standard_mean ) / standard_sd
+standardize( ss, standard_mean, standard_sd ) = ( ss .- standard_mean ) ./ standard_sd
 
 
 # Clean "show" method for printing summary statistic objects without printing the entire
@@ -193,7 +199,7 @@ Base.show(io::IO, ::MIME"text/plain", x::AbstractSummaryStatistic) = show( io, x
 
 # Ridge-regularize a covariance matrix and return its inverse. Shared by GSL's one-time target
 # covariance (computed once in TargetData) and BSL's per-iteration simulated covariance (computed
-# fresh in calculate_loss at every MCMC step).
+# fresh in log_likelihood! at every MCMC step).
 function regularized_cholesky( cov_mat::AbstractMatrix{<:Real} )
     cov_mat_reg = cov_mat +
                     1e-2 * Diagonal(diag(cov_mat)) +
@@ -328,4 +334,26 @@ function contract( input::AbstractMatrix{<:Real}, window_size::Int )
     contract!( output, input, window_size )
 
     return output
+end
+
+# Move the `count` smallest entries of `values` into values[1:count], in ascending order by `isless`:
+# the same first `count` entries as partialsort!( values, 1:count ), whose order of the remaining
+# entries differs. Selection sort, O(count * length(values)), and allocation-free, unlike
+# partialsort!, which allocates scratch space on every call. Meant for small counts, eg. the
+# nearest-neighbour ranks of ID / IDDiff.
+function partialsort_smallest!( values::AbstractVector, count::Int )
+    first_ind = firstindex( values )
+    last_ind = lastindex( values )
+
+    for target_ind in first_ind:( first_ind + count - 1 )
+        min_ind = target_ind
+        for candidate_ind in ( target_ind + 1 ):last_ind
+            if isless( values[ candidate_ind ], values[ min_ind ] )
+                min_ind = candidate_ind
+            end
+        end
+        values[ target_ind ], values[ min_ind ] = values[ min_ind ], values[ target_ind ]
+    end
+
+    return values
 end
