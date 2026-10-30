@@ -7,7 +7,8 @@
 #   4. include("examples/main.jl")
 #   5. run run_test_mcmc() in REPL: res = run_test_mcmc()
 #
-# From the shell instead: julia --project=examples examples/main.jl
+# From the shell instead:
+#   julia --project=examples -e 'include("examples/main.jl"); run_test_mcmc()'
 
 using EmpiricalLikelihoodToolbox
 using Distributions

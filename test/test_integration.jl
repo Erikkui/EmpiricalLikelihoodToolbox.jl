@@ -148,7 +148,9 @@
 
     @testset "the chain moves toward the truth on a well-specified model" begin
         # A long enough run on data simulated from the same model should put the posterior mean
-        # nearer the true parameters than a deliberately displaced starting point.
+        # nearer the true parameters than a deliberately displaced starting point. The noisy GSL
+        # likelihood can leave the chain stuck on one lucky evaluation (a different random number
+        # stream per Julia version decides this), so the current loss is re-evaluated each step.
         Random.seed!(20259)
         opts = MethodsOptions(N_obs = 100, verbose = false, training_resamplings = 200,
                               resampling_type = RademacherSplit())
@@ -160,7 +162,7 @@
         mcmc_opts = MCMCOptions(nsteps = 3_000, mcmc_algorithm = AM(proposal_width = 0.1,
                                                                     adaptation_interval = 50),
                                 initial_params = start, likelihood_noise_scale = 0.0,
-                                update_interval = 10_000_000)
+                                update_interval = 10_000_000, reevaluate_current_loss = true)
         results, _ = mcmcrun(target, mcmc_opts)
 
         @test results.current_iter[] == 3_000

@@ -10,19 +10,18 @@ contracts and pitfalls, not details the code already shows.
 approximation is chosen by `MethodsOptions.inference_method`: Gaussian Subset Likelihood (`GSL()`,
 Haario et al. 2015, default), Bayesian Synthetic Likelihood (`BSL(n_sim)`, Wood 2010) or ABC-MCMC
 (`ABC(...)`, Marjoram et al. 2003), plus ABC rejection and ABC-SMC. The README has the summary
-catalog, method tradeoffs, references and a usage example (`examples/main.jl` mirrors it).
+catalog, method tradeoffs, references and a usage example.
 
 ## Commands
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.instantiate()'   # install deps
 julia --project=. -e 'using Pkg; Pkg.test()'           # run test suite
-julia --project=. examples/main.jl                     # run the example end-to-end
+julia --project=examples -e 'include("examples/main.jl"); run_test_mcmc()'   # Lorenz63 example, plots
 ```
 
-- Run tests only via `Pkg.test()`: `julia --project=. test/runtests.jl` fails, because
-  `StableRNGs` is a test-only dependency. New tests go in a `test/test_*.jl` included from
-  `test/runtests.jl`. CI (`.github/workflows/CI.yml`): Julia 1.10, 1.12, `pre` on ubuntu x64.
+- Run tests only via `Pkg.test()` (`StableRNGs` is test-only, so `julia test/runtests.jl` fails).
+  New tests go in a `test/test_*.jl` included from `test/runtests.jl`. CI: Julia 1.10, 1.12, `pre`.
 - No formatter. Match the existing style (e.g. spaces inside call parentheses: `f( x, y )`).
 
 ## Layout
@@ -39,11 +38,11 @@ matters: `core_types.jl` and `utils/utils.jl` first, `mcmc/loss_functions.jl` be
 | `src/utils/` | `utils.jl`, `resamplers.jl`, `bin_calculation.jl`, `chi2_test.jl` |
 | `src/inference/` | `interface.jl`, `GSL.jl`, `BSL.jl`, `ABC/{method,pilot,mcmc,post_correct}.jl` |
 | `src/mcmc/` | `target.jl`, samplers (`AM.jl`, `DRAM.jl`, `runner.jl`) and their parts |
-| `src/abc/` | `rejection.jl`, `smc.jl` (included after `mcmc/runner.jl`) |
 
 Three layers: (1) **inference methods** set up the target and evaluate the log-likelihood once;
 (2) **samplers** (AM/DRAM) are generic over an `EvaluatedState` and contain no method-specific
-code; (3) **ABC population algorithms** reuse the ABC pilot and distance code.
+code; (3) **ABC population algorithms** (`src/abc/{rejection,smc}.jl`, included after
+`mcmc/runner.jl`) reuse the ABC pilot and distance code.
 
 ## Pipeline
 
@@ -60,7 +59,8 @@ code; (3) **ABC population algorithms** reuse the ABC pilot and distance code.
    `required_diff_order`, `generate_stat_name`, `finalize_summary`. ECDF summaries also implement
    `get_bin_quantity`; `create_bins` (`utils/bin_calculation.jl`) picks edges within the 0.5–99.5 %
    quantiles, spaced by `axis_uniform` (`:xax`, `:yax` equal-mass, `:log`). Bins given to a
-   constructor are kept (`_has_existing_bins`).
+   constructor are kept (`_has_existing_bins`). Chamfer summaries keep a `ChamferWorkspace`
+   (`KDTree!`, needs NearestNeighbors 0.4.29) in `buffer`; `ChamferECDF` resamples on its own index cache.
 3. **Resamplers** (`utils/resamplers.jl`): callable structs, `resampler(data_container, options,
    index_cache) -> (x_inds, y_inds)`. `LengthChangingSampler`: `RademacherSplit`,
    `ContiguousBlockSplit`. `LengthPreservingSampler`: `StandardBootstrap`, `MovingBlockBootstrap`,
@@ -73,8 +73,9 @@ code; (3) **ABC population algorithms** reuse the ABC pilot and distance code.
    embedding, `DataContainer`, derivatives, all buffers, bins, `train_target`,
    `finalize_target_covariance`, store model, `finalize_inference_method`. Returns
    `(target, training_summaries)`. The 5-arg form with a `loss` argument is a deprecated shim.
-6. **MCMC**: `mcmcrun(target, mcmc_options) -> (results::ResultsBuffer, state::MCMCState)`.
-   Catches exceptions mid-chain and returns the partial chain.
+   `active_names = Val( model.active_parameters )` (type-stable hot loop) is set here: never replace
+   `target.model` with a model with other active parameters.
+6. **MCMC**: `mcmcrun(target, mcmc_options) -> (results, state)`; returns the partial chain on error.
 
 ## Inference method interface (`src/inference/interface.jl`)
 
@@ -90,12 +91,10 @@ Required, dispatched on the method:
 Optional, with fallbacks: `finalize_inference_method`, `allocate_method_data`/
 `invalidate_method_data!` (per-state data, e.g. ABC distances), `max_log_likelihood` (`Inf`) and
 `early_rejection_allowed`, `allocate_inference_state`/`adapt_inference_state!` (mutable per-chain
-run state, AM only), `allocate_results`/`record_chain_step!`/`finalize_results`. A new method is a
-new file with the required functions, included after `inference/interface.jl`.
+run state, AM only), `allocate_results`/`record_chain_step!`/`finalize_results`.
 
-Each method has a `Base.show` (`GSL()`, `BSL(500)`, loss shown only when not the default, e.g.
-`BSL(500, LogLikelihood(2.0))`). Downstream code puts `string(inference_method)` in file names:
-keep this output stable.
+Each method has a `Base.show` (`GSL()`, `BSL(500)`, loss only when not the default). Downstream
+code puts `string(inference_method)` in file names: keep this output stable.
 
 - **GSL**: `train_target` resamples the observed data `training_resamplings` times for a fixed mean
   and covariance (`:cov` or `:donsker`), regularized and factorized once. Per step: simulate once
@@ -123,8 +122,7 @@ keep this output stable.
 - In MCMC, ε lives in the mutable run state `ABCRunState`, not in the method. `EpsilonAdaptation`
   (Vihola & Franks 2020, AM only) updates ε in the first `n_adapt` steps and recomputes the current
   log-target from stored distances. The target is never rebuilt.
-- Results add `distance_chain` (`n_sim × nsteps`), `epsilon_chain` and final `epsilon` (NaN for
-  GSL/BSL). `abc_post_correct(results, target, delta; burnin)` gives post-correction weights.
+- Results add `distance_chain`, `epsilon_chain`, `epsilon` (NaN for GSL/BSL); see `abc_post_correct`.
 - `abc_rejection(target, n_draws; epsilon | n_keep, rng)`; `abc_smc(target, ABCSMCOptions(...);
   rng)`: Drovandi & Pettitt (2011) replenishment SMC, uniform kernel, `n_sim = 1` only.
 
@@ -146,4 +144,6 @@ keep this output stable.
   Exact; saves simulations only for ABC with informative priors. Off with `likelihood_noise_scale >
   0` and during ε adaptation. Chains match on/off only if evaluation draws no global random numbers.
 - The hot loop must not allocate: put scratch space in `BufferContainer`, allocated in `TargetData`.
+  `test/test_allocations.jl` bounds one step; counts differ per Julia version, so look for a real
+  regression before raising a bound.
 - Priors (`prior_eval.jl`): `NamedTuple` by parameter name; `Distributions.jl` or `nothing` (flat).
